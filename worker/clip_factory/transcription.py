@@ -5,19 +5,18 @@ import json
 import os
 from pathlib import Path
 
+# Set conservative CPU threading before importing Whisper/PyTorch.
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
+
 from .models import TranscriptSegment
 
 
 def transcribe(video_path: Path, output_json: Path, model_name: str) -> list[TranscriptSegment]:
     """Transcribe with Whisper using conservative CPU settings for low-memory hosts."""
     import whisper
-
-    # Render's 512 MB instance cannot reliably hold larger Whisper models.
-    # Keep the model explicitly on CPU and limit PyTorch threading overhead.
-    os.environ.setdefault("OMP_NUM_THREADS", "1")
-    os.environ.setdefault("MKL_NUM_THREADS", "1")
-    os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
-    os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
 
     model = whisper.load_model(model_name, device="cpu")
     try:
