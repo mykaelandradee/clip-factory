@@ -122,7 +122,6 @@ jobs:
           echo "--- versions ---"
           ffmpeg -version | head -n 1
           yt-dlp --version
-          python -c "import bgutil_ytdlp_pot_provider; print('bgutil plugin: OK')"
           echo "--- provider ping ---"
           curl -fsS "$BGUTIL_POT_URL/ping"
           echo
