@@ -16,6 +16,15 @@ def download_video(url: str, output_dir: Path) -> tuple[Path, dict]:
         "noplaylist": True,
         "quiet": False,
         "no_warnings": False,
+        "verbose": True,
+        # YouTube is increasingly enforcing PO tokens on some clients.
+        # web_embedded does not currently require a PO token and works for
+        # publicly embeddable videos; tv is kept as a fallback client.
+        "extractor_args": {
+            "youtube": {
+                "player_client": ["web_embedded", "tv"],
+            },
+        },
     }
     with yt_dlp.YoutubeDL(options) as ydl:
         info = ydl.extract_info(url, download=True)
