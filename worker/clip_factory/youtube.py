@@ -17,14 +17,17 @@ def download_video(url: str, output_dir: Path) -> tuple[Path, dict]:
         "quiet": False,
         "no_warnings": False,
         "verbose": True,
-        # YouTube is increasingly enforcing PO tokens on some clients.
-        # web_embedded does not currently require a PO token and works for
-        # publicly embeddable videos; tv is kept as a fallback client.
+        # Keep yt-dlp's current default clients and add web_embedded as a
+        # fallback. Forcing only web_embedded/tv can fail when YouTube changes
+        # the player response or requires a different client for the video.
         "extractor_args": {
             "youtube": {
-                "player_client": ["web_embedded", "tv"],
+                "player_client": ["default", "web_embedded"],
             },
         },
+        # Keep EJS challenge scripts current inside the container. Deno is
+        # installed by the worker Dockerfile and yt-dlp[default] provides EJS.
+        "remote_components": ["ejs:npm"],
     }
     with yt_dlp.YoutubeDL(options) as ydl:
         info = ydl.extract_info(url, download=True)
