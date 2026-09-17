@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import json
 import mimetypes
+import subprocess
 import threading
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import unquote, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 from .config import settings
 from .pipeline import run_pipeline
@@ -43,12 +44,16 @@ class Handler(BaseHTTPRequestHandler):
         self._send(204, b"", "text/plain")
 
     def do_GET(self) -> None:
-        path = urlparse(self.path).path.rstrip("/") or "/"
+        parsed = urlparse(self.path)
+        path = parsed.path.rstrip("/") or "/"
         if path == "/health":
             self._json(200, {"status": "ok", "service": "clip-factory-worker"})
             return
         if not self._authorized():
             self._json(401, {"error": "Não autorizado"})
+            return
+        if path == "/diagnostic/youtube":
+            self._youtube_diagnostic(parsed)
             return
         if path.startswith("/jobs/"):
             job_id = path.split("/", 2)[2]
@@ -71,6 +76,69 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, file_path.read_bytes(), mimetypes.guess_type(file_path.name)[0] or "application/octet-stream")
             return
         self._json(404, {"error": "Not found"})
+
+    def _youtube_diagnostic(self, parsed) -> None:
+        query = parse_qs(parsed.query)
+        url = str(query.get("url", [""])[0]).strip()
+        if not url:
+            self._json(400, {"error": "Informe ?url= com a URL do YouTube"})
+            return
+
+        hostname = (urlparse(url).hostname or "").lower()
+        allowed_hosts = {"youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "www.youtu.be"}
+        if hostname not in allowed_hosts:
+            self._json(400, {"error": "Apenas URLs do YouTube são permitidas neste diagnóstico"})
+            return
+
+        command = [
+            "yt-dlp",
+            "-v",
+            "--dump-single-json",
+            "--skip-download",
+            "--no-playlist",
+            url,
+        ]
+        try:
+            completed = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                timeout=90,
+                check=False,
+            )
+            stdout = completed.stdout.strip()
+            stderr = completed.stderr.strip()
+            result = {
+                "ok": completed.returncode == 0,
+                "returncode": completed.returncode,
+                "command": command[:-1] + ["<youtube-url>"],
+                "log": stderr[-16000:],
+            }
+            if completed.returncode == 0 and stdout:
+                try:
+                    info = json.loads(stdout)
+                    result["video"] = {
+                        "id": info.get("id"),
+                        "title": info.get("title"),
+                        "channel": info.get("channel") or info.get("uploader"),
+                        "duration": info.get("duration"),
+                        "webpage_url": info.get("webpage_url"),
+                    }
+                except json.JSONDecodeError:
+                    result["stdout_tail"] = stdout[-4000:]
+            elif stdout:
+                result["stdout_tail"] = stdout[-4000:]
+            self._json(200, result)
+        except subprocess.TimeoutExpired as exc:
+            self._json(200, {
+                "ok": False,
+                "timeout": True,
+                "error": "yt-dlp excedeu o limite de 90 segundos",
+                "stdout_tail": (exc.stdout or "")[-4000:],
+                "stderr_tail": (exc.stderr or "")[-16000:],
+            })
+        except Exception as exc:
+            self._json(500, {"ok": False, "error": str(exc)})
 
     def do_POST(self) -> None:
         if urlparse(self.path).path != "/jobs":
