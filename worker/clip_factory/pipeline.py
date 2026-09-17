@@ -26,7 +26,7 @@ def _safe_project_id(value: str | None) -> str:
 
 def run_pipeline(
     url: str,
-    provider: str = "openai",
+    provider: str = "local",
     count: int = 5,
     min_duration: int = 20,
     max_duration: int = 60,
@@ -49,10 +49,10 @@ def run_pipeline(
     transcript_file = project_dir / "transcript.json"
     segments = transcribe(source, transcript_file, settings.whisper_model)
 
-    report("analyzing", 55, "Analisando os melhores trechos com a IA...")
+    report("analyzing", 55, "Selecionando os melhores trechos localmente...")
     candidates = select_clips(provider, segments, count, min_duration, max_duration, settings)
     if not candidates:
-        raise RuntimeError("A IA não encontrou trechos dentro da duração solicitada.")
+        raise RuntimeError("Não foram encontrados trechos dentro da duração solicitada.")
 
     rendered: list[str] = []
     if render:
