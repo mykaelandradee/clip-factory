@@ -1,0 +1,12 @@
+node_modules/
+.next/
+out/
+.env
+.env.local
+.env.*.local
+worker/.venv/
+worker/__pycache__/
+worker/data/
+worker/output/
+*.pyc
+.DS_Store
