@@ -9,7 +9,7 @@ from clip_factory.pipeline import run_pipeline
 def main() -> None:
     parser = argparse.ArgumentParser(description="Clip Factory worker")
     parser.add_argument("url", help="YouTube URL")
-    parser.add_argument("--provider", choices=["openai", "anthropic", "ollama"], default="openai")
+    parser.add_argument("--provider", choices=["local", "heuristic"], default="local")
     parser.add_argument("--count", type=int, default=5)
     parser.add_argument("--min-duration", type=int, default=20)
     parser.add_argument("--max-duration", type=int, default=60)
