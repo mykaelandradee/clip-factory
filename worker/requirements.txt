@@ -3,4 +3,5 @@ anthropic
 openai
 pydantic
 python-dotenv
+requests
 yt-dlp
