@@ -4,4 +4,4 @@ openai
 pydantic
 python-dotenv
 requests
-yt-dlp
+yt-dlp[default]
