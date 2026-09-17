@@ -1,68 +1,140 @@
 from __future__ import annotations
 
-import json
 import re
-from typing import Any
+from typing import Iterable
 
 from .models import ClipCandidate, TranscriptSegment
 
-SYSTEM_PROMPT = """You select short-form video clips from a timestamped transcript.
-Return ONLY valid JSON with this shape:
-{"clips":[{"start":0,"end":30,"title":"...","hook":"...","reason":"...","score":0-100}]}
-Choose self-contained moments with a strong opening, useful/interesting content, emotional payoff,
-clear context, or a surprising statement. Avoid intros, greetings, ads, long pauses and incomplete thoughts.
-Respect the requested duration range. Scores are editorial potential, not factual truth.
-"""
+# Local, dependency-free clip selector. It deliberately does not call any paid API.
+# The score is a heuristic for finding self-contained, information-dense moments.
+HOOK_WORDS = {
+    "como", "por que", "porque", "segredo", "erro", "nunca", "sempre", "importante",
+    "problema", "solução", "dica", "atenção", "cuidado", "descobri", "descoberta",
+    "melhor", "pior", "diferença", "resultado", "verdade", "mito", "exemplo",
+    "primeiro", "segundo", "terceiro", "acontece", "significa", "funciona",
+}
+
+INTRO_WORDS = {
+    "olá", "oi", "bom dia", "boa tarde", "boa noite", "sejam bem-vindos",
+    "bem vindos", "vamos começar", "começando", "começamos",
+}
 
 
-def _transcript_text(segments: list[TranscriptSegment]) -> str:
-    return "\n".join(f"[{s.start:.2f}-{s.end:.2f}] {s.text}" for s in segments)
+def _words(text: str) -> list[str]:
+    return re.findall(r"[\wÀ-ÿ]+", text.lower())
 
 
-def _parse_json(text: str) -> dict[str, Any]:
-    cleaned = text.strip().replace("```json", "").replace("```", "").strip()
-    match = re.search(r"\{.*\}", cleaned, re.DOTALL)
-    if not match:
-        raise ValueError("AI response did not contain a JSON object")
-    return json.loads(match.group(0))
+def _score_window(text: str, start: float, end: float) -> float:
+    words = _words(text)
+    if not words:
+        return 0.0
+
+    score = min(len(words), 180) * 0.18
+    score += min(text.count("?") * 7, 21)
+    score += min(text.count("!") * 5, 15)
+    score += min(sum(1 for w in words if w in HOOK_WORDS) * 3.5, 28)
+    score += min(text.count(".") * 0.8, 12)
+
+    lower = text.lower()
+    if any(lower.startswith(word) for word in INTRO_WORDS):
+        score -= 18
+    if len(words) < 35:
+        score -= 12
+    if len(words) > 240:
+        score -= 8
+    if text.rstrip().endswith((",", ":", ";", "-")):
+        score -= 10
+
+    # Slight preference for clips around the requested range's middle is applied
+    # by the caller; this base score only measures textual potential.
+    return score
 
 
-def _build_candidates(data: dict[str, Any], segments: list[TranscriptSegment], min_duration: int, max_duration: int, limit: int) -> list[ClipCandidate]:
-    result: list[ClipCandidate] = []
-    for item in data.get("clips", []):
-        try:
-            start = float(item["start"])
-            end = float(item["end"])
-            if end <= start or not (min_duration <= end - start <= max_duration):
+def _make_windows(
+    segments: list[TranscriptSegment],
+    min_duration: int,
+    max_duration: int,
+) -> Iterable[tuple[float, float, str]]:
+    if not segments:
+        return
+
+    n = len(segments)
+    for i in range(n):
+        start = segments[i].start
+        for j in range(i, n):
+            end = segments[j].end
+            duration = end - start
+            if duration < min_duration:
                 continue
-            text = " ".join(s.text for s in segments if s.end > start and s.start < end).strip()
-            result.append(ClipCandidate(start, end, str(item.get("title", "Clip")), str(item.get("hook", "")), str(item.get("reason", "")), float(item.get("score", 0)), text))
-        except (KeyError, TypeError, ValueError):
-            continue
-    return sorted(result, key=lambda c: c.score, reverse=True)[:limit]
+            if duration > max_duration:
+                break
+            text = " ".join(s.text.strip() for s in segments[i : j + 1]).strip()
+            if text:
+                yield start, end, text
 
 
-def select_clips(provider: str, segments: list[TranscriptSegment], count: int, min_duration: int, max_duration: int, settings) -> list[ClipCandidate]:
-    prompt = f"{SYSTEM_PROMPT}\nRequested number: {count}\nDuration: {min_duration}-{max_duration} seconds\nTranscript:\n{_transcript_text(segments)}"
-    if provider == "openai":
-        if not settings.openai_api_key:
-            raise RuntimeError("OPENAI_API_KEY is not configured")
-        from openai import OpenAI
-        client = OpenAI(api_key=settings.openai_api_key)
-        response = client.responses.create(model=settings.openai_model, input=prompt)
-        text = response.output_text
-    elif provider == "anthropic":
-        if not settings.anthropic_api_key:
-            raise RuntimeError("ANTHROPIC_API_KEY is not configured")
-        from anthropic import Anthropic
-        client = Anthropic(api_key=settings.anthropic_api_key)
-        response = client.messages.create(model=settings.anthropic_model, max_tokens=4000, system=SYSTEM_PROMPT, messages=[{"role": "user", "content": prompt}])
-        text = "".join(block.text for block in response.content if getattr(block, "type", None) == "text")
-    elif provider == "ollama":
-        import requests
-        response = requests.post(f"{settings.ollama_url.rstrip('/')}/api/generate", json={"model": settings.ollama_model, "prompt": prompt, "stream": False}, timeout=300)
-        response.raise_for_status()
-        text = response.json()["response"]
-    else:
-        raise ValueError(f"Unsupported AI provider: {provider}")
-    return _build_candidates(_parse_json(text), segments, min_duration, max_duration, count)
+def _title(text: str) -> str:
+    sentence = re.split(r"(?<=[.!?])\s+", text.strip())[0]
+    sentence = re.sub(r"\s+", " ", sentence)
+    if len(sentence) > 72:
+        sentence = sentence[:69].rsplit(" ", 1)[0] + "..."
+    return sentence or "Clip"
+
+
+def _hook(text: str) -> str:
+    words = text.split()
+    hook = " ".join(words[:14])
+    if len(words) > 14:
+        hook += "..."
+    return hook
+
+
+def select_clips(
+    provider: str,
+    segments: list[TranscriptSegment],
+    count: int,
+    min_duration: int,
+    max_duration: int,
+    settings,
+) -> list[ClipCandidate]:
+    # Keep the provider argument for API compatibility, but local selection is
+    # the only supported mode so this worker never incurs API charges.
+    if provider not in {"local", "heuristic", "ollama"}:
+        raise ValueError("Paid AI providers are disabled. Use provider=local.")
+
+    candidates: list[ClipCandidate] = []
+    target = (min_duration + max_duration) / 2
+    for start, end, text in _make_windows(segments, min_duration, max_duration):
+        duration = end - start
+        duration_bonus = max(0.0, 12.0 - abs(duration - target) * 0.25)
+        score = _score_window(text, start, end) + duration_bonus
+        candidates.append(
+            ClipCandidate(
+                start,
+                end,
+                _title(text),
+                _hook(text),
+                "Seleção local por densidade de conteúdo, frases completas e sinais de gancho.",
+                round(score, 2),
+                text,
+            )
+        )
+
+    candidates.sort(key=lambda c: c.score, reverse=True)
+
+    selected: list[ClipCandidate] = []
+    for candidate in candidates:
+        # Avoid returning several nearly identical overlapping windows.
+        overlaps = False
+        for chosen in selected:
+            overlap = max(0.0, min(candidate.end, chosen.end) - max(candidate.start, chosen.start))
+            shorter = min(candidate.end - candidate.start, chosen.end - chosen.start)
+            if shorter and overlap / shorter >= 0.45:
+                overlaps = True
+                break
+        if not overlaps:
+            selected.append(candidate)
+        if len(selected) >= count:
+            break
+
+    return selected
