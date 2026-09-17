@@ -13,6 +13,7 @@ import requests
 
 from .config import settings
 from .pipeline import run_pipeline
+from .youtube import prepare_youtube_cookies
 
 jobs: dict[str, dict] = {}
 jobs_lock = threading.Lock()
@@ -125,14 +126,24 @@ class Handler(BaseHTTPRequestHandler):
         except requests.RequestException as exc:
             raw_http["error"] = str(exc)
 
+        cookie_path = None
+        cookie_error = None
+        try:
+            cookie_path = prepare_youtube_cookies()
+        except Exception as exc:
+            cookie_error = str(exc)
+
         command = [
             "yt-dlp",
             "-v",
             "--dump-single-json",
             "--skip-download",
             "--no-playlist",
-            url,
         ]
+        if cookie_path:
+            command.extend(["--cookies", str(cookie_path)])
+        command.append(url)
+
         try:
             completed = subprocess.run(
                 command,
@@ -145,10 +156,32 @@ class Handler(BaseHTTPRequestHandler):
             stderr = completed.stderr.strip()
             result = {
                 "raw_http": raw_http,
+                "cookies": {
+                    "configured": cookie_path is not None,
+                    "file_exists": bool(cookie_path and cookie_path.is_file()),
+                    "file_size": cookie_path.stat().st_size if cookie_path and cookie_path.is_file() else 0,
+                    "error": cookie_error,
+                },
                 "yt_dlp": {
                     "ok": completed.returncode == 0,
                     "returncode": completed.returncode,
-                    "command": command[:-1] + ["<youtube-url>"],
+                    "command": [
+                        "yt-dlp",
+                        "-v",
+                        "--dump-single-json",
+                        "--skip-download",
+                        "--no-playlist",
+                        "--cookies",
+                        "<cookies-file>",
+                        "<youtube-url>",
+                    ] if cookie_path else [
+                        "yt-dlp",
+                        "-v",
+                        "--dump-single-json",
+                        "--skip-download",
+                        "--no-playlist",
+                        "<youtube-url>",
+                    ],
                     "log": stderr[-16000:],
                 },
             }
@@ -170,6 +203,12 @@ class Handler(BaseHTTPRequestHandler):
         except subprocess.TimeoutExpired as exc:
             self._json(200, {
                 "raw_http": raw_http,
+                "cookies": {
+                    "configured": cookie_path is not None,
+                    "file_exists": bool(cookie_path and cookie_path.is_file()),
+                    "file_size": cookie_path.stat().st_size if cookie_path and cookie_path.is_file() else 0,
+                    "error": cookie_error,
+                },
                 "yt_dlp": {
                     "ok": False,
                     "timeout": True,
@@ -179,7 +218,7 @@ class Handler(BaseHTTPRequestHandler):
                 },
             })
         except Exception as exc:
-            self._json(500, {"raw_http": raw_http, "yt_dlp": {"ok": False, "error": str(exc)}})
+            self._json(500, {"raw_http": raw_http, "cookies": {"configured": cookie_path is not None, "error": cookie_error}, "yt_dlp": {"ok": False, "error": str(exc)}})
 
     def do_POST(self) -> None:
         if urlparse(self.path).path != "/jobs":
