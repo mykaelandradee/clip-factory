@@ -47,6 +47,7 @@ jobs:
       COUNT: ${{ github.event.client_payload.count || inputs.count || '5' }}
       MIN_DURATION: ${{ github.event.client_payload.min_duration || inputs.min_duration || '20' }}
       MAX_DURATION: ${{ github.event.client_payload.max_duration || inputs.max_duration || '60' }}
+      BGUTIL_POT_URL: http://127.0.0.1:4416
 
     steps:
       - name: Checkout
@@ -61,15 +62,46 @@ jobs:
         run: |
           curl -fsSL https://deno.land/install.sh | sh
           echo "$HOME/.deno/bin" >> "$GITHUB_PATH"
+          "$HOME/.deno/bin/deno" --version
 
       - name: Install YouTube PO token provider
         run: |
+          set -e
           git clone --depth 1 --branch 2.0.0 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git "$RUNNER_TEMP/bgutil-ytdlp-pot-provider"
           cd "$RUNNER_TEMP/bgutil-ytdlp-pot-provider/server"
           deno install --allow-scripts=npm:canvas --frozen
-          nohup deno run --allow-env --allow-net --allow-ffi=. --allow-read=. src/main.ts > "$RUNNER_TEMP/bgutil-provider.log" 2>&1 &
-          sleep 5
-          pgrep -af "bgutil|src/main.ts" || (cat "$RUNNER_TEMP/bgutil-provider.log" && exit 1)
+
+          # Start the HTTP provider explicitly on localhost:4416.
+          nohup deno run \
+            --allow-env \
+            --allow-net \
+            --allow-ffi=. \
+            --allow-read=. \
+            src/main.ts \
+            --host 127.0.0.1 \
+            --port 4416 \
+            > "$RUNNER_TEMP/bgutil-provider.log" 2>&1 &
+
+          echo $! > "$RUNNER_TEMP/bgutil-provider.pid"
+
+          # Wait for the provider instead of assuming that five seconds is enough.
+          for i in {1..30}; do
+            if curl -fsS "$BGUTIL_POT_URL/ping" >/dev/null 2>&1; then
+              echo "bgutil provider is ready at $BGUTIL_POT_URL"
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "bgutil provider did not become ready"
+              cat "$RUNNER_TEMP/bgutil-provider.log"
+              exit 1
+            fi
+            sleep 1
+          done
+
+          echo "--- bgutil provider process ---"
+          pgrep -af "bgutil|src/main.ts" || true
+          echo "--- bgutil provider log ---"
+          cat "$RUNNER_TEMP/bgutil-provider.log" || true
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -84,16 +116,24 @@ jobs:
           python -m pip install -r worker/requirements.txt
           python -m pip install -U bgutil-ytdlp-pot-provider
 
-      - name: Show runner resources
+      - name: Verify yt-dlp and PO token provider
         run: |
-          free -h
-          df -h
+          set -o pipefail
+          echo "--- versions ---"
           ffmpeg -version | head -n 1
           yt-dlp --version
-          yt-dlp -v --simulate "$VIDEO_URL" 2>&1 | grep -E "PO Token Providers|bgutil" || true
+          python -c "import bgutil_ytdlp_pot_provider; print('bgutil plugin: OK')"
+          echo "--- provider ping ---"
+          curl -fsS "$BGUTIL_POT_URL/ping"
+          echo
+          echo "--- yt-dlp provider detection ---"
+          yt-dlp -v --simulate "$VIDEO_URL" 2>&1 | tee "$RUNNER_TEMP/ytdlp-provider-check.log"
+          grep -E "PO Token Providers|bgutil:http" "$RUNNER_TEMP/ytdlp-provider-check.log"
 
       - name: Run Clip Factory
         working-directory: worker
+        env:
+          YT_DLP_POT_PROVIDER_URL: http://127.0.0.1:4416
         run: |
           python run.py "$VIDEO_URL" \
             --provider local \
