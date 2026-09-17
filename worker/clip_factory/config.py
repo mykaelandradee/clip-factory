@@ -22,6 +22,7 @@ class Settings:
     web_url: str = os.getenv("CLIP_FACTORY_WEB_URL", "http://localhost:3000")
     worker_host: str = os.getenv("CLIP_FACTORY_WORKER_HOST", "127.0.0.1")
     worker_port: int = int(os.getenv("CLIP_FACTORY_WORKER_PORT", "8765"))
+    worker_token: str | None = os.getenv("CLIP_FACTORY_WORKER_TOKEN")
 
     def ensure_dirs(self) -> None:
         self.data_dir.mkdir(parents=True, exist_ok=True)
