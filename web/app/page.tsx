@@ -2,12 +2,10 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 
-const WORKER = "http://127.0.0.1:8765";
-
 type Job = {
   status: string;
   progress: number;
-  stage: string;
+  stage?: string;
   message: string;
   error?: string;
   result?: {
@@ -33,7 +31,7 @@ export default function Home() {
 
   async function checkWorker() {
     try {
-      const response = await fetch(`${WORKER}/health`, { cache: "no-store" });
+      const response = await fetch("/api/health", { cache: "no-store" });
       setWorkerOnline(response.ok);
     } catch {
       setWorkerOnline(false);
@@ -42,16 +40,17 @@ export default function Home() {
 
   async function poll(id: string) {
     try {
-      const response = await fetch(`${WORKER}/jobs/${id}`, { cache: "no-store" });
-      if (!response.ok) throw new Error("Não foi possível consultar o worker.");
+      const response = await fetch(`/api/jobs?id=${encodeURIComponent(id)}`, { cache: "no-store" });
+      if (!response.ok) throw new Error("Não foi possível consultar o processamento.");
       const data = await response.json() as Job;
       setJob(data);
+      setWorkerOnline(true);
       if (data.status === "completed" || data.status === "failed") {
         if (timer.current) clearInterval(timer.current);
         timer.current = null;
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao consultar o worker.");
+      setError(err instanceof Error ? err.message : "Erro ao consultar o processamento.");
     }
   }
 
@@ -62,19 +61,20 @@ export default function Home() {
     if (!url.trim()) return setError("Informe a URL do YouTube.");
 
     try {
-      const response = await fetch(`${WORKER}/jobs`, {
+      const response = await fetch("/api/jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: url.trim(), provider, count: Number(clips), minDuration: 20, maxDuration: 60 }),
+        body: JSON.stringify({ url: url.trim(), provider, count: Number(clips), min_duration: 20, max_duration: 60 }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Não foi possível iniciar o processamento.");
+      setWorkerOnline(true);
       setJobId(data.jobId);
       await poll(data.jobId);
       timer.current = setInterval(() => poll(data.jobId), 2000);
     } catch (err) {
       setWorkerOnline(false);
-      setError(err instanceof Error ? err.message : "Não foi possível conectar ao worker local.");
+      setError(err instanceof Error ? err.message : "Não foi possível iniciar o processamento.");
     }
   }
 
@@ -117,7 +117,7 @@ export default function Home() {
           {jobId && job && <div className="cf-job">
             <div className="cf-job-top"><strong>{job.message}</strong><span>{job.progress}%</span></div>
             <div className="cf-progress"><div style={{ width: `${job.progress}%` }} /></div>
-            <small>Job {jobId}</small>
+            <small>Job {jobId}{job.stage ? ` · ${job.stage}` : ""}</small>
           </div>}
           {error && <p className="cf-error">{error}</p>}
           {job?.status === "failed" && <p className="cf-error">{job.error || job.message}</p>}
