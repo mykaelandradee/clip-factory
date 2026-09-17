@@ -14,15 +14,17 @@ from .pipeline import run_pipeline
 jobs: dict[str, dict] = {}
 jobs_lock = threading.Lock()
 
+
 def update_job(job_id: str, **changes) -> None:
     with jobs_lock:
         jobs.setdefault(job_id, {}).update(changes)
+
 
 class Handler(BaseHTTPRequestHandler):
     def _send(self, status: int, body: bytes, content_type: str) -> None:
         self.send_response(status)
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
@@ -32,6 +34,11 @@ class Handler(BaseHTTPRequestHandler):
     def _json(self, status: int, payload: dict) -> None:
         self._send(status, json.dumps(payload, ensure_ascii=False).encode("utf-8"), "application/json; charset=utf-8")
 
+    def _authorized(self) -> bool:
+        if not settings.worker_token:
+            return True
+        return self.headers.get("Authorization", "") == f"Bearer {settings.worker_token}"
+
     def do_OPTIONS(self) -> None:
         self._send(204, b"", "text/plain")
 
@@ -39,6 +46,9 @@ class Handler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path.rstrip("/") or "/"
         if path == "/health":
             self._json(200, {"status": "ok", "service": "clip-factory-worker"})
+            return
+        if not self._authorized():
+            self._json(401, {"error": "Não autorizado"})
             return
         if path.startswith("/jobs/"):
             job_id = path.split("/", 2)[2]
@@ -66,6 +76,9 @@ class Handler(BaseHTTPRequestHandler):
         if urlparse(self.path).path != "/jobs":
             self._json(404, {"error": "Not found"})
             return
+        if not self._authorized():
+            self._json(401, {"error": "Não autorizado"})
+            return
         try:
             length = int(self.headers.get("Content-Length", "0"))
             payload = json.loads(self.rfile.read(length).decode("utf-8"))
@@ -91,21 +104,39 @@ class Handler(BaseHTTPRequestHandler):
     def _run(job_id: str, payload: dict) -> None:
         try:
             update_job(job_id, status="processing", progress=1, message="Iniciando processamento")
-            def progress(percent: int, message: str) -> None:
-                update_job(job_id, status="processing", progress=percent, message=message)
-            result = run_pipeline(str(payload["url"]), provider=str(payload.get("provider", "openai")), count=int(payload.get("count", 5)), min_duration=int(payload.get("min_duration", 20)), max_duration=int(payload.get("max_duration", 60)), render=True, progress=progress)
+
+            def progress(stage: str, percent: int, message: str) -> None:
+                update_job(job_id, status="processing", stage=stage, progress=percent, message=message)
+
+            result = run_pipeline(
+                str(payload["url"]),
+                provider=str(payload.get("provider", "openai")),
+                count=int(payload.get("count", 5)),
+                min_duration=int(payload.get("min_duration", 20)),
+                max_duration=int(payload.get("max_duration", 60)),
+                render=True,
+                progress=progress,
+            )
             data = result.to_dict()
-            data["rendered_urls"] = ["/files/" + str(Path(p).relative_to(settings.data_dir)).replace("\\", "/") for p in result.rendered_files]
+            data["files"] = [
+                {
+                    "name": Path(p).name,
+                    "url": "/files/" + str(Path(p).relative_to(settings.data_dir)).replace("\\", "/"),
+                }
+                for p in result.rendered_files
+            ]
             update_job(job_id, status="completed", progress=100, message="Clips prontos", result=data)
         except Exception as exc:
             update_job(job_id, status="failed", progress=100, message="Processamento falhou", error=str(exc))
             print(f"Job {job_id} failed: {exc}")
+
 
 def main() -> None:
     settings.ensure_dirs()
     server = ThreadingHTTPServer((settings.worker_host, settings.worker_port), Handler)
     print(f"Clip Factory worker listening on http://{settings.worker_host}:{settings.worker_port}")
     server.serve_forever()
+
 
 if __name__ == "__main__":
     main()
