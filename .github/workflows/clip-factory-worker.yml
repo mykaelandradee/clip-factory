@@ -64,14 +64,16 @@ jobs:
           set -euo pipefail
           test -n "${YOUTUBE_COOKIES_PASSWORD:-}" || { echo "YOUTUBE_COOKIES_PASSWORD is not configured"; exit 1; }
           test -f secrets/youtube_cookies.enc.b64 || { echo "Encrypted YouTube cookie file is missing"; exit 1; }
-          mkdir -p /etc/secrets
           COOKIE_ENC="$RUNNER_TEMP/youtube_cookies.enc"
           base64 --decode secrets/youtube_cookies.enc.b64 > "$COOKIE_ENC"
           chmod 600 "$COOKIE_ENC"
-          trap 'rm -f "$COOKIE_ENC" /etc/secrets/youtube_cookies.txt' EXIT
-          printf '%s' "$YOUTUBE_COOKIES_PASSWORD" | openssl enc -d -aes-256-cbc -pbkdf2 -pass stdin -in "$COOKIE_ENC" -out /etc/secrets/youtube_cookies.txt
-          chmod 600 /etc/secrets/youtube_cookies.txt
+          mkdir -p "$RUNNER_TEMP/clip-factory-secrets"
+          COOKIE_FILE="$RUNNER_TEMP/clip-factory-secrets/youtube_cookies.txt"
+          printf '%s' "$YOUTUBE_COOKIES_PASSWORD" | openssl enc -d -aes-256-cbc -pbkdf2 -pass stdin -in "$COOKIE_ENC" -out "$COOKIE_FILE"
+          chmod 600 "$COOKIE_FILE"
+          rm -f "$COOKIE_ENC"
           echo "YouTube cookie file installed for this job"
+          echo "YOUTUBE_COOKIE_FILE=$COOKIE_FILE" >> "$GITHUB_ENV"
 
       - name: Install Deno
         run: |
@@ -118,6 +120,7 @@ jobs:
       - name: Verify yt-dlp and PO token provider
         run: |
           set -o pipefail
+          test -s "$YOUTUBE_COOKIE_FILE" || { echo "YouTube cookie file is missing or empty"; exit 1; }
           echo "--- versions ---"
           ffmpeg -version | head -n 1
           yt-dlp --version
@@ -125,15 +128,22 @@ jobs:
           curl -fsS "$BGUTIL_POT_URL/ping"
           echo
           echo "--- yt-dlp provider detection + YouTube access ---"
-          yt-dlp -v --simulate --cookies /etc/secrets/youtube_cookies.txt "$VIDEO_URL" 2>&1 | tee "$RUNNER_TEMP/ytdlp-provider-check.log"
+          yt-dlp -v --simulate --cookies "$YOUTUBE_COOKIE_FILE" "$VIDEO_URL" 2>&1 | tee "$RUNNER_TEMP/ytdlp-provider-check.log"
           grep -E "PO Token Providers|bgutil:http" "$RUNNER_TEMP/ytdlp-provider-check.log"
 
       - name: Run Clip Factory
         working-directory: worker
         env:
           YT_DLP_POT_PROVIDER_URL: http://127.0.0.1:4416
+          YOUTUBE_COOKIES_FILE: ${{ env.YOUTUBE_COOKIE_FILE }}
         run: |
           python run.py "$VIDEO_URL" --provider local --count "$COUNT" --min-duration "$MIN_DURATION" --max-duration "$MAX_DURATION"
+
+      - name: Cleanup YouTube cookies
+        if: always()
+        run: |
+          rm -f "${YOUTUBE_COOKIE_FILE:-}"
+          rm -rf "$RUNNER_TEMP/clip-factory-secrets"
 
       - name: Package results
         if: always()
