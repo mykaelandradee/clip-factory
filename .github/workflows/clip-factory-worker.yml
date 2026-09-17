@@ -62,8 +62,17 @@ jobs:
           curl -fsSL https://deno.land/install.sh | sh
           echo "$HOME/.deno/bin" >> "$GITHUB_PATH"
 
+      - name: Install YouTube PO token provider
+        run: |
+          git clone --depth 1 --branch 2.0.0 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git "$RUNNER_TEMP/bgutil-ytdlp-pot-provider"
+          cd "$RUNNER_TEMP/bgutil-ytdlp-pot-provider/server"
+          deno install --allow-scripts=npm:canvas --frozen
+          nohup deno run --allow-env --allow-net --allow-ffi=. --allow-read=. src/main.ts > "$RUNNER_TEMP/bgutil-provider.log" 2>&1 &
+          sleep 5
+          pgrep -af "bgutil|src/main.ts" || (cat "$RUNNER_TEMP/bgutil-provider.log" && exit 1)
+
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
           cache: pip
@@ -73,6 +82,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r worker/requirements.txt
+          python -m pip install -U bgutil-ytdlp-pot-provider
 
       - name: Show runner resources
         run: |
@@ -80,6 +90,7 @@ jobs:
           df -h
           ffmpeg -version | head -n 1
           yt-dlp --version
+          yt-dlp -v --simulate "$VIDEO_URL" 2>&1 | grep -E "PO Token Providers|bgutil" || true
 
       - name: Run Clip Factory
         working-directory: worker
@@ -100,7 +111,7 @@ jobs:
 
       - name: Upload results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: clip-factory-${{ env.JOB_ID }}
           path: |
