@@ -9,6 +9,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
+import requests
+
 from .config import settings
 from .pipeline import run_pipeline
 
@@ -90,6 +92,39 @@ class Handler(BaseHTTPRequestHandler):
             self._json(400, {"error": "Apenas URLs do YouTube são permitidas neste diagnóstico"})
             return
 
+        raw_http = {
+            "ok": False,
+            "status_code": None,
+            "final_url": None,
+            "content_type": None,
+            "server": None,
+            "retry_after": None,
+            "content_length": None,
+            "body_length": None,
+        }
+        try:
+            response = requests.get(
+                url,
+                headers={
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/153.0.0.0 Safari/537.36",
+                    "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+                },
+                timeout=(15, 30),
+                allow_redirects=True,
+            )
+            raw_http.update({
+                "ok": response.ok,
+                "status_code": response.status_code,
+                "final_url": response.url,
+                "content_type": response.headers.get("content-type"),
+                "server": response.headers.get("server"),
+                "retry_after": response.headers.get("retry-after"),
+                "content_length": response.headers.get("content-length"),
+                "body_length": len(response.content),
+            })
+        except requests.RequestException as exc:
+            raw_http["error"] = str(exc)
+
         command = [
             "yt-dlp",
             "-v",
@@ -109,15 +144,18 @@ class Handler(BaseHTTPRequestHandler):
             stdout = completed.stdout.strip()
             stderr = completed.stderr.strip()
             result = {
-                "ok": completed.returncode == 0,
-                "returncode": completed.returncode,
-                "command": command[:-1] + ["<youtube-url>"],
-                "log": stderr[-16000:],
+                "raw_http": raw_http,
+                "yt_dlp": {
+                    "ok": completed.returncode == 0,
+                    "returncode": completed.returncode,
+                    "command": command[:-1] + ["<youtube-url>"],
+                    "log": stderr[-16000:],
+                },
             }
             if completed.returncode == 0 and stdout:
                 try:
                     info = json.loads(stdout)
-                    result["video"] = {
+                    result["yt_dlp"]["video"] = {
                         "id": info.get("id"),
                         "title": info.get("title"),
                         "channel": info.get("channel") or info.get("uploader"),
@@ -125,20 +163,23 @@ class Handler(BaseHTTPRequestHandler):
                         "webpage_url": info.get("webpage_url"),
                     }
                 except json.JSONDecodeError:
-                    result["stdout_tail"] = stdout[-4000:]
+                    result["yt_dlp"]["stdout_tail"] = stdout[-4000:]
             elif stdout:
-                result["stdout_tail"] = stdout[-4000:]
+                result["yt_dlp"]["stdout_tail"] = stdout[-4000:]
             self._json(200, result)
         except subprocess.TimeoutExpired as exc:
             self._json(200, {
-                "ok": False,
-                "timeout": True,
-                "error": "yt-dlp excedeu o limite de 90 segundos",
-                "stdout_tail": (exc.stdout or "")[-4000:],
-                "stderr_tail": (exc.stderr or "")[-16000:],
+                "raw_http": raw_http,
+                "yt_dlp": {
+                    "ok": False,
+                    "timeout": True,
+                    "error": "yt-dlp excedeu o limite de 90 segundos",
+                    "stdout_tail": (exc.stdout or "")[-4000:],
+                    "stderr_tail": (exc.stderr or "")[-16000:],
+                },
             })
         except Exception as exc:
-            self._json(500, {"ok": False, "error": str(exc)})
+            self._json(500, {"raw_http": raw_http, "yt_dlp": {"ok": False, "error": str(exc)}})
 
     def do_POST(self) -> None:
         if urlparse(self.path).path != "/jobs":
