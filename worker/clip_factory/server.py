@@ -11,72 +11,59 @@ from urllib.parse import unquote, urlparse
 from .config import settings
 from .pipeline import run_pipeline
 
+jobs: dict[str, dict] = {}
+jobs_lock = threading.Lock()
 
-JOBS: dict[str, dict] = {}
-LOCK = threading.Lock()
-
-
-def _set_job(job_id: str, **updates) -> None:
-    with LOCK:
-        if job_id in JOBS:
-            JOBS[job_id].update(updates)
-
-
-def _job(job_id: str) -> dict | None:
-    with LOCK:
-        value = JOBS.get(job_id)
-        return dict(value) if value else None
-
+def update_job(job_id: str, **changes) -> None:
+    with jobs_lock:
+        jobs.setdefault(job_id, {}).update(changes)
 
 class Handler(BaseHTTPRequestHandler):
-    def _send(self, status: int, content_type: str, body: bytes) -> None:
+    def _send(self, status: int, body: bytes, content_type: str) -> None:
         self.send_response(status)
-        self.send_header("Content-Type", content_type)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
 
     def _json(self, status: int, payload: dict) -> None:
-        self._send(status, "application/json; charset=utf-8", json.dumps(payload, ensure_ascii=False).encode("utf-8"))
+        self._send(status, json.dumps(payload, ensure_ascii=False).encode("utf-8"), "application/json; charset=utf-8")
 
     def do_OPTIONS(self) -> None:
-        self._send(204, "text/plain; charset=utf-8", b"")
+        self._send(204, b"", "text/plain")
 
     def do_GET(self) -> None:
-        parsed = urlparse(self.path)
-        path = parsed.path
-
+        path = urlparse(self.path).path.rstrip("/") or "/"
         if path == "/health":
             self._json(200, {"status": "ok", "service": "clip-factory-worker"})
             return
-
         if path.startswith("/jobs/"):
             job_id = path.split("/", 2)[2]
-            job = _job(job_id)
+            with jobs_lock:
+                job = jobs.get(job_id)
             if not job:
                 self._json(404, {"error": "Job não encontrado"})
-                return
-            self._json(200, {"jobId": job_id, **job})
+            else:
+                self._json(200, {"jobId": job_id, **job})
             return
-
         if path.startswith("/files/"):
             relative = unquote(path[len("/files/"):]).replace("\\", "/")
-            file_path = (settings.data_dir / "projects" / relative).resolve()
-            projects_root = (settings.data_dir / "projects").resolve()
-            if projects_root not in file_path.parents or not file_path.is_file():
+            if ".." in Path(relative).parts:
+                self._json(400, {"error": "Caminho inválido"})
+                return
+            file_path = (settings.data_dir / relative).resolve()
+            if not file_path.is_file() or settings.data_dir.resolve() not in file_path.parents:
                 self._json(404, {"error": "Arquivo não encontrado"})
                 return
-            content_type = mimetypes.guess_type(file_path.name)[0] or "application/octet-stream"
-            self._send(200, content_type, file_path.read_bytes())
+            self._send(200, file_path.read_bytes(), mimetypes.guess_type(file_path.name)[0] or "application/octet-stream")
             return
-
         self._json(404, {"error": "Not found"})
 
     def do_POST(self) -> None:
-        if self.path != "/jobs":
+        if urlparse(self.path).path != "/jobs":
             self._json(404, {"error": "Not found"})
             return
         try:
@@ -85,59 +72,40 @@ class Handler(BaseHTTPRequestHandler):
             url = str(payload.get("url", "")).strip()
             if not url:
                 raise ValueError("URL do YouTube é obrigatória")
-            if not ("youtube.com" in url or "youtu.be" in url):
-                raise ValueError("Informe uma URL válida do YouTube")
-
+            provider = str(payload.get("provider", "openai"))
+            count = int(payload.get("count", 5))
+            min_duration = int(payload.get("min_duration", 20))
+            max_duration = int(payload.get("max_duration", 60))
+            if provider not in {"openai", "anthropic", "ollama"}:
+                raise ValueError("Provedor de IA inválido")
+            if not 1 <= count <= 20 or min_duration < 5 or max_duration <= min_duration:
+                raise ValueError("Configuração de processamento inválida")
             job_id = str(uuid.uuid4())
-            with LOCK:
-                JOBS[job_id] = {
-                    "status": "queued",
-                    "progress": 0,
-                    "stage": "queued",
-                    "message": "Na fila...",
-                    "createdAt": __import__("datetime").datetime.now().isoformat(),
-                }
-
-            thread = threading.Thread(target=self._run, args=(job_id, payload), daemon=True)
-            thread.start()
+            update_job(job_id, status="queued", progress=0, message="Na fila", result=None, error=None)
+            threading.Thread(target=self._run, args=(job_id, payload), daemon=True).start()
             self._json(202, {"jobId": job_id, "status": "queued"})
         except Exception as exc:
             self._json(400, {"error": str(exc)})
 
     @staticmethod
     def _run(job_id: str, payload: dict) -> None:
-        def progress(stage: str, percent: int, message: str) -> None:
-            _set_job(job_id, status="processing", stage=stage, progress=percent, message=message)
-
         try:
-            result = run_pipeline(
-                url=str(payload["url"]),
-                provider=str(payload.get("provider", "openai")),
-                count=int(payload.get("count", 5)),
-                min_duration=int(payload.get("minDuration", 20)),
-                max_duration=int(payload.get("maxDuration", 60)),
-                render=True,
-                progress=progress,
-            )
-            files = []
-            for path in result.rendered_files:
-                file_path = Path(path)
-                files.append({
-                    "name": file_path.name,
-                    "url": f"http://{settings.worker_host}:{settings.worker_port}/files/{result.project_id}/{file_path.name}",
-                })
-            _set_job(job_id, status="completed", stage="completed", progress=100, message="Processamento concluído.", result={"projectId": result.project_id, "candidates": [c.to_dict() for c in result.candidates], "files": files})
+            update_job(job_id, status="processing", progress=1, message="Iniciando processamento")
+            def progress(percent: int, message: str) -> None:
+                update_job(job_id, status="processing", progress=percent, message=message)
+            result = run_pipeline(str(payload["url"]), provider=str(payload.get("provider", "openai")), count=int(payload.get("count", 5)), min_duration=int(payload.get("min_duration", 20)), max_duration=int(payload.get("max_duration", 60)), render=True, progress=progress)
+            data = result.to_dict()
+            data["rendered_urls"] = ["/files/" + str(Path(p).relative_to(settings.data_dir)).replace("\\", "/") for p in result.rendered_files]
+            update_job(job_id, status="completed", progress=100, message="Clips prontos", result=data)
         except Exception as exc:
-            _set_job(job_id, status="failed", stage="error", progress=100, message=str(exc), error=str(exc))
+            update_job(job_id, status="failed", progress=100, message="Processamento falhou", error=str(exc))
             print(f"Job {job_id} failed: {exc}")
-
 
 def main() -> None:
     settings.ensure_dirs()
     server = ThreadingHTTPServer((settings.worker_host, settings.worker_port), Handler)
     print(f"Clip Factory worker listening on http://{settings.worker_host}:{settings.worker_port}")
     server.serve_forever()
-
 
 if __name__ == "__main__":
     main()
