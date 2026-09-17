@@ -16,7 +16,7 @@ COOKIE_FILE = "youtube_cookies.txt"
 
 
 def prepare_youtube_cookies() -> Path | None:
-    """Copy YouTube cookies from a Render secret into writable storage."""
+    """Copy YouTube cookies from a configured secret into writable storage."""
     encoded = os.getenv(COOKIE_ENV_VAR, "").strip()
     cookie_path = settings.data_dir / COOKIE_FILE
 
@@ -55,6 +55,17 @@ def download_video(url: str, output_dir: Path) -> tuple[Path, dict]:
         "no_warnings": False,
         "verbose": True,
         "js_runtimes": {"deno": {}},
+        # YouTube's current guidance recommends mweb with a PO Token when
+        # the default clients are blocked. The GitHub Actions workflow starts
+        # the bgutil provider locally, so yt-dlp can obtain the token here.
+        "extractor_args": {
+            "youtube": {
+                "player_client": ["mweb"],
+            },
+        },
+        # Give YouTube a small pause between requests; this also reduces the
+        # chance of triggering guest-session request throttling.
+        "sleep_interval_requests": 1,
     }
 
     cookie_path = prepare_youtube_cookies()
