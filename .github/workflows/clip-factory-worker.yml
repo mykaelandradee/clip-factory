@@ -132,12 +132,13 @@ jobs:
             -in "$ENCRYPTED_PATH" \
             -out "$COOKIE_PATH" \
             -pass env:YOUTUBE_COOKIES_PASSWORD
+
           chmod 600 "$COOKIE_PATH"
+          sudo install -d -m 700 /etc/secrets
+          sudo install -m 600 "$COOKIE_PATH" /etc/secrets/youtube_cookies.txt
           echo "YouTube cookies restored for this job"
 
       - name: Verify yt-dlp and PO token provider
-        env:
-          YOUTUBE_COOKIES_FILE: ${{ runner.temp }}/youtube_cookies.txt
         run: |
           set -o pipefail
           echo "--- versions ---"
@@ -147,14 +148,13 @@ jobs:
           curl -fsS "$BGUTIL_POT_URL/ping"
           echo
           echo "--- yt-dlp provider detection ---"
-          yt-dlp -v --simulate --cookies "$YOUTUBE_COOKIES_FILE" "$VIDEO_URL" 2>&1 | tee "$RUNNER_TEMP/ytdlp-provider-check.log"
+          yt-dlp -v --simulate --cookies /etc/secrets/youtube_cookies.txt "$VIDEO_URL" 2>&1 | tee "$RUNNER_TEMP/ytdlp-provider-check.log"
           grep -E "PO Token Providers|bgutil:http" "$RUNNER_TEMP/ytdlp-provider-check.log"
 
       - name: Run Clip Factory
         working-directory: worker
         env:
           YT_DLP_POT_PROVIDER_URL: http://127.0.0.1:4416
-          YOUTUBE_COOKIES_FILE: ${{ runner.temp }}/youtube_cookies.txt
         run: |
           python run.py "$VIDEO_URL" \
             --provider local \
@@ -165,6 +165,7 @@ jobs:
       - name: Package results
         if: always()
         run: |
+          sudo rm -f /etc/secrets/youtube_cookies.txt
           rm -f "$RUNNER_TEMP/youtube_cookies.txt" "$RUNNER_TEMP/youtube_cookies.enc"
           mkdir -p worker/data
           if [ -d worker/data/projects ]; then
