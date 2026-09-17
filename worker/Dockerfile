@@ -24,7 +24,7 @@ COPY run_worker.py ./run_worker.py
 ENV CLIP_FACTORY_WORKER_HOST=0.0.0.0 \
     CLIP_FACTORY_WORKER_PORT=8765 \
     CLIP_FACTORY_DATA_DIR=/data \
-    WHISPER_MODEL=small
+    WHISPER_MODEL=tiny
 
 RUN mkdir -p /data
 
