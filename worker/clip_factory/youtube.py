@@ -17,17 +17,12 @@ def download_video(url: str, output_dir: Path) -> tuple[Path, dict]:
         "quiet": False,
         "no_warnings": False,
         "verbose": True,
-        # Keep yt-dlp's current default clients and add web_embedded as a
-        # fallback. Forcing only web_embedded/tv can fail when YouTube changes
-        # the player response or requires a different client for the video.
-        "extractor_args": {
-            "youtube": {
-                "player_client": ["default", "web_embedded"],
-            },
+        # Let the installed yt-dlp version choose its current YouTube clients.
+        # Forcing a client can make extraction fail when YouTube changes its
+        # player responses.
+        "js_runtimes": {
+            "deno": {},
         },
-        # Keep EJS challenge scripts current inside the container. Deno is
-        # installed by the worker Dockerfile and yt-dlp[default] provides EJS.
-        "remote_components": ["ejs:npm"],
     }
     with yt_dlp.YoutubeDL(options) as ydl:
         info = ydl.extract_info(url, download=True)
