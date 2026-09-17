@@ -1,0 +1,6 @@
+openai-whisper
+anthropic
+openai
+pydantic
+python-dotenv
+yt-dlp
