@@ -1,9 +1,22 @@
 import { NextResponse } from "next/server";
-import { randomUUID } from "crypto";
 
 export const runtime = "nodejs";
 
-const jobs = new Map<string, { status: string; createdAt: string; request: unknown }>();
+function workerConfig() {
+  const url = process.env.CLIP_FACTORY_WORKER_URL;
+  if (!url) throw new Error("CLIP_FACTORY_WORKER_URL não configurada");
+  return {
+    url: url.replace(/\/$/, ""),
+    token: process.env.CLIP_FACTORY_WORKER_TOKEN,
+  };
+}
+
+async function workerFetch(path: string, init: RequestInit = {}) {
+  const { url, token } = workerConfig();
+  const headers = new Headers(init.headers);
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  return fetch(`${url}${path}`, { ...init, headers, cache: "no-store" });
+}
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
@@ -20,15 +33,40 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "URL inválida" }, { status: 400 });
   }
 
-  const jobId = randomUUID();
-  jobs.set(jobId, { status: "queued", createdAt: new Date().toISOString(), request: body });
-  return NextResponse.json({ jobId, status: "queued" });
+  try {
+    const response = await workerFetch("/jobs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        url: body.url,
+        provider: body.provider ?? "openai",
+        count: Number(body.count ?? 5),
+        min_duration: Number(body.min_duration ?? 20),
+        max_duration: Number(body.max_duration ?? 60),
+      }),
+    });
+    const data = await response.json();
+    return NextResponse.json(data, { status: response.status });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Worker indisponível" },
+      { status: 502 },
+    );
+  }
 }
 
 export async function GET(request: Request) {
   const id = new URL(request.url).searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id é obrigatório" }, { status: 400 });
-  const job = jobs.get(id);
-  if (!job) return NextResponse.json({ error: "Job não encontrado" }, { status: 404 });
-  return NextResponse.json({ jobId: id, ...job });
+
+  try {
+    const response = await workerFetch(`/jobs/${encodeURIComponent(id)}`);
+    const data = await response.json();
+    return NextResponse.json(data, { status: response.status });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Worker indisponível" },
+      { status: 502 },
+    );
+  }
 }
