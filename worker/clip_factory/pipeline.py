@@ -4,6 +4,7 @@ import json
 import re
 import uuid
 from pathlib import Path
+from typing import Callable
 
 from .ai import select_clips
 from .config import settings
@@ -11,6 +12,8 @@ from .models import ProjectResult
 from .render import render_vertical
 from .transcription import transcribe
 from .youtube import download_video
+
+Progress = Callable[[str, int, str], None]
 
 
 def _safe_project_id(value: str | None) -> str:
@@ -21,24 +24,50 @@ def _safe_project_id(value: str | None) -> str:
     return uuid.uuid4().hex[:12]
 
 
-def run_pipeline(url: str, provider: str = "openai", count: int = 5, min_duration: int = 20, max_duration: int = 60, render: bool = True) -> ProjectResult:
+def run_pipeline(
+    url: str,
+    provider: str = "openai",
+    count: int = 5,
+    min_duration: int = 20,
+    max_duration: int = 60,
+    render: bool = True,
+    progress: Progress | None = None,
+) -> ProjectResult:
     settings.ensure_dirs()
     project_id = _safe_project_id(None)
     project_dir = settings.data_dir / "projects" / project_id
     project_dir.mkdir(parents=True, exist_ok=True)
 
+    def report(stage: str, percent: int, message: str) -> None:
+        if progress:
+            progress(stage, percent, message)
+
+    report("downloading", 5, "Baixando vídeo do YouTube...")
     source, _ = download_video(url, project_dir)
+
+    report("transcribing", 25, "Transcrevendo o vídeo com Whisper...")
     transcript_file = project_dir / "transcript.json"
     segments = transcribe(source, transcript_file, settings.whisper_model)
+
+    report("analyzing", 55, "Analisando os melhores trechos com a IA...")
     candidates = select_clips(provider, segments, count, min_duration, max_duration, settings)
+    if not candidates:
+        raise RuntimeError("A IA não encontrou trechos dentro da duração solicitada.")
 
     rendered: list[str] = []
     if render:
+        total = len(candidates)
         for index, candidate in enumerate(candidates, start=1):
+            percent = 70 + int((index - 1) / total * 25)
+            report("rendering", percent, f"Renderizando clip {index} de {total}...")
             output = project_dir / f"clip-{index:02d}.mp4"
             render_vertical(source, candidate, output)
             rendered.append(str(output))
 
+    report("completed", 100, "Processamento concluído.")
     result = ProjectResult(project_id, url, str(source), str(transcript_file), candidates, rendered)
-    (project_dir / "result.json").write_text(json.dumps(result.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
+    (project_dir / "result.json").write_text(
+        json.dumps(result.to_dict(), ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
     return result
