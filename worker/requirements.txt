@@ -1,6 +1,4 @@
 openai-whisper
-anthropic
-openai
 pydantic
 python-dotenv
 requests
