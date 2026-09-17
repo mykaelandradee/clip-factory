@@ -37,7 +37,6 @@ jobs:
   process:
     runs-on: ubuntu-latest
     timeout-minutes: 45
-
     env:
       CLIP_FACTORY_DATA_DIR: ${{ github.workspace }}/worker/data
       WHISPER_MODEL: small
@@ -58,6 +57,22 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends ffmpeg curl unzip ca-certificates libgomp1 openssl
 
+      - name: Install YouTube cookie file
+        env:
+          YOUTUBE_COOKIES_PASSWORD: ${{ secrets.YOUTUBE_COOKIES_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "${YOUTUBE_COOKIES_PASSWORD:-}" || { echo "YOUTUBE_COOKIES_PASSWORD is not configured"; exit 1; }
+          test -f secrets/youtube_cookies.enc.b64 || { echo "Encrypted YouTube cookie file is missing"; exit 1; }
+          mkdir -p /etc/secrets
+          COOKIE_ENC="$RUNNER_TEMP/youtube_cookies.enc"
+          base64 --decode secrets/youtube_cookies.enc.b64 > "$COOKIE_ENC"
+          chmod 600 "$COOKIE_ENC"
+          trap 'rm -f "$COOKIE_ENC" /etc/secrets/youtube_cookies.txt' EXIT
+          printf '%s' "$YOUTUBE_COOKIES_PASSWORD" | openssl enc -d -aes-256-cbc -pbkdf2 -pass stdin -in "$COOKIE_ENC" -out /etc/secrets/youtube_cookies.txt
+          chmod 600 /etc/secrets/youtube_cookies.txt
+          echo "YouTube cookie file installed for this job"
+
       - name: Install Deno
         run: |
           curl -fsSL https://deno.land/install.sh | sh
@@ -70,19 +85,8 @@ jobs:
           git clone --depth 1 --branch 2.0.0 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git "$RUNNER_TEMP/bgutil-ytdlp-pot-provider"
           cd "$RUNNER_TEMP/bgutil-ytdlp-pot-provider/server"
           deno install --allow-scripts=npm:canvas --frozen
-
-          nohup deno run \
-            --allow-env \
-            --allow-net \
-            --allow-ffi=. \
-            --allow-read=. \
-            src/main.ts \
-            --host 127.0.0.1 \
-            --port 4416 \
-            > "$RUNNER_TEMP/bgutil-provider.log" 2>&1 &
-
+          nohup deno run --allow-env --allow-net --allow-ffi=. --allow-read=. src/main.ts --host 127.0.0.1 --port 4416 > "$RUNNER_TEMP/bgutil-provider.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/bgutil-provider.pid"
-
           for i in {1..30}; do
             if curl -fsS "$BGUTIL_POT_URL/ping" >/dev/null 2>&1; then
               echo "bgutil provider is ready at $BGUTIL_POT_URL"
@@ -95,6 +99,8 @@ jobs:
             fi
             sleep 1
           done
+          echo "--- bgutil provider process ---"
+          pgrep -af "bgutil|src/main.ts" || true
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -109,35 +115,6 @@ jobs:
           python -m pip install -r worker/requirements.txt
           python -m pip install -U bgutil-ytdlp-pot-provider
 
-      - name: Restore YouTube cookies
-        env:
-          YOUTUBE_COOKIES_PASSWORD: ${{ secrets.YOUTUBE_COOKIES_PASSWORD }}
-        run: |
-          set -e
-          if [ -z "${YOUTUBE_COOKIES_PASSWORD:-}" ]; then
-            echo "YOUTUBE_COOKIES_PASSWORD is not configured"
-            exit 1
-          fi
-          if [ ! -f "secrets/youtube_cookies.enc.b64" ]; then
-            echo "Encrypted YouTube cookie file is missing"
-            exit 1
-          fi
-
-          COOKIE_PATH="$RUNNER_TEMP/youtube_cookies.txt"
-          ENCRYPTED_PATH="$RUNNER_TEMP/youtube_cookies.enc"
-          trap 'rm -f "$COOKIE_PATH" "$ENCRYPTED_PATH"' EXIT
-
-          base64 --decode secrets/youtube_cookies.enc.b64 > "$ENCRYPTED_PATH"
-          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 \
-            -in "$ENCRYPTED_PATH" \
-            -out "$COOKIE_PATH" \
-            -pass env:YOUTUBE_COOKIES_PASSWORD
-
-          chmod 600 "$COOKIE_PATH"
-          sudo install -d -m 700 /etc/secrets
-          sudo install -m 600 "$COOKIE_PATH" /etc/secrets/youtube_cookies.txt
-          echo "YouTube cookies restored for this job"
-
       - name: Verify yt-dlp and PO token provider
         run: |
           set -o pipefail
@@ -147,7 +124,7 @@ jobs:
           echo "--- provider ping ---"
           curl -fsS "$BGUTIL_POT_URL/ping"
           echo
-          echo "--- yt-dlp provider detection ---"
+          echo "--- yt-dlp provider detection + YouTube access ---"
           yt-dlp -v --simulate --cookies /etc/secrets/youtube_cookies.txt "$VIDEO_URL" 2>&1 | tee "$RUNNER_TEMP/ytdlp-provider-check.log"
           grep -E "PO Token Providers|bgutil:http" "$RUNNER_TEMP/ytdlp-provider-check.log"
 
@@ -156,17 +133,11 @@ jobs:
         env:
           YT_DLP_POT_PROVIDER_URL: http://127.0.0.1:4416
         run: |
-          python run.py "$VIDEO_URL" \
-            --provider local \
-            --count "$COUNT" \
-            --min-duration "$MIN_DURATION" \
-            --max-duration "$MAX_DURATION"
+          python run.py "$VIDEO_URL" --provider local --count "$COUNT" --min-duration "$MIN_DURATION" --max-duration "$MAX_DURATION"
 
       - name: Package results
         if: always()
         run: |
-          sudo rm -f /etc/secrets/youtube_cookies.txt
-          rm -f "$RUNNER_TEMP/youtube_cookies.txt" "$RUNNER_TEMP/youtube_cookies.enc"
           mkdir -p worker/data
           if [ -d worker/data/projects ]; then
             tar -czf "clip-factory-${JOB_ID}.tar.gz" -C worker/data projects
