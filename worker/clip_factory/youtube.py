@@ -11,12 +11,30 @@ from .config import settings
 
 
 COOKIE_ENV_VAR = "YOUTUBE_COOKIES_B64"
+COOKIE_FILE_ENV_VAR = "YOUTUBE_COOKIES_FILE"
+COOKIE_FILE_ENV_VAR_ALT = "YOUTUBE_COOKIE_FILE"
 COOKIE_SECRET_FILE = Path("/etc/secrets/youtube_cookies.txt")
 COOKIE_FILE = "youtube_cookies.txt"
 
 
 def prepare_youtube_cookies() -> Path | None:
-    """Copy YouTube cookies from a configured secret into writable storage."""
+    """Resolve YouTube cookies from a configured file, encoded secret, or secret file."""
+    cookie_file = (
+        os.getenv(COOKIE_FILE_ENV_VAR, "").strip()
+        or os.getenv(COOKIE_FILE_ENV_VAR_ALT, "").strip()
+    )
+    if cookie_file:
+        configured_path = Path(cookie_file).expanduser()
+        if not configured_path.is_file():
+            raise RuntimeError(
+                f"Arquivo de cookies configurado não existe: {configured_path}"
+            )
+        if not configured_path.stat().st_size:
+            raise RuntimeError(
+                f"Arquivo de cookies configurado está vazio: {configured_path}"
+            )
+        return configured_path
+
     encoded = os.getenv(COOKIE_ENV_VAR, "").strip()
     cookie_path = settings.data_dir / COOKIE_FILE
 
