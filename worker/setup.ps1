@@ -16,4 +16,4 @@ if (-not (Test-Path ".env")) {
     Write-Host "Arquivo worker/.env criado a partir de .env.example. Preencha sua chave de IA antes de executar."
 }
 
-Write-Host "Concluído. Execute: .\.venv\Scripts\python.exe run.py 'URL_DO_YOUTUBE'"
+Write-Host "Concluído. Para iniciar o worker: .\start_worker.ps1"
