@@ -49,14 +49,14 @@ def select_clips(provider: str, segments: list[TranscriptSegment], count: int, m
             raise RuntimeError("OPENAI_API_KEY is not configured")
         from openai import OpenAI
         client = OpenAI(api_key=settings.openai_api_key)
-        response = client.responses.create(model="gpt-5.6-mini", input=prompt)
+        response = client.responses.create(model=settings.openai_model, input=prompt)
         text = response.output_text
     elif provider == "anthropic":
         if not settings.anthropic_api_key:
             raise RuntimeError("ANTHROPIC_API_KEY is not configured")
         from anthropic import Anthropic
         client = Anthropic(api_key=settings.anthropic_api_key)
-        response = client.messages.create(model="claude-sonnet-5", max_tokens=4000, system=SYSTEM_PROMPT, messages=[{"role": "user", "content": prompt}])
+        response = client.messages.create(model=settings.anthropic_model, max_tokens=4000, system=SYSTEM_PROMPT, messages=[{"role": "user", "content": prompt}])
         text = "".join(block.text for block in response.content if getattr(block, "type", None) == "text")
     elif provider == "ollama":
         import requests
