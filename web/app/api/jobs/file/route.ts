@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { unzipSync } from "fflate";
+import { createClient } from "../../../../lib/supabase/server";
+import { createAdminClient } from "../../../../lib/supabase/admin";
 
 export const runtime = "nodejs";
 
@@ -18,6 +20,12 @@ function headers() {
 }
 
 export async function GET(request: Request) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Entre no Clip Factory para acessar o clip." }, { status: 401 });
+  }
+
   const params = new URL(request.url).searchParams;
   const id = params.get("id");
   const file = params.get("file");
@@ -28,6 +36,18 @@ export async function GET(request: Request) {
   }
 
   try {
+    const admin = createAdminClient();
+    const { data: ownedJob } = await admin
+      .from("clip_jobs")
+      .select("id")
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (!ownedJob) {
+      return NextResponse.json({ error: "Processamento não encontrado." }, { status: 404 });
+    }
+
     const artifactResponse = await fetch(
       `${GITHUB_API}/repos/${OWNER}/${REPO}/actions/artifacts?name=clip-factory-${encodeURIComponent(id)}&per_page=1`,
       { headers: headers(), cache: "no-store" },
