@@ -1,5 +1,7 @@
 name: Clip Factory Worker
 
+run-name: Clip Factory ${{ github.event.client_payload.job_id || github.run_id }}
+
 on:
   workflow_dispatch:
     inputs:
