@@ -5,7 +5,7 @@ import {
   encryptYouTubeRefreshToken,
   getOAuthStateCookieName,
   getYouTubeCookieName,
-} from "@/lib/youtube-auth";
+} from "../../../../lib/youtube-auth";
 
 export const runtime = "nodejs";
 
