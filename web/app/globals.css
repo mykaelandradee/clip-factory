@@ -155,3 +155,31 @@ button{appearance:none}
   .cf-youtube-button { font-size: 10px; }
   .cf-result-actions { flex-wrap: wrap; }
 }
+
+
+.cf-result-info { display:block; padding:12px; }
+.cf-result-heading { display:flex!important; flex-direction:row!important; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; }
+.cf-result-heading strong { font-size:11px; }
+.cf-result-heading span { color:#60606a; font-size:9px; text-align:right; }
+.cf-publish-fields { display:grid; gap:8px; margin-bottom:10px; }
+.cf-publish-fields label { display:grid; gap:4px; position:relative; }
+.cf-publish-fields label > span { color:#85858f; font-size:8px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+.cf-publish-fields input,
+.cf-publish-fields textarea {
+  width:100%;
+  box-sizing:border-box;
+  border:1px solid #ffffff12;
+  border-radius:9px;
+  background:#15151b;
+  color:#ededf0;
+  padding:9px 10px;
+  outline:none;
+  font:inherit;
+  font-size:10px;
+  resize:vertical;
+}
+.cf-publish-fields input:focus,
+.cf-publish-fields textarea:focus { border-color:#ffffff30; background:#18181f; }
+.cf-publish-fields small { color:#555560; font-size:8px; text-align:right; margin-top:-2px; }
+.cf-publish-fields textarea { min-height:58px; line-height:1.4; }
+.cf-result-actions { justify-content:flex-end; }
