@@ -34,7 +34,7 @@ jobs:
 
       - name: Download Clip Factory artifact
         env:
-          GH_TOKEN: ${{ secrets.CLIP_FACTORY_GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -e
           mkdir -p publish
