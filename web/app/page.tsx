@@ -18,6 +18,7 @@ type Job = {
 export default function Home() {
   const [url, setUrl] = useState("");
   const [clips, setClips] = useState("5");
+  const [subtitleLanguage, setSubtitleLanguage] = useState("original");
   const [workerOnline, setWorkerOnline] = useState(false);
   const [jobId, setJobId] = useState("");
   const [job, setJob] = useState<Job | null>(null);
@@ -74,6 +75,7 @@ export default function Home() {
           count: Number(clips),
           min_duration: 20,
           max_duration: 60,
+          subtitle_language: subtitleLanguage,
         }),
       });
       const data = await response.json();
@@ -114,6 +116,14 @@ export default function Home() {
               <select id="clips" value={clips} onChange={(e) => setClips(e.target.value)} disabled={submitting}>
                 <option>3</option><option>5</option><option>10</option><option>15</option>
               </select>
+            </div>
+            <div className="cf-field">
+              <label htmlFor="subtitle-language">Idioma da legenda</label>
+              <select id="subtitle-language" value={subtitleLanguage} onChange={(e) => setSubtitleLanguage(e.target.value)} disabled={submitting}>
+                <option value="original">Português / idioma original</option>
+                <option value="en">English</option>
+              </select>
+              <small>O modo English traduz a fala para inglês usando o Whisper local.</small>
             </div>
           </div>
           <div className="cf-actions">
