@@ -32,7 +32,7 @@ on:
       caption_style:
         description: "Caption style"
         required: false
-        default: "dynamic"
+        default: "karaoke"
         type: string
   repository_dispatch:
     types: [clip-factory-job]
@@ -59,7 +59,7 @@ jobs:
       MIN_DURATION: ${{ github.event.client_payload.min_duration || inputs.min_duration || '20' }}
       MAX_DURATION: ${{ github.event.client_payload.max_duration || inputs.max_duration || '60' }}
       SUBTITLE_LANGUAGE: ${{ github.event.client_payload.subtitle_language || inputs.subtitle_language || 'original' }}
-      CAPTION_STYLE: ${{ github.event.client_payload.caption_style || inputs.caption_style || 'dynamic' }}
+      CAPTION_STYLE: ${{ github.event.client_payload.caption_style || inputs.caption_style || 'karaoke' }}
       BGUTIL_POT_URL: http://127.0.0.1:4416
 
     steps:
@@ -69,7 +69,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends ffmpeg curl unzip ca-certificates libgomp1 openssl
+          sudo apt-get install -y --no-install-recommends ffmpeg curl unzip ca-certificates libgomp1 openssl fonts-dejavu
 
       - name: Install YouTube cookie file
         env:
