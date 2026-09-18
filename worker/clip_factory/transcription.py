@@ -18,10 +18,28 @@ def _translate_to_pt(texts: list[str]) -> list[str]:
 
     translator = pipeline(
         "translation",
-        model="Helsinki-NLP/opus-mt-en-pt",
+        model="Helsinki-NLP/opus-mt-tc-big-en-pt",
         device=-1,
     )
-    return [str(item["translation_text"]).strip() for item in translator(texts, batch_size=8)]
+    translated = translator(texts, batch_size=8)
+    return [str(item["translation_text"]).strip() for item in translated]
+
+
+def _retime_translated_words(text: str, start: float, end: float) -> list[dict]:
+    tokens = text.split()
+    if not tokens:
+        return []
+
+    duration = max(0.1, end - start)
+    step = duration / len(tokens)
+    return [
+        {
+            "start": start + (index * step),
+            "end": start + ((index + 1) * step),
+            "text": token,
+        }
+        for index, token in enumerate(tokens)
+    ]
 
 
 def transcribe(
@@ -38,8 +56,6 @@ def transcribe(
 
     model = whisper.load_model(model_name, device="cpu")
     try:
-        # Whisper's translate task produces English. For PT-BR we first obtain
-        # a faithful English transcription, then translate each segment locally.
         task = "translate" if subtitle_language == "en" else "transcribe"
         result = model.transcribe(
             str(video_path),
@@ -56,26 +72,33 @@ def transcribe(
 
     raw_segments = [raw for raw in result.get("segments", []) if raw.get("text", "").strip()]
     detected_language = str(result.get("language", "")).lower()
-    if subtitle_language == "pt-BR" and detected_language not in {"pt", "pt-br"}:
+    is_translated_to_pt = subtitle_language == "pt-BR" and detected_language not in {"pt", "pt-br"}
+
+    if is_translated_to_pt:
         translated = _translate_to_pt([str(raw["text"]).strip() for raw in raw_segments])
-    elif subtitle_language == "pt-BR":
-        # Whisper already produced Portuguese; avoid translating Portuguese to English first.
-        translated = [str(raw["text"]).strip() for raw in raw_segments]
     else:
         translated = [str(raw["text"]).strip() for raw in raw_segments]
 
     segments: list[TranscriptSegment] = []
     for raw, text in zip(raw_segments, translated):
-        words = []
-        for word in raw.get("words", []) or []:
-            word_text = str(word.get("word", "")).strip()
-            if not word_text:
-                continue
-            words.append({
-                "start": float(word.get("start", raw["start"])),
-                "end": float(word.get("end", raw["end"])),
-                "text": word_text,
-            })
+        if is_translated_to_pt:
+            words = _retime_translated_words(
+                text,
+                float(raw["start"]),
+                float(raw["end"]),
+            )
+        else:
+            words = []
+            for word in raw.get("words", []) or []:
+                word_text = str(word.get("word", "")).strip()
+                if not word_text:
+                    continue
+                words.append({
+                    "start": float(word.get("start", raw["start"])),
+                    "end": float(word.get("end", raw["end"])),
+                    "text": word_text,
+                })
+
         segments.append(
             TranscriptSegment(
                 float(raw["start"]),
