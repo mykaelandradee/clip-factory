@@ -9,19 +9,20 @@ type Job = {
   message: string;
   error?: string;
   result?: {
-    candidates: Array<{ title: string; hook: string; reason: string; score: number; start: number; end: number }>;
     files: Array<{ name: string; url: string }>;
+    candidates: Array<unknown>;
+    downloadUrl?: string;
   };
 };
 
 export default function Home() {
   const [url, setUrl] = useState("");
-  const [provider, setProvider] = useState("openai");
   const [clips, setClips] = useState("5");
   const [workerOnline, setWorkerOnline] = useState(false);
   const [jobId, setJobId] = useState("");
   const [job, setJob] = useState<Job | null>(null);
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -48,6 +49,7 @@ export default function Home() {
       if (data.status === "completed" || data.status === "failed") {
         if (timer.current) clearInterval(timer.current);
         timer.current = null;
+        setSubmitting(false);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao consultar o processamento.");
@@ -58,21 +60,30 @@ export default function Home() {
     e.preventDefault();
     setError("");
     setJob(null);
+    setJobId("");
+    if (timer.current) clearInterval(timer.current);
     if (!url.trim()) return setError("Informe a URL do YouTube.");
 
+    setSubmitting(true);
     try {
       const response = await fetch("/api/jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: url.trim(), provider, count: Number(clips), min_duration: 20, max_duration: 60 }),
+        body: JSON.stringify({
+          url: url.trim(),
+          count: Number(clips),
+          min_duration: 20,
+          max_duration: 60,
+        }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Não foi possível iniciar o processamento.");
       setWorkerOnline(true);
       setJobId(data.jobId);
-      await poll(data.jobId);
-      timer.current = setInterval(() => poll(data.jobId), 2000);
+      setJob(data);
+      timer.current = setInterval(() => poll(data.jobId), 3000);
     } catch (err) {
+      setSubmitting(false);
       setWorkerOnline(false);
       setError(err instanceof Error ? err.message : "Não foi possível iniciar o processamento.");
     }
@@ -85,10 +96,10 @@ export default function Home() {
           <div>
             <div className="cf-kicker">AI video pipeline</div>
             <h1>Clip Factory</h1>
-            <p className="cf-subtitle">Cole um vídeo longo, deixe a IA encontrar os melhores momentos e transforme-os em shorts verticais prontos para publicar.</p>
+            <p className="cf-subtitle">Cole um vídeo longo e deixe o Clip Factory encontrar os melhores momentos usando processamento local no GitHub Actions.</p>
           </div>
           <div className={`cf-status-pill ${workerOnline ? "online" : "offline"}`}>
-            <span /> Worker {workerOnline ? "online" : "offline"}
+            <span /> GitHub Actions {workerOnline ? "conectado" : "não configurado"}
           </div>
         </header>
 
@@ -96,54 +107,50 @@ export default function Home() {
           <div className="cf-grid">
             <div className="cf-field">
               <label htmlFor="url">URL do YouTube</label>
-              <input id="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://www.youtube.com/watch?v=..." />
-            </div>
-            <div className="cf-field">
-              <label htmlFor="provider">IA</label>
-              <select id="provider" value={provider} onChange={(e) => setProvider(e.target.value)}>
-                <option value="openai">ChatGPT / OpenAI</option>
-                <option value="anthropic">Claude / Anthropic</option>
-                <option value="ollama">Ollama local</option>
-              </select>
+              <input id="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://www.youtube.com/watch?v=..." disabled={submitting} />
             </div>
             <div className="cf-field">
               <label htmlFor="clips">Quantidade</label>
-              <select id="clips" value={clips} onChange={(e) => setClips(e.target.value)}>
+              <select id="clips" value={clips} onChange={(e) => setClips(e.target.value)} disabled={submitting}>
                 <option>3</option><option>5</option><option>10</option><option>15</option>
               </select>
             </div>
           </div>
-          <div className="cf-actions"><button className="cf-button" type="submit">Analisar vídeo</button></div>
+          <div className="cf-actions">
+            <button className="cf-button" type="submit" disabled={submitting}>
+              {submitting ? "Processando..." : "Analisar vídeo"}
+            </button>
+          </div>
+
           {jobId && job && <div className="cf-job">
             <div className="cf-job-top"><strong>{job.message}</strong><span>{job.progress}%</span></div>
             <div className="cf-progress"><div style={{ width: `${job.progress}%` }} /></div>
             <small>Job {jobId}{job.stage ? ` · ${job.stage}` : ""}</small>
           </div>}
+
           {error && <p className="cf-error">{error}</p>}
           {job?.status === "failed" && <p className="cf-error">{job.error || job.message}</p>}
         </form>
 
-        {job?.status === "completed" && job.result && <section className="cf-results">
-          <div className="cf-results-head"><h2>Clips gerados</h2><span>{job.result.files.length} arquivos</span></div>
-          <div className="cf-results-grid">
-            {job.result.files.map((file, index) => {
-              const candidate = job.result!.candidates[index];
-              return <article className="cf-result" key={file.url}>
-                <video controls preload="metadata" src={file.url} />
-                <div className="cf-result-body">
-                  <strong>{candidate?.title || file.name}</strong>
-                  {candidate?.hook && <p>{candidate.hook}</p>}
-                  <a href={file.url} target="_blank" rel="noreferrer">Abrir clip</a>
-                </div>
-              </article>;
-            })}
-          </div>
-        </section>}
+        {job?.status === "completed" && job.result && (
+          <section className="cf-results">
+            <div className="cf-results-head">
+              <h2>Processamento concluído</h2>
+              <span>resultado disponível</span>
+            </div>
+            <div className="cf-card">
+              <p>Os clips e o resultado foram gerados pelo GitHub Actions.</p>
+              <a className="cf-button" href={job.result.downloadUrl} target="_blank" rel="noreferrer">
+                Baixar clips
+              </a>
+            </div>
+          </section>
+        )}
 
         <section className="cf-roadmap">
-          <div className="cf-step"><strong>01 · Analisar</strong><span>yt-dlp + Whisper geram transcrição com timestamps e a IA seleciona os trechos.</span></div>
-          <div className="cf-step"><strong>02 · Renderizar</strong><span>FFmpeg cria vídeos 9:16 e aplica o tratamento visual do clip.</span></div>
-          <div className="cf-step"><strong>03 · Publicar</strong><span>Fase futura: fila, calendário e publicação automática em YouTube Shorts e Instagram.</span></div>
+          <div className="cf-step"><strong>01 · Analisar</strong><span>yt-dlp + Whisper executam no runner gratuito do GitHub.</span></div>
+          <div className="cf-step"><strong>02 · Selecionar</strong><span>O processamento local identifica os melhores trechos.</span></div>
+          <div className="cf-step"><strong>03 · Baixar</strong><span>Os resultados ficam disponíveis como artefato por 3 dias.</span></div>
         </section>
       </div>
     </main>
