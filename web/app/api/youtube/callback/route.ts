@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { createClient } from "../../../../lib/supabase/server";
+import { createAdminClient } from "../../../../lib/supabase/admin";
 import {
-  decryptYouTubeRefreshToken,
   encryptYouTubeRefreshToken,
   getOAuthStateCookieName,
-  getYouTubeCookieName,
 } from "../../../../lib/youtube-auth";
 
 export const runtime = "nodejs";
@@ -24,9 +24,13 @@ export async function GET(request: Request) {
   }
 
   if (!code || !returnedState || !expectedState || returnedState !== expectedState) {
-    return new NextResponse("Validação OAuth inválida ou expirada. Tente conectar novamente.", {
-      status: 400,
-    });
+    return new NextResponse("Validação OAuth inválida ou expirada. Tente conectar novamente.", { status: 400 });
+  }
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.redirect(new URL("/?auth_required=1", url.origin));
   }
 
   const clientId = process.env.YOUTUBE_CLIENT_ID;
@@ -62,17 +66,23 @@ export async function GET(request: Request) {
     );
   }
 
+  const admin = createAdminClient();
   const encrypted = encryptYouTubeRefreshToken(String(data.refresh_token));
-  cookieStore.set(getYouTubeCookieName(), encrypted, {
-    httpOnly: true,
-    secure: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 180,
-  });
+  const { error: dbError } = await admin
+    .from("youtube_connections")
+    .upsert({
+      user_id: user.id,
+      refresh_token_encrypted: encrypted,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "user_id" });
+
+  if (dbError) {
+    console.error("YouTube connection storage failed:", dbError.message);
+    return new NextResponse("Não foi possível armazenar a conexão do YouTube.", { status: 500 });
+  }
 
   return new NextResponse(
-    `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Clip Factory · YouTube conectado</title><style>body{font-family:system-ui;background:#09090b;color:#fff;max-width:720px;margin:60px auto;padding:24px}main{background:#18181b;border:1px solid #27272a;border-radius:20px;padding:28px}a{display:inline-block;margin-top:18px;background:#fff;color:#09090b;padding:12px 18px;border-radius:12px;text-decoration:none;font-weight:700}</style></head><body><main><h1>YouTube conectado</h1><p>Sua conta foi conectada ao Clip Factory com segurança.</p><p>O token de acesso foi armazenado de forma protegida nesta sessão e não foi exibido.</p><a href="/">Voltar ao Clip Factory</a></main></body></html>`,
+    `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Clip Factory · YouTube conectado</title><style>body{font-family:system-ui;background:#09090b;color:#fff;max-width:720px;margin:60px auto;padding:24px}main{background:#18181b;border:1px solid #27272a;border-radius:20px;padding:28px}a{display:inline-block;margin-top:18px;background:#fff;color:#09090b;padding:12px 18px;border-radius:12px;text-decoration:none;font-weight:700}</style></head><body><main><h1>YouTube conectado</h1><p>Sua conta do YouTube foi vinculada ao seu usuário do Clip Factory.</p><p>A autorização fica armazenada de forma protegida no banco de dados e não no navegador.</p><a href="/">Voltar ao Clip Factory</a></main></body></html>`,
     { headers: { "Content-Type": "text/html; charset=utf-8" } },
   );
 }
