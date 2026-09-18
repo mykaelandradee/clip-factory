@@ -33,7 +33,11 @@ export async function POST(request: Request) {
   if (!jobId || !/^clip-\d{2}\.mp4$/.test(file) || !title) return NextResponse.json({ error: "jobId, file e title são obrigatórios." }, { status: 400 });
   if (title.length > 100) return NextResponse.json({ error: "O título pode ter no máximo 100 caracteres." }, { status: 400 });
   if (description.length > 5000) return NextResponse.json({ error: "A descrição pode ter no máximo 5.000 caracteres." }, { status: 400 });
-  if (publishAt && Number.isNaN(Date.parse(publishAt))) return NextResponse.json({ error: "publishAt inválido." }, { status: 400 });
+  if (publishAt) {
+    const publishTimestamp = Date.parse(publishAt);
+    if (Number.isNaN(publishTimestamp)) return NextResponse.json({ error: "publishAt inválido." }, { status: 400 });
+    if (publishTimestamp <= Date.now()) return NextResponse.json({ error: "A data de publicação precisa estar no futuro." }, { status: 400 });
+  }
 
   const admin = createAdminClient();
   const { data: connection } = await admin.from("youtube_connections").select("id").eq("user_id", user.id).maybeSingle();
