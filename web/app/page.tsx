@@ -55,7 +55,7 @@ export default function Home() {
   const [authMessage, setAuthMessage] = useState("");
   const [publishingFile, setPublishingFile] = useState<string | null>(null);
   const [publishMessage, setPublishMessage] = useState("");
-  const [publishDrafts, setPublishDrafts] = useState<Record<string, { title: string; description: string }>>({});
+  const [publishDrafts, setPublishDrafts] = useState<Record<string, { title: string; description: string; publishAt: string }>>({});
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const selectedTemplate = CAPTION_TEMPLATES.find(([id]) => id === captionStyle) ?? CAPTION_TEMPLATES[0];
@@ -150,10 +150,11 @@ export default function Home() {
     return publishDrafts[file] ?? {
       title: defaultPublishTitle(index),
       description: "Criado com o Clip Factory.",
+      publishAt: "",
     };
   }
 
-  function updatePublishDraft(file: string, index: number, field: "title" | "description", value: string) {
+  function updatePublishDraft(file: string, index: number, field: "title" | "description" | "publishAt", value: string) {
     const current = getPublishDraft(file, index);
     setPublishDrafts((previous) => ({
       ...previous,
@@ -174,6 +175,7 @@ export default function Home() {
           file,
           title: draft.title.trim(),
           description: draft.description,
+          publishAt: draft.publishAt ? new Date(draft.publishAt).toISOString() : "",
         }),
       });
       const data = await response.json();
@@ -415,6 +417,16 @@ export default function Home() {
                               disabled={publishingFile === file}
                             />
                             <small>{getPublishDraft(file, index).description.length}/5000</small>
+                          </label>
+                          <label>
+                            <span>Agendar publicação (opcional)</span>
+                            <input
+                              type="datetime-local"
+                              value={getPublishDraft(file, index).publishAt}
+                              onChange={(e) => updatePublishDraft(file, index, "publishAt", e.target.value)}
+                              disabled={publishingFile === file}
+                            />
+                            <small>Deixe em branco para publicar assim que o envio terminar.</small>
                           </label>
                         </div>
                       )}
