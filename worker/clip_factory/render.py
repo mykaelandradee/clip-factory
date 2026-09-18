@@ -6,97 +6,110 @@ from pathlib import Path
 from .models import ClipCandidate, TranscriptSegment
 
 
-def _srt_time(seconds: float) -> str:
-    milliseconds = max(0, int(round(seconds * 1000)))
-    hours, remainder = divmod(milliseconds, 3_600_000)
-    minutes, remainder = divmod(remainder, 60_000)
-    secs, millis = divmod(remainder, 1000)
-    return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
+def _ass_time(seconds: float) -> str:
+    seconds = max(0.0, seconds)
+    h = int(seconds // 3600)
+    m = int((seconds % 3600) // 60)
+    s = seconds % 60
+    return f"{h}:{m:02d}:{s:05.2f}"
 
 
-def _split_words(
-    words: list[dict],
-    max_chars: int = 38,
-    max_words: int = 7,
-) -> list[tuple[float, float, str]]:
-    chunks: list[tuple[float, float, str]] = []
-    current: list[dict] = []
-    current_chars = 0
+def _ass_escape(text: str) -> str:
+    return text.replace("\\", "\\\\").replace("{", "\\{").replace("}", "\\}")
 
-    def flush() -> None:
-        nonlocal current, current_chars
-        if not current:
-            return
-        text = " ".join(str(w["text"]).strip() for w in current).strip()
-        if text:
-            chunks.append((float(current[0]["start"]), float(current[-1]["end"]), text))
-        current = []
-        current_chars = 0
 
+def _word_events(candidate: ClipCandidate, segments: list[TranscriptSegment]) -> list[tuple[float, float, str]]:
+    events = []
+    for segment in segments:
+        for word in segment.words:
+            start = float(word["start"])
+            end = float(word["end"])
+            if end <= candidate.start or start >= candidate.end:
+                continue
+            text = str(word.get("text", "")).strip()
+            if text:
+                events.append((
+                    max(start, candidate.start) - candidate.start,
+                    min(end, candidate.end) - candidate.start,
+                    text,
+                ))
+    return events
+
+
+def _group_words(words: list[tuple[float, float, str]], max_words: int = 6, max_chars: int = 34):
+    groups = []
+    current = []
+    chars = 0
     for word in words:
-        text = str(word.get("text", "")).strip()
-        if not text:
-            continue
-        punctuation_break = text.endswith((".", "?", "!", ":", ";"))
-        projected = current_chars + (1 if current else 0) + len(text)
-        if current and (projected > max_chars or len(current) >= max_words):
-            flush()
+        projected = chars + len(word[2]) + (1 if current else 0)
+        if current and (len(current) >= max_words or projected > max_chars):
+            groups.append(current)
+            current = []
+            chars = 0
         current.append(word)
-        current_chars += (1 if current_chars else 0) + len(text)
-        if punctuation_break:
-            flush()
-
-    flush()
-    return chunks
+        chars += len(word[2]) + (1 if chars else 0)
+    if current:
+        groups.append(current)
+    return groups
 
 
-def write_srt(
+def _write_ass(
     candidate: ClipCandidate,
     segments: list[TranscriptSegment],
     output: Path,
+    style: str,
 ) -> Path:
-    """Create short, readable caption blocks with word-level timing."""
-    entries: list[str] = []
-    index = 1
+    style = style if style in {"dynamic", "clean", "bold"} else "dynamic"
+    if style == "clean":
+        font_size, primary, secondary, outline = 46, "&H00FFFFFF", "&H00FFFFFF", 2
+        bold = 0
+    elif style == "bold":
+        font_size, primary, secondary, outline = 52, "&H00FFFFFF", "&H0000D7FF", 3
+        bold = 1
+    else:
+        font_size, primary, secondary, outline = 48, "&H00FFFFFF", "&H0000D7FF", 3
+        bold = 1
 
-    for segment in segments:
-        overlapping_words = []
-        if segment.words:
-            for word in segment.words:
-                start = float(word["start"])
-                end = float(word["end"])
-                if end > candidate.start and start < candidate.end:
-                    overlapping_words.append({
-                        "start": max(start, candidate.start) - candidate.start,
-                        "end": min(end, candidate.end) - candidate.start,
-                        "text": word["text"],
-                    })
+    lines = [
+        "[Script Info]",
+        "ScriptType: v4.00+",
+        "PlayResX: 1080",
+        "PlayResY: 1920",
+        "WrapStyle: 2",
+        "ScaledBorderAndShadow: yes",
+        "",
+        "[V4+ Styles]",
+        "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
+        f"Style: Caption,Arial,{font_size},{primary},{secondary},&H00000000,&H99000000,{bold},0,0,0,100,100,0,0,1,{outline},1,2,60,60,145,1",
+        "",
+        "[Events]",
+        "Format: Layer, Start, End, Style, Name, MarginL, MarginR, Effect, Text",
+    ]
 
-        chunks = _split_words(overlapping_words) if overlapping_words else []
-        if not chunks:
+    words = _word_events(candidate, segments)
+    groups = _group_words(words)
+
+    if groups:
+        for group in groups:
+            start, end = group[0][0], group[-1][1]
+            if style == "dynamic":
+                pieces = []
+                for ws, we, text in group:
+                    duration_cs = max(1, round((we - ws) * 100))
+                    pieces.append(f"{{\\k{duration_cs}}}{_ass_escape(text)}")
+                text = " ".join(pieces)
+            else:
+                text = _ass_escape(" ".join(w[2] for w in group))
+            lines.append(f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},Caption,,0,0,0,{text}")
+    else:
+        for segment in segments:
             start = max(segment.start, candidate.start) - candidate.start
             end = min(segment.end, candidate.end) - candidate.start
-            text = " ".join(segment.text.split())
+            text = _ass_escape(" ".join(segment.text.split()))
             if end > start and text:
-                chunks = [(start, end, text)]
+                lines.append(f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},Caption,,0,0,0,{text}")
 
-        for start, end, text in chunks:
-            if end <= start:
-                continue
-            entries.append(
-                f"{index}\n"
-                f"{_srt_time(start)} --> {_srt_time(end)}\n"
-                f"{text}\n"
-            )
-            index += 1
-
-    if not entries and candidate.transcript.strip():
-        text = " ".join(candidate.transcript.split())
-        entries.append(
-            f"1\n{_srt_time(0)} --> {_srt_time(candidate.duration)}\n{text}\n"
-        )
-
-    output.write_text("\n".join(entries), encoding="utf-8")
+    output.write_text("\n".join(lines), encoding="utf-8")
     return output
 
 
@@ -105,19 +118,18 @@ def render_vertical(
     candidate: ClipCandidate,
     output: Path,
     segments: list[TranscriptSegment],
+    caption_style: str = "dynamic",
 ) -> Path:
-    """Render a 9:16 MP4 with readable, correctly timed burned-in captions."""
+    """Render a 9:16 MP4 with compact, bottom-positioned captions."""
     output.parent.mkdir(parents=True, exist_ok=True)
-    subtitle_file = output.with_suffix(".srt")
-    write_srt(candidate, segments, subtitle_file)
+    subtitle_file = output.with_suffix(".ass")
+    _write_ass(candidate, segments, subtitle_file, caption_style)
 
     subtitle_path = str(subtitle_file.resolve()).replace("\\", "/").replace(":", "\\:")
     vf = (
         "scale=1080:1920:force_original_aspect_ratio=increase,"
         "crop=1080:1920,setsar=1,"
-        f"subtitles='{subtitle_path}':charenc=UTF-8:force_style='FontName=Arial,"
-        "FontSize=22,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,Outline=3,"
-        "Alignment=2,MarginV=180'"
+        f"ass='{subtitle_path}'"
     )
 
     cmd = [
