@@ -95,3 +95,10 @@ button{appearance:none}
 .cf-download span{margin-left:4px}
 @media(max-width:900px){.cf-results-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:600px){.cf-duration-grid{grid-template-columns:1fr}.cf-results-head{align-items:stretch;flex-direction:column;gap:12px}.cf-results-grid{grid-template-columns:1fr}.cf-button-secondary{width:100%}}
+
+.cf-video-info{display:flex;align-items:center;gap:13px;margin-top:12px;padding:10px;border:1px solid #292930;border-radius:14px;background:#0a0a0d}
+.cf-video-info img{width:112px;height:63px;object-fit:cover;border-radius:9px;background:#17171d}
+.cf-video-info div{min-width:0;display:flex;flex-direction:column;gap:5px}
+.cf-video-info strong{font-size:11px;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cf-video-info span{color:#64646e;font-size:9px}
+@media(max-width:600px){.cf-video-info img{width:92px;height:52px}}
