@@ -36,7 +36,7 @@ def _word_events(candidate: ClipCandidate, segments: list[TranscriptSegment]) ->
     return events
 
 
-def _group_words(words: list[tuple[float, float, str]], max_words: int = 3, max_chars: int = 24):
+def _group_words(words: list[tuple[float, float, str]], max_words: int = 3, max_chars: int = 28):
     groups = []
     current = []
     chars = 0
@@ -60,12 +60,12 @@ def _write_ass(
     style: str,
 ) -> Path:
     presets = {
-        "karaoke": dict(font_size=58, primary="&H00FFFFFF", secondary="&H00FFFFFF", outline=5, bold=1, active="&H0000D7FF", margin_v=0),
-        "fire": dict(font_size=62, primary="&H0000BFFF", secondary="&H00FFFFFF", outline=6, bold=1, active="&H00004DFF", margin_v=0),
-        "beasty": dict(font_size=66, primary="&H00FFFFFF", secondary="&H00FFFFFF", outline=7, bold=1, active="&H0000B5FF", margin_v=0),
-        "youshaei": dict(font_size=56, primary="&H00FFFFFF", secondary="&H00FFFFFF", outline=5, bold=1, active="&H0000D7FF", margin_v=0),
-        "harmozi": dict(font_size=60, primary="&H00FFFFFF", secondary="&H00FFFFFF", outline=5, bold=1, active="&H0000A5FF", margin_v=0),
-        "cinematic": dict(font_size=48, primary="&H00FFFFFF", secondary="&H00FFFFFF", outline=4, bold=0, active="&H00FFFFFF", margin_v=0),
+        "karaoke": dict(font_size=78, primary="&H00FFFFFF", secondary="&H00FFFFFF", outline=6, bold=1, active="&H0000D7FF", margin_v=300, spacing=0),
+        "fire": dict(font_size=82, primary="&H00FFFFFF", secondary="&H00FFFFFF", outline=7, bold=1, active="&H00004DFF", margin_v=300, spacing=0),
+        "beasty": dict(font_size=86, primary="&H00FFFFFF", secondary="&H00FFFFFF", outline=8, bold=1, active="&H0000B5FF", margin_v=285, spacing=-1),
+        "youshaei": dict(font_size=74, primary="&H00FFFFFF", secondary="&H00FFFFFF", outline=6, bold=1, active="&H0000D7FF", margin_v=315, spacing=0),
+        "harmozi": dict(font_size=80, primary="&H00FFFFFF", secondary="&H00FFFFFF", outline=6, bold=1, active="&H0000A5FF", margin_v=300, spacing=0),
+        "cinematic": dict(font_size=66, primary="&H00FFFFFF", secondary="&H00FFFFFF", outline=4, bold=0, active="&H00FFFFFF", margin_v=330, spacing=1),
     }
     preset = presets.get(style, presets["karaoke"])
 
@@ -79,7 +79,7 @@ def _write_ass(
         "",
         "[V4+ Styles]",
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-        f"Style: Caption,Arial,{preset['font_size']},{preset['primary']},{preset['secondary']},&H00000000,&HCC000000,{preset['bold']},0,0,0,100,100,0,0,1,{preset['outline']},2,5,90,90,{preset['margin_v']},1",
+        f"Style: Caption,DejaVu Sans,{preset['font_size']},{preset['primary']},{preset['secondary']},&H00000000,&HCC000000,{preset['bold']},0,0,0,100,100,{preset['spacing']},0,1,{preset['outline']},3,2,90,90,{preset['margin_v']},1",
         "",
         "[Events]",
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, Effect, Text",
@@ -93,7 +93,7 @@ def _write_ass(
         pieces = []
         for ws, we, text in group:
             duration_cs = max(1, round((we - ws) * 100))
-            escaped = _ass_escape(text)
+            escaped = _ass_escape(text.upper())
             if style == "cinematic":
                 pieces.append(f"{{\\k{duration_cs}}}{escaped}")
             else:
@@ -105,7 +105,7 @@ def _write_ass(
         for segment in segments:
             start = max(segment.start, candidate.start) - candidate.start
             end = min(segment.end, candidate.end) - candidate.start
-            text = _ass_escape(" ".join(segment.text.split()))
+            text = _ass_escape(" ".join(segment.text.split()).upper())
             if end > start and text:
                 lines.append(f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},Caption,,0,0,0,{text}")
 
