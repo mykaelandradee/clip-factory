@@ -132,7 +132,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r worker/requirements.txt
-          python -m pip install -U "yt-dlp[default]" yt-dlp-ejs bgutil-ytdlp-pot-provider
+          python -m pip install -U "yt-dlp[default]" yt-dlp-ejs "bgutil-ytdlp-pot-provider==2.0.0"
 
       - name: Verify yt-dlp and PO token provider
         run: |
@@ -144,12 +144,13 @@ jobs:
             --remote-components ejs:npm \
             --simulate \
             --cookies "$YOUTUBE_COOKIE_FILE" \
+            --extractor-args "youtubepot-bgutilhttp:base_url=$BGUTIL_POT_URL" \
             "$VIDEO_URL" 2>&1 | tee "$RUNNER_TEMP/ytdlp-provider-check.log"
+          grep -q "bgutil:http-2.0.0" "$RUNNER_TEMP/ytdlp-provider-check.log"
 
       - name: Run Clip Factory
         working-directory: worker
         env:
-          YT_DLP_POT_PROVIDER_URL: http://127.0.0.1:4416
           YOUTUBE_COOKIES_FILE: ${{ env.YOUTUBE_COOKIE_FILE }}
         run: |
           python run.py "$VIDEO_URL" --provider local --count "$COUNT" --min-duration "$MIN_DURATION" --max-duration "$MAX_DURATION" --subtitle-language "$SUBTITLE_LANGUAGE" --caption-style "$CAPTION_STYLE"
