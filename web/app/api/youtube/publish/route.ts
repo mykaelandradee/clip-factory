@@ -49,6 +49,14 @@ export async function POST(request: Request) {
     );
   }
 
+  if (title.length > 100) {
+    return NextResponse.json({ error: "O título pode ter no máximo 100 caracteres." }, { status: 400 });
+  }
+
+  if (description.length > 5000) {
+    return NextResponse.json({ error: "A descrição pode ter no máximo 5.000 caracteres." }, { status: 400 });
+  }
+
   if (publishAt && Number.isNaN(Date.parse(publishAt))) {
     return NextResponse.json({ error: "publishAt inválido." }, { status: 400 });
   }
