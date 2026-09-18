@@ -78,10 +78,14 @@ jobs:
           echo "YOUTUBE_COOKIE_FILE=$COOKIE_FILE" >> "$GITHUB_ENV"
 
       - name: Install Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.7
+
+      - name: Verify Deno
         run: |
-          curl -fsSL https://deno.land/install.sh | sh
-          echo "$HOME/.deno/bin" >> "$GITHUB_PATH"
-          "$HOME/.deno/bin/deno" --version
+          set -euo pipefail
+          deno --version
 
       - name: Install YouTube PO token provider
         run: |
