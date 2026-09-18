@@ -36,7 +36,11 @@ def _word_events(candidate: ClipCandidate, segments: list[TranscriptSegment]) ->
     return events
 
 
-def _group_words(words: list[tuple[float, float, str]], max_words: int = 3, max_chars: int = 28):
+def _group_words(
+    words: list[tuple[float, float, str]],
+    max_words: int = 3,
+    max_chars: int = 26,
+):
     groups = []
     current = []
     chars = 0
@@ -53,21 +57,105 @@ def _group_words(words: list[tuple[float, float, str]], max_words: int = 3, max_
     return groups
 
 
+# The presets intentionally have different typography, layout, motion and emphasis.
+# They are inspired by common short-form caption conventions, not copied from any
+# third-party implementation.
+PRESETS = {
+    "karaoke": dict(
+        font="DejaVu Sans", size=76, bold=1, primary="&H00FFFFFF",
+        active="&H0000D7FF", outline=5, shadow=2, margin=250, spacing=0,
+        alignment=2, scale_x=100, scale_y=100, border=1,
+    ),
+    "fire": dict(
+        font="DejaVu Sans", size=80, bold=1, primary="&H00FFFFFF",
+        active="&H00004DFF", outline=7, shadow=4, margin=245, spacing=-1,
+        alignment=2, scale_x=100, scale_y=100, border=1,
+    ),
+    "beasty": dict(
+        font="DejaVu Sans", size=88, bold=1, primary="&H00FFFFFF",
+        active="&H0000B5FF", outline=9, shadow=4, margin=230, spacing=-2,
+        alignment=5, scale_x=105, scale_y=100, border=1,
+    ),
+    "youshaei": dict(
+        font="DejaVu Sans", size=72, bold=1, primary="&H00FFFFFF",
+        active="&H00D7FF", outline=4, shadow=2, margin=270, spacing=0,
+        alignment=2, scale_x=100, scale_y=100, border=1,
+    ),
+    "harmozi": dict(
+        font="DejaVu Sans", size=78, bold=1, primary="&H00FFFFFF",
+        active="&H0000A5FF", outline=5, shadow=3, margin=255, spacing=-1,
+        alignment=2, scale_x=100, scale_y=100, border=1,
+    ),
+    "cinematic": dict(
+        font="DejaVu Sans", size=64, bold=0, primary="&H00FFFFFF",
+        active="&H00FFFFFF", outline=3, shadow=2, margin=300, spacing=2,
+        alignment=2, scale_x=100, scale_y=100, border=1,
+    ),
+}
+
+
+def _event_text(group, style: str) -> str:
+    preset = PRESETS.get(style, PRESETS["karaoke"])
+    pieces = []
+
+    for index, (ws, we, raw_text) in enumerate(group):
+        duration_cs = max(1, round((we - ws) * 100))
+        text = _ass_escape(raw_text.upper())
+
+        if style == "karaoke":
+            # Clean word-by-word fill, classic social caption behavior.
+            pieces.append(
+                f"{{\\c{preset['active']}\\k{duration_cs}}}{text}"
+                f"{{\\c{preset['primary']}}}"
+            )
+
+        elif style == "fire":
+            # Hot active word + scale/blur pop.
+            pieces.append(
+                f"{{\\c{preset['active']}\\bord8\\blur0.5\\fscx112\\fscy112"
+                f"\\t(0,90,\\fscx100\\fscy100)\\k{duration_cs}}}{text}"
+                f"{{\\c{preset['primary']}\\bord7}}"
+            )
+
+        elif style == "beasty":
+            # Large block words, short punch-in and strong outline.
+            pieces.append(
+                f"{{\\c{preset['active']}\\fscx118\\fscy118\\bord10"
+                f"\\t(0,110,\\fscx105\\fscy100)\\k{duration_cs}}}{text}"
+                f"{{\\c{preset['primary']}\\bord9}}"
+            )
+
+        elif style == "youshaei":
+            # Cleaner editorial style with a cyan active word.
+            pieces.append(
+                f"{{\\c{preset['active']}\\bord4\\shad2\\k{duration_cs}}}{text}"
+                f"{{\\c{preset['primary']}}}"
+            )
+
+        elif style == "harmozi":
+            # High-contrast motivational style: active word grows slightly.
+            pieces.append(
+                f"{{\\c{preset['active']}\\fscx108\\fscy108\\k{duration_cs}}}{text}"
+                f"{{\\c{preset['primary']}\\t(0,80,\\fscx100\\fscy100)}}"
+            )
+
+        else:
+            # Cinematic: restrained, smooth word reveal.
+            pieces.append(
+                f"{{\\alpha&H55&\\fscx96\\k{duration_cs}}}{text}"
+                f"{{\\alpha&H00&\\fscx100\\t(0,140,\\alpha&H00&)}}"
+            )
+
+    return " ".join(pieces)
+
+
 def _write_ass(
     candidate: ClipCandidate,
     segments: list[TranscriptSegment],
     output: Path,
     style: str,
 ) -> Path:
-    presets = {
-        "karaoke": dict(font_size=78, primary="&H00FFFFFF", secondary="&H00FFFFFF", outline=6, bold=1, active="&H0000D7FF", margin_v=300, spacing=0),
-        "fire": dict(font_size=82, primary="&H00FFFFFF", secondary="&H00FFFFFF", outline=7, bold=1, active="&H00004DFF", margin_v=300, spacing=0),
-        "beasty": dict(font_size=86, primary="&H00FFFFFF", secondary="&H00FFFFFF", outline=8, bold=1, active="&H0000B5FF", margin_v=285, spacing=-1),
-        "youshaei": dict(font_size=74, primary="&H00FFFFFF", secondary="&H00FFFFFF", outline=6, bold=1, active="&H0000D7FF", margin_v=315, spacing=0),
-        "harmozi": dict(font_size=80, primary="&H00FFFFFF", secondary="&H00FFFFFF", outline=6, bold=1, active="&H0000A5FF", margin_v=300, spacing=0),
-        "cinematic": dict(font_size=66, primary="&H00FFFFFF", secondary="&H00FFFFFF", outline=4, bold=0, active="&H00FFFFFF", margin_v=330, spacing=1),
-    }
-    preset = presets.get(style, presets["karaoke"])
+    preset = PRESETS.get(style, PRESETS["karaoke"])
 
     lines = [
         "[Script Info]",
@@ -79,7 +167,13 @@ def _write_ass(
         "",
         "[V4+ Styles]",
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-        f"Style: Caption,DejaVu Sans,{preset['font_size']},{preset['primary']},{preset['secondary']},&H00000000,&HCC000000,{preset['bold']},0,0,0,100,100,{preset['spacing']},0,1,{preset['outline']},3,2,90,90,{preset['margin_v']},1",
+        (
+            f"Style: Caption,{preset['font']},{preset['size']},{preset['primary']},"
+            f"{preset['primary']},&H00000000,&HCC000000,{preset['bold']},0,0,0,"
+            f"{preset['scale_x']},{preset['scale_y']},{preset['spacing']},0,"
+            f"{preset['border']},{preset['outline']},{preset['shadow']},{preset['alignment']},"
+            f"75,75,{preset['margin']},1"
+        ),
         "",
         "[Events]",
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, Effect, Text",
@@ -90,16 +184,10 @@ def _write_ass(
 
     for group in groups:
         start, end = group[0][0], group[-1][1]
-        pieces = []
-        for ws, we, text in group:
-            duration_cs = max(1, round((we - ws) * 100))
-            escaped = _ass_escape(text.upper())
-            if style == "cinematic":
-                pieces.append(f"{{\\k{duration_cs}}}{escaped}")
-            else:
-                pieces.append(f"{{\\c{preset['active']}\\k{duration_cs}}}{escaped}{{\\c{preset['primary']}}}")
-        text = " ".join(pieces)
-        lines.append(f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},Caption,,0,0,0,{text}")
+        text = _event_text(group, style)
+        lines.append(
+            f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},Caption,,0,0,0,{text}"
+        )
 
     if not groups:
         for segment in segments:
@@ -107,7 +195,9 @@ def _write_ass(
             end = min(segment.end, candidate.end) - candidate.start
             text = _ass_escape(" ".join(segment.text.split()).upper())
             if end > start and text:
-                lines.append(f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},Caption,,0,0,0,{text}")
+                lines.append(
+                    f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},Caption,,0,0,0,{text}"
+                )
 
     output.write_text("\n".join(lines), encoding="utf-8")
     return output
@@ -120,7 +210,7 @@ def render_vertical(
     segments: list[TranscriptSegment],
     caption_style: str = "karaoke",
 ) -> Path:
-    """Render a 9:16 MP4 with social-style captions."""
+    """Render a 9:16 MP4 with distinct social caption presets."""
     output.parent.mkdir(parents=True, exist_ok=True)
     subtitle_file = output.with_suffix(".ass")
     _write_ass(candidate, segments, subtitle_file, caption_style)
