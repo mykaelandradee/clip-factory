@@ -40,7 +40,7 @@ def transcribe(
     try:
         # Whisper's translate task produces English. For PT-BR we first obtain
         # a faithful English transcription, then translate each segment locally.
-        task = "translate" if subtitle_language in {"en", "pt-BR"} else "transcribe"
+        task = "translate" if subtitle_language == "en" else "transcribe"
         result = model.transcribe(
             str(video_path),
             verbose=False,
@@ -55,8 +55,12 @@ def transcribe(
         gc.collect()
 
     raw_segments = [raw for raw in result.get("segments", []) if raw.get("text", "").strip()]
-    if subtitle_language == "pt-BR":
+    detected_language = str(result.get("language", "")).lower()
+    if subtitle_language == "pt-BR" and detected_language not in {"pt", "pt-br"}:
         translated = _translate_to_pt([str(raw["text"]).strip() for raw in raw_segments])
+    elif subtitle_language == "pt-BR":
+        # Whisper already produced Portuguese; avoid translating Portuguese to English first.
+        translated = [str(raw["text"]).strip() for raw in raw_segments]
     else:
         translated = [str(raw["text"]).strip() for raw in raw_segments]
 
