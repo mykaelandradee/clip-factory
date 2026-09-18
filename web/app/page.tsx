@@ -11,12 +11,23 @@ type Job = {
   result?: { downloadUrl?: string };
 };
 
+const CAPTION_TEMPLATES = [
+  ["karaoke", "Karaoke", "Palavra por palavra, destaque amarelo"],
+  ["fire", "Fire", "Impacto forte com destaque quente"],
+  ["beasty", "Beasty", "Pesada, grande e agressiva"],
+  ["youshaei", "Youshaei", "Clean, central e dinâmica"],
+  ["harmozi", "Harmozi", "Bold com palavras em destaque"],
+  ["cinematic", "Cinematic", "Elegante, limpa e cinematográfica"],
+] as const;
+
 export default function Home() {
   const [url, setUrl] = useState("");
-  const [clips, setClips] = useState("5");
+  const [videoInfo, setVideoInfo] = useState<{title:string;author:string;thumbnail:string}|null>(null);
+  const [loadingInfo, setLoadingInfo] = useState(false);
+  const [clips, setClips] = useState("3");
   const [duration, setDuration] = useState("30-60");
   const [subtitleLanguage, setSubtitleLanguage] = useState("original");
-  const [captionStyle, setCaptionStyle] = useState("dynamic");
+  const [captionStyle, setCaptionStyle] = useState("karaoke");
   const [workerOnline, setWorkerOnline] = useState(false);
   const [jobId, setJobId] = useState("");
   const [job, setJob] = useState<Job | null>(null);
@@ -29,6 +40,25 @@ export default function Home() {
     return () => { if (timer.current) clearInterval(timer.current); };
   }, []);
 
+  useEffect(() => {
+    setVideoInfo(null);
+    if (!url.trim()) return;
+    const timeout = setTimeout(async () => {
+      try {
+        setLoadingInfo(true);
+        const response = await fetch("/api/youtube-info?url=" + encodeURIComponent(url.trim()), { cache: "no-store" });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (data.title && data.thumbnail) setVideoInfo(data);
+      } catch {
+        setVideoInfo(null);
+      } finally {
+        setLoadingInfo(false);
+      }
+    }, 450);
+    return () => clearTimeout(timeout);
+  }, [url]);
+
   async function checkWorker() {
     try {
       const response = await fetch("/api/health", { cache: "no-store" });
@@ -38,7 +68,7 @@ export default function Home() {
 
   async function poll(id: string) {
     try {
-      const response = await fetch(`/api/jobs?id=${encodeURIComponent(id)}`, { cache: "no-store" });
+      const response = await fetch("/api/jobs?id=" + encodeURIComponent(id), { cache: "no-store" });
       if (!response.ok) throw new Error("Não foi possível consultar o processamento.");
       const data = await response.json() as Job;
       setJob(data);
@@ -103,6 +133,13 @@ export default function Home() {
             <div className="cf-field">
               <label htmlFor="url">URL do YouTube</label>
               <input id="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://www.youtube.com/watch?v=..." disabled={submitting} />
+              {loadingInfo && <small>Carregando informações do vídeo...</small>}
+              {videoInfo && (
+                <div className="cf-video-info">
+                  <img src={videoInfo.thumbnail} alt="" />
+                  <div><strong>{videoInfo.title}</strong><span>{videoInfo.author}</span></div>
+                </div>
+              )}
             </div>
             <div className="cf-field">
               <label htmlFor="clips">Quantidade</label>
@@ -119,7 +156,6 @@ export default function Home() {
               </select>
               <small>Português (Brasil) traduz a fala para PT-BR usando modelos locais.</small>
             </div>
-            
           </div>
 
           <div className="cf-label-row cf-section-gap"><span>Duração do clip</span><small>Defina o tamanho dos cortes</small></div>
@@ -131,8 +167,16 @@ export default function Home() {
             ))}
           </div>
 
-          <div className="cf-label-row"><span>Templates</span><small>Escolha um estilo</small></div>
-          <div className="cf-template-grid">{["dynamic","clean","bold","highlight","neon","minimal"].map((id) => <button type="button" key={id} className={`cf-template ${captionStyle===id ? "selected":""} ${["highlight","neon","minimal"].includes(id) ? "coming":""}`} onClick={() => !["highlight","neon","minimal"].includes(id) && setCaptionStyle(id)} disabled={submitting || ["highlight","neon","minimal"].includes(id)}><div className={`cf-template-preview accent-${id}`}><span className="preview-top">A</span><span className="preview-subtitle">{id==="bold"?"ISSO MUDA TUDO":id==="dynamic"?"isso MUDA tudo":"isso muda tudo"}</span></div><div className="cf-template-info"><strong>{id[0].toUpperCase()+id.slice(1)}</strong><span>{id==="dynamic"?"Destaque palavra por palavra":id==="clean"?"Discreta e elegante":id==="bold"?"Grande e marcante":id==="highlight"?"Palavra em destaque":id==="neon"?"Visual forte e moderno":"Pequena e sofisticada"}</span></div>{["highlight","neon","minimal"].includes(id) ? <span className="cf-coming">Em breve</span> : captionStyle===id ? <span className="cf-check">✓</span> : null}</button>)}</div>
+          <div className="cf-label-row"><span>Templates de legenda</span><small>Estilos dinâmicos para vídeos curtos</small></div>
+          <div className="cf-template-grid">
+            {CAPTION_TEMPLATES.map(([id, name, description]) => (
+              <button type="button" key={id} className={`cf-template ${captionStyle === id ? "selected" : ""}`} onClick={() => setCaptionStyle(id)} disabled={submitting}>
+                <div className={`cf-template-preview accent-${id}`}><span className="preview-top">A</span><span className="preview-subtitle">isso <b>MUDA</b> tudo</span></div>
+                <div className="cf-template-info"><strong>{name}</strong><span>{description}</span></div>
+                {captionStyle === id && <span className="cf-check">✓</span>}
+              </button>
+            ))}
+          </div>
 
           <div className="cf-actions">
             <button className="cf-button" type="submit" disabled={submitting}>{submitting ? "Processando..." : "Analisar vídeo"}</button>
