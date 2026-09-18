@@ -6,6 +6,9 @@ import json
 from clip_factory.pipeline import run_pipeline
 
 
+CAPTION_STYLES = ["karaoke", "fire", "beasty", "youshaei", "harmozi", "cinematic"]
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Clip Factory worker")
     parser.add_argument("url", help="YouTube URL")
@@ -14,7 +17,7 @@ def main() -> None:
     parser.add_argument("--min-duration", type=int, default=20)
     parser.add_argument("--max-duration", type=int, default=60)
     parser.add_argument("--subtitle-language", choices=["original", "pt-BR", "en"], default="original")
-    parser.add_argument("--caption-style", choices=["dynamic", "clean", "bold"], default="dynamic")
+    parser.add_argument("--caption-style", choices=CAPTION_STYLES, default="karaoke")
     parser.add_argument("--no-render", action="store_true")
     args = parser.parse_args()
 
