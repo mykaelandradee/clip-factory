@@ -17,12 +17,12 @@ def _translate_to_pt(texts: list[str]) -> list[str]:
     from transformers import pipeline
 
     translator = pipeline(
-        "translation",
+        "text2text-generation",
         model="Helsinki-NLP/opus-mt-tc-big-en-pt",
         device=-1,
     )
-    translated = translator(texts, batch_size=8)
-    return [str(item["translation_text"]).strip() for item in translated]
+    translated = translator(texts, batch_size=8, max_new_tokens=256)
+    return [str(item["generated_text"]).strip() for item in translated]
 
 
 def _retime_translated_words(text: str, start: float, end: float) -> list[dict]:
@@ -101,10 +101,7 @@ def transcribe(
 
         segments.append(
             TranscriptSegment(
-                float(raw["start"]),
-                float(raw["end"]),
-                text,
-                words,
+                float(raw["start"]), float(raw["end"]), text, words
             )
         )
 
