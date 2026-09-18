@@ -36,7 +36,7 @@ def _word_events(candidate: ClipCandidate, segments: list[TranscriptSegment]) ->
     return events
 
 
-def _group_words(words: list[tuple[float, float, str]], max_words: int = 4, max_chars: int = 28):
+def _group_words(words: list[tuple[float, float, str]], max_words: int = 3, max_chars: int = 22):
     groups = []
     current = []
     chars = 0
@@ -67,21 +67,21 @@ def _write_ass(
         secondary = "&H00FFFFFF"
         outline = 4
         bold = 0
-        margin_v = 190
+        margin_v = 0
     elif style == "bold":
         font_size = 58
         primary = "&H0000D7FF"
         secondary = "&H00FFFFFF"
         outline = 5
         bold = 1
-        margin_v = 220
+        margin_v = 0
     else:
         font_size = 54
         primary = "&H0000D7FF"
         secondary = "&H00FFFFFF"
         outline = 5
         bold = 1
-        margin_v = 210
+        margin_v = 0
 
     lines = [
         "[Script Info]",
@@ -93,7 +93,7 @@ def _write_ass(
         "",
         "[V4+ Styles]",
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-        f"Style: Caption,Arial,{font_size},{primary},{secondary},&H00000000,&HCC000000,{bold},0,0,0,100,100,0,0,1,{outline},2,2,70,70,{margin_v},1",
+        f"Style: Caption,Arial,{font_size},{primary},{secondary},&H00000000,&HCC000000,{bold},0,0,0,100,100,0,0,1,{outline},2,5,70,70,{margin_v},1",
         "",
         "[Events]",
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, Effect, Text",
