@@ -36,7 +36,7 @@ def _word_events(candidate: ClipCandidate, segments: list[TranscriptSegment]) ->
     return events
 
 
-def _group_words(words: list[tuple[float, float, str]], max_words: int = 3, max_chars: int = 22):
+def _group_words(words: list[tuple[float, float, str]], max_words: int = 3, max_chars: int = 24):
     groups = []
     current = []
     chars = 0
@@ -59,29 +59,15 @@ def _write_ass(
     output: Path,
     style: str,
 ) -> Path:
-    style = style if style in {"dynamic", "clean", "bold"} else "dynamic"
-
-    if style == "clean":
-        font_size = 50
-        primary = "&H00FFFFFF"
-        secondary = "&H00FFFFFF"
-        outline = 4
-        bold = 0
-        margin_v = 0
-    elif style == "bold":
-        font_size = 58
-        primary = "&H0000D7FF"
-        secondary = "&H00FFFFFF"
-        outline = 5
-        bold = 1
-        margin_v = 0
-    else:
-        font_size = 54
-        primary = "&H0000D7FF"
-        secondary = "&H00FFFFFF"
-        outline = 5
-        bold = 1
-        margin_v = 0
+    presets = {
+        "karaoke": dict(font_size=58, primary="&H00FFFFFF", secondary="&H00FFFFFF", outline=5, bold=1, active="&H0000D7FF", margin_v=0),
+        "fire": dict(font_size=62, primary="&H0000BFFF", secondary="&H00FFFFFF", outline=6, bold=1, active="&H00004DFF", margin_v=0),
+        "beasty": dict(font_size=66, primary="&H00FFFFFF", secondary="&H00FFFFFF", outline=7, bold=1, active="&H0000B5FF", margin_v=0),
+        "youshaei": dict(font_size=56, primary="&H00FFFFFF", secondary="&H00FFFFFF", outline=5, bold=1, active="&H0000D7FF", margin_v=0),
+        "harmozi": dict(font_size=60, primary="&H00FFFFFF", secondary="&H00FFFFFF", outline=5, bold=1, active="&H0000A5FF", margin_v=0),
+        "cinematic": dict(font_size=48, primary="&H00FFFFFF", secondary="&H00FFFFFF", outline=4, bold=0, active="&H00FFFFFF", margin_v=0),
+    }
+    preset = presets.get(style, presets["karaoke"])
 
     lines = [
         "[Script Info]",
@@ -93,7 +79,7 @@ def _write_ass(
         "",
         "[V4+ Styles]",
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-        f"Style: Caption,Arial,{font_size},{primary},{secondary},&H00000000,&HCC000000,{bold},0,0,0,100,100,0,0,1,{outline},2,5,70,70,{margin_v},1",
+        f"Style: Caption,Arial,{preset['font_size']},{preset['primary']},{preset['secondary']},&H00000000,&HCC000000,{preset['bold']},0,0,0,100,100,0,0,1,{preset['outline']},2,5,90,90,{preset['margin_v']},1",
         "",
         "[Events]",
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, Effect, Text",
@@ -102,19 +88,20 @@ def _write_ass(
     words = _word_events(candidate, segments)
     groups = _group_words(words)
 
-    if groups:
-        for group in groups:
-            start, end = group[0][0], group[-1][1]
-            if style == "dynamic":
-                pieces = []
-                for ws, we, text in group:
-                    duration_cs = max(1, round((we - ws) * 100))
-                    pieces.append(f"{{\\k{duration_cs}}}{_ass_escape(text)}")
-                text = " ".join(pieces)
+    for group in groups:
+        start, end = group[0][0], group[-1][1]
+        pieces = []
+        for ws, we, text in group:
+            duration_cs = max(1, round((we - ws) * 100))
+            escaped = _ass_escape(text)
+            if style == "cinematic":
+                pieces.append(f"{{\\k{duration_cs}}}{escaped}")
             else:
-                text = _ass_escape(" ".join(w[2] for w in group))
-            lines.append(f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},Caption,,0,0,0,{text}")
-    else:
+                pieces.append(f"{{\\c{preset['active']}\\k{duration_cs}}}{escaped}{{\\c{preset['primary']}}}")
+        text = " ".join(pieces)
+        lines.append(f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},Caption,,0,0,0,{text}")
+
+    if not groups:
         for segment in segments:
             start = max(segment.start, candidate.start) - candidate.start
             end = min(segment.end, candidate.end) - candidate.start
@@ -131,7 +118,7 @@ def render_vertical(
     candidate: ClipCandidate,
     output: Path,
     segments: list[TranscriptSegment],
-    caption_style: str = "dynamic",
+    caption_style: str = "karaoke",
 ) -> Path:
     """Render a 9:16 MP4 with social-style captions."""
     output.parent.mkdir(parents=True, exist_ok=True)
