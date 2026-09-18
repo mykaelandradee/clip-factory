@@ -11,6 +11,7 @@ class TranscriptSegment:
     start: float
     end: float
     text: str
+    words: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
