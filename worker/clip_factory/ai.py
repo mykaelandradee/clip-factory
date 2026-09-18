@@ -160,4 +160,29 @@ def select_clips(
         if len(selected) >= count:
             break
 
+    # Fallback: synthesize broader windows when transcript boundaries are sparse.
+    if len(selected) < count and segments:
+        total_start = segments[0].start
+        total_end = segments[-1].end
+        span = total_end - total_start
+        if span >= min_duration:
+            step = max(6.0, target * 0.45)
+            start = total_start
+            forced: list[ClipCandidate] = []
+            while start < total_end - min_duration + 0.1:
+                desired_end = min(start + target, total_end)
+                valid_end = max((s.end for s in segments if s.end >= desired_end), default=total_end)
+                end = min(valid_end, start + max_duration)
+                if end - start >= min_duration:
+                    text = " ".join(s.text.strip() for s in segments if s.end > start and s.start < end).strip()
+                    if text:
+                        forced.append(_candidate(start, end, text, target))
+                start += step
+            forced.sort(key=lambda c: c.score, reverse=True)
+            for candidate in forced:
+                if any(abs(candidate.start - chosen.start) < 4 and abs(candidate.end - chosen.end) < 4 for chosen in selected):
+                    continue
+                selected.append(candidate)
+                if len(selected) >= count:
+                    break
     return selected
