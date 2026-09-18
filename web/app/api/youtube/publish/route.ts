@@ -1,4 +1,9 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import {
+  decryptYouTubeRefreshToken,
+  getYouTubeCookieName,
+} from "@/lib/youtube-auth";
 
 export const runtime = "nodejs";
 
@@ -6,16 +11,27 @@ function configured() {
   return Boolean(
     process.env.YOUTUBE_CLIENT_ID &&
     process.env.YOUTUBE_CLIENT_SECRET &&
-    process.env.YOUTUBE_REFRESH_TOKEN &&
-    process.env.CLIP_FACTORY_GITHUB_TOKEN,
+    process.env.CLIP_FACTORY_GITHUB_TOKEN &&
+    process.env.CLIP_FACTORY_TOKEN_ENCRYPTION_KEY,
   );
 }
 
 export async function POST(request: Request) {
   if (!configured()) {
     return NextResponse.json(
-      { error: "YouTube ainda não está configurado." },
+      { error: "A integração do YouTube ainda não está configurada." },
       { status: 503 },
+    );
+  }
+
+  const cookieStore = await cookies();
+  const encrypted = cookieStore.get(getYouTubeCookieName())?.value;
+  const refreshToken = encrypted ? decryptYouTubeRefreshToken(encrypted) : null;
+
+  if (!refreshToken) {
+    return NextResponse.json(
+      { error: "Conecte sua conta do YouTube antes de publicar." },
+      { status: 401 },
     );
   }
 
@@ -26,8 +42,11 @@ export async function POST(request: Request) {
   const description = typeof body?.description === "string" ? body.description : "";
   const publishAt = typeof body?.publishAt === "string" ? body.publishAt : "";
 
-  if (!jobId || !/^clip-\\d{2}\\.mp4$/.test(file) || !title) {
-    return NextResponse.json({ error: "jobId, file e title são obrigatórios." }, { status: 400 });
+  if (!jobId || !/^clip-\d{2}\.mp4$/.test(file) || !title) {
+    return NextResponse.json(
+      { error: "jobId, file e title são obrigatórios." },
+      { status: 400 },
+    );
   }
 
   if (publishAt && Number.isNaN(Date.parse(publishAt))) {
@@ -52,15 +71,26 @@ export async function POST(request: Request) {
           title,
           description,
           publish_at: publishAt || null,
+          encrypted_refresh_token: encrypted,
         },
       }),
     },
   );
 
   if (!response.ok) {
-    console.error("YouTube publisher dispatch failed:", response.status, await response.text());
-    return NextResponse.json({ error: "Não foi possível iniciar a publicação." }, { status: 502 });
+    console.error(
+      "YouTube publisher dispatch failed:",
+      response.status,
+      await response.text(),
+    );
+    return NextResponse.json(
+      { error: "Não foi possível iniciar a publicação." },
+      { status: 502 },
+    );
   }
 
-  return NextResponse.json({ ok: true, status: publishAt ? "scheduled" : "queued" }, { status: 202 });
+  return NextResponse.json(
+    { ok: true, status: publishAt ? "scheduled" : "queued" },
+    { status: 202 },
+  );
 }
