@@ -42,3 +42,44 @@ h1 { margin:8px 0; font-size:42px; letter-spacing:-.04em; }
 .cf-step strong { display:block; margin-bottom:8px; }
 .cf-step span { color:#a1a1aa; line-height:1.5; font-size:14px; }
 @media (max-width: 800px) { .cf-grid, .cf-roadmap, .cf-results-grid { grid-template-columns:1fr; } .cf-header { align-items:flex-start; flex-direction:column; } h1 { font-size:34px; } }
+
+.cf-header-modern { align-items:center; }
+.cf-brand { display:flex; align-items:center; gap:12px; }
+.cf-logo { width:38px; height:38px; display:grid; place-items:center; border:1px solid #38383f; border-radius:10px; font-size:12px; font-weight:800; }
+.cf-hero { display:flex; justify-content:space-between; align-items:center; gap:30px; padding:70px 4px 58px; }
+.cf-eyebrow { color:#777781; font-size:11px; text-transform:uppercase; letter-spacing:.16em; }
+.cf-hero h2 { margin:12px 0 16px; font-size:clamp(38px,5vw,64px); line-height:.98; letter-spacing:-.055em; }
+.cf-hero h2 em { color:#85858f; font-style:normal; }
+.cf-hero p { max-width:640px; margin:0; color:#8c8c96; line-height:1.7; }
+.cf-hero-mark { width:92px; height:135px; display:grid; place-items:center; border:1px solid #2b2b32; border-radius:18px; color:#55555e; font-size:10px; letter-spacing:.18em; transform:rotate(5deg); }
+.cf-builder { box-shadow:0 25px 80px #00000022; }
+.cf-section-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }
+.cf-section-head > div { display:flex; gap:13px; align-items:flex-start; }
+.cf-number { color:#686873; font-size:11px; font-weight:700; padding-top:4px; }
+.cf-section-head h3 { margin:0 0 4px; font-size:16px; }
+.cf-section-head p { margin:0; color:#777781; font-size:12px; }
+.template-head { margin-top:30px; padding-top:28px; border-top:1px solid #24242a; }
+.cf-template-count { color:#666670; font-size:11px; }
+.cf-template-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+.cf-template { position:relative; overflow:hidden; padding:0; text-align:left; background:#0c0c0f; color:#fff; border:1px solid #292930; border-radius:14px; cursor:pointer; transition:.18s ease; }
+.cf-template:hover:not(:disabled) { border-color:#575761; transform:translateY(-2px); }
+.cf-template.selected { border-color:#aaaab3; box-shadow:0 0 0 1px #aaaab333; }
+.cf-template:disabled { cursor:default; }
+.cf-template-preview { height:145px; position:relative; display:flex; align-items:flex-end; justify-content:center; padding:0 14px 24px; overflow:hidden; background:linear-gradient(145deg,#1a1a20,#0a0a0d); }
+.cf-template-preview::before { content:""; position:absolute; inset:0; background:linear-gradient(135deg,#ffffff06 25%,transparent 25%,transparent 50%,#ffffff03 50%,#ffffff03 75%,transparent 75%); background-size:24px 24px; }
+.preview-top { position:absolute; top:12px; left:14px; color:#44444d; font-size:9px; }
+.preview-subtitle { position:relative; z-index:1; padding:7px 10px; border-radius:5px; color:#fff; font-size:19px; font-weight:800; text-align:center; text-shadow:0 2px 5px #000; }
+.accent-dynamic .preview-subtitle { background:linear-gradient(transparent 52%,#d9ff3f55 52%); }
+.accent-clean .preview-subtitle { font-weight:500; background:#00000055; }
+.accent-bold .preview-subtitle { font-size:21px; letter-spacing:-.03em; }
+.accent-highlight .preview-subtitle { background:#ff4da822; }
+.accent-neon .preview-subtitle { text-shadow:0 0 12px #a78bfa; }
+.accent-minimal .preview-subtitle { font-size:15px; font-weight:500; }
+.cf-template-info { padding:13px 14px 15px; display:flex; flex-direction:column; gap:4px; }
+.cf-template-info strong { font-size:13px; }
+.cf-template-info span { color:#777781; font-size:11px; }
+.cf-check { position:absolute; top:10px; right:10px; width:22px; height:22px; display:grid; place-items:center; background:#f4f4f5; color:#0a0a0c; border-radius:50%; font-size:12px; font-weight:800; }
+.cf-coming { position:absolute; top:10px; right:10px; padding:4px 7px; border:1px solid #44444d; border-radius:999px; color:#8c8c96; background:#0b0b0dcc; font-size:9px; }
+.cf-footer { display:flex; justify-content:space-between; gap:20px; padding:36px 4px 0; margin-top:48px; border-top:1px solid #222228; color:#55555e; font-size:10px; text-transform:uppercase; letter-spacing:.12em; }
+@media (max-width:800px){.cf-hero{padding:48px 0 38px}.cf-hero-mark{display:none}.cf-template-grid{grid-template-columns:1fr 1fr}}
+@media (max-width:520px){.cf-template-grid{grid-template-columns:1fr}.cf-footer{flex-direction:column;gap:8px}}
