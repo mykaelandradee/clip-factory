@@ -47,12 +47,16 @@ export default function Home() {
   const [job, setJob] = useState<Job | null>(null);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [youtubeConnected, setYoutubeConnected] = useState(false);
+  const [publishingFile, setPublishingFile] = useState<string | null>(null);
+  const [publishMessage, setPublishMessage] = useState("");
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const selectedTemplate = CAPTION_TEMPLATES.find(([id]) => id === captionStyle) ?? CAPTION_TEMPLATES[0];
 
   useEffect(() => {
     checkWorker();
+    checkYouTube();
     return () => { if (timer.current) clearInterval(timer.current); };
   }, []);
 
@@ -74,6 +78,41 @@ export default function Home() {
     }, 450);
     return () => clearTimeout(timeout);
   }, [url]);
+
+  async function checkYouTube() {
+    try {
+      const response = await fetch("/api/youtube/status", { cache: "no-store" });
+      if (!response.ok) return;
+      const data = await response.json();
+      setYoutubeConnected(Boolean(data.connected));
+    } catch {
+      setYoutubeConnected(false);
+    }
+  }
+
+  async function publishToYouTube(file: string, index: number) {
+    setPublishMessage("");
+    setPublishingFile(file);
+    try {
+      const response = await fetch("/api/youtube/publish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jobId,
+          file,
+          title: videoInfo?.title ? `${videoInfo.title} · Clip ${index + 1}` : `Clip Factory · Clip ${index + 1}`,
+          description: "Criado com o Clip Factory.",
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Não foi possível publicar no YouTube.");
+      setPublishMessage(`Clip ${index + 1} enviado para publicação no YouTube.`);
+    } catch (err) {
+      setPublishMessage(err instanceof Error ? err.message : "Erro ao publicar no YouTube.");
+    } finally {
+      setPublishingFile(null);
+    }
+  }
 
   async function checkWorker() {
     try {
@@ -265,7 +304,7 @@ export default function Home() {
                     </div>
                     <div className="cf-result-info">
                       <div><strong>Clip {index + 1}</strong><span>{duration === "15-30" ? "15–30s" : duration === "45-90" ? "45–90s" : "30–60s"}</span></div>
-                      <a href={download} download className="cf-download">Baixar <span>↓</span></a>
+                      <div className="cf-result-actions"><a href={download} download className="cf-download">Baixar <span>↓</span></a>{youtubeConnected && <button type="button" className="cf-download cf-publish-button" onClick={() => publishToYouTube(file, index)} disabled={publishingFile === file}>{publishingFile === file ? "Enviando…" : "YouTube ↗"}</button>}</div>
                     </div>
                   </article>
                 );
