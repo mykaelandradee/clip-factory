@@ -50,6 +50,7 @@ export async function POST(request: Request) {
   const count = Math.min(15, Math.max(1, Number(body.count ?? 5)));
   const minDuration = Math.max(5, Number(body.min_duration ?? 20));
   const maxDuration = Math.max(minDuration, Number(body.max_duration ?? 60));
+  const subtitleLanguage = body.subtitle_language === "en" ? "en" : "original";
   const jobId = crypto.randomUUID();
 
   try {
@@ -64,6 +65,7 @@ export async function POST(request: Request) {
           count,
           min_duration: minDuration,
           max_duration: maxDuration,
+          subtitle_language: subtitleLanguage,
         },
       }),
     });
