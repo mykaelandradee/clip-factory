@@ -73,16 +73,14 @@ def download_video(url: str, output_dir: Path) -> tuple[Path, dict]:
         "no_warnings": False,
         "verbose": True,
         "js_runtimes": {"deno": {}},
-        # YouTube's current guidance recommends mweb with a PO Token when
-        # the default clients are blocked. The GitHub Actions workflow starts
-        # the bgutil provider locally, so yt-dlp can obtain the token here.
         "extractor_args": {
             "youtube": {
                 "player_client": ["mweb"],
             },
+            "youtubepot-bgutilhttp": {
+                "base_url": ["http://127.0.0.1:4416"],
+            },
         },
-        # Give YouTube a small pause between requests; this also reduces the
-        # chance of triggering guest-session request throttling.
         "sleep_interval_requests": 1,
     }
 
