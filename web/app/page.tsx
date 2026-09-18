@@ -20,6 +20,19 @@ const CAPTION_TEMPLATES = [
   ["cinematic", "Cinematic", "Elegante, limpa e cinematográfica"],
 ] as const;
 
+function CaptionPreview({ id }: { id: string }) {
+  return (
+    <div className={`cf-template-preview accent-${id}`}>
+      <span className="preview-top">9:16</span>
+      <span className="preview-context">VOCÊ PRECISA VER ISSO</span>
+      <span className="preview-subtitle">
+        <i>isso</i> <b>MUDA</b> <i>tudo</i>
+      </span>
+      <span className="preview-progress"><span /></span>
+    </div>
+  );
+}
+
 export default function Home() {
   const [url, setUrl] = useState("");
   const [videoInfo, setVideoInfo] = useState<{title:string;author:string;thumbnail:string}|null>(null);
@@ -167,11 +180,11 @@ export default function Home() {
             ))}
           </div>
 
-          <div className="cf-label-row"><span>Templates de legenda</span><small>Estilos dinâmicos para vídeos curtos</small></div>
+          <div className="cf-label-row"><span>Templates de legenda</span><small>Visualize o estilo antes de gerar</small></div>
           <div className="cf-template-grid">
             {CAPTION_TEMPLATES.map(([id, name, description]) => (
               <button type="button" key={id} className={`cf-template ${captionStyle === id ? "selected" : ""}`} onClick={() => setCaptionStyle(id)} disabled={submitting}>
-                <div className={`cf-template-preview accent-${id}`}><span className="preview-top">A</span><span className="preview-subtitle">isso <b>MUDA</b> tudo</span></div>
+                <CaptionPreview id={id} />
                 <div className="cf-template-info"><strong>{name}</strong><span>{description}</span></div>
                 {captionStyle === id && <span className="cf-check">✓</span>}
               </button>
