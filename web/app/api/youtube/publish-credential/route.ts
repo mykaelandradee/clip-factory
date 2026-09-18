@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { createAdminClient } from "../../../lib/supabase/admin";
-import { decryptYouTubeRefreshToken } from "../../../lib/youtube-auth";
+import { createAdminClient } from "../../../../lib/supabase/admin";
+import { decryptYouTubeRefreshToken } from "../../../../lib/youtube-auth";
 
 export const runtime = "nodejs";
 
