@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { createClient } from "../../../lib/supabase/server";
+import { createAdminClient } from "../../../lib/supabase/admin";
 
 export const runtime = "nodejs";
 
@@ -42,6 +44,10 @@ function validateYoutubeUrl(value: unknown) {
 }
 
 export async function POST(request: Request) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Entre no Clip Factory antes de gerar clips." }, { status: 401 });
+
   const body = await request.json().catch(() => null);
   if (!validateYoutubeUrl(body?.url)) {
     return NextResponse.json({ error: "Informe uma URL válida do YouTube" }, { status: 400 });
@@ -56,6 +62,13 @@ export async function POST(request: Request) {
   const jobId = crypto.randomUUID();
 
   try {
+    const admin = createAdminClient();
+    const { error: jobError } = await admin.from("clip_jobs").insert({ id: jobId, user_id: user.id });
+    if (jobError) {
+      console.error("Clip job storage failed:", jobError.message);
+      return NextResponse.json({ error: "Não foi possível registrar o processamento." }, { status: 500 });
+    }
+
     const response = await githubFetch(`/repos/${OWNER}/${REPO}/dispatches`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -95,6 +108,10 @@ export async function POST(request: Request) {
 }
 
 export async function GET(request: Request) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Entre no Clip Factory antes de consultar o processamento." }, { status: 401 });
+
   const params = new URL(request.url).searchParams;
   const id = params.get("id");
   const download = params.get("download") === "1";
@@ -102,6 +119,10 @@ export async function GET(request: Request) {
   if (!id) return NextResponse.json({ error: "id é obrigatório" }, { status: 400 });
 
   try {
+    const admin = createAdminClient();
+    const { data: ownedJob } = await admin.from("clip_jobs").select("id").eq("id", id).eq("user_id", user.id).maybeSingle();
+    if (!ownedJob) return NextResponse.json({ error: "Processamento não encontrado." }, { status: 404 });
+
     const response = await githubFetch(
       `/repos/${OWNER}/${REPO}/actions/workflows/${WORKFLOW}/runs?event=repository_dispatch&per_page=30`,
     );
