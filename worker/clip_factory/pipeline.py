@@ -33,6 +33,7 @@ def run_pipeline(
     render: bool = True,
     progress: Progress | None = None,
     subtitle_language: str = "original",
+    caption_style: str = "dynamic",
 ) -> ProjectResult:
     settings.ensure_dirs()
 
@@ -70,7 +71,7 @@ def run_pipeline(
             percent = 70 + int((index - 1) / total * 25)
             report("rendering", percent, f"Renderizando clip {index} de {total}...")
             output = project_dir / f"clip-{index:02d}.mp4"
-            render_vertical(source, candidate, output, segments)
+            render_vertical(source, candidate, output, segments, caption_style)
             rendered.append(str(output))
 
     report("completed", 100, "Processamento concluído.")
