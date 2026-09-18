@@ -8,6 +8,8 @@
     "start": "next start"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.6.1",
+    "@supabase/supabase-js": "^2.57.0",
     "fflate": "^0.8.2",
     "next": "^15.5.0",
     "react": "^19.1.0",
