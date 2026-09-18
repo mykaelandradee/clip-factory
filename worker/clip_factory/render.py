@@ -36,7 +36,7 @@ def _word_events(candidate: ClipCandidate, segments: list[TranscriptSegment]) ->
     return events
 
 
-def _group_words(words: list[tuple[float, float, str]], max_words: int = 6, max_chars: int = 34):
+def _group_words(words: list[tuple[float, float, str]], max_words: int = 4, max_chars: int = 28):
     groups = []
     current = []
     chars = 0
@@ -60,15 +60,28 @@ def _write_ass(
     style: str,
 ) -> Path:
     style = style if style in {"dynamic", "clean", "bold"} else "dynamic"
+
     if style == "clean":
-        font_size, primary, secondary, outline = 46, "&H00FFFFFF", "&H00FFFFFF", 2
+        font_size = 50
+        primary = "&H00FFFFFF"
+        secondary = "&H00FFFFFF"
+        outline = 4
         bold = 0
+        margin_v = 190
     elif style == "bold":
-        font_size, primary, secondary, outline = 52, "&H00FFFFFF", "&H0000D7FF", 3
+        font_size = 58
+        primary = "&H0000D7FF"
+        secondary = "&H00FFFFFF"
+        outline = 5
         bold = 1
+        margin_v = 220
     else:
-        font_size, primary, secondary, outline = 48, "&H00FFFFFF", "&H0000D7FF", 3
+        font_size = 54
+        primary = "&H0000D7FF"
+        secondary = "&H00FFFFFF"
+        outline = 5
         bold = 1
+        margin_v = 210
 
     lines = [
         "[Script Info]",
@@ -80,7 +93,7 @@ def _write_ass(
         "",
         "[V4+ Styles]",
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-        f"Style: Caption,Arial,{font_size},{primary},{secondary},&H00000000,&H99000000,{bold},0,0,0,100,100,0,0,1,{outline},1,2,60,60,145,1",
+        f"Style: Caption,Arial,{font_size},{primary},{secondary},&H00000000,&HCC000000,{bold},0,0,0,100,100,0,0,1,{outline},2,2,70,70,{margin_v},1",
         "",
         "[Events]",
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, Effect, Text",
@@ -120,7 +133,7 @@ def render_vertical(
     segments: list[TranscriptSegment],
     caption_style: str = "dynamic",
 ) -> Path:
-    """Render a 9:16 MP4 with compact, bottom-positioned captions."""
+    """Render a 9:16 MP4 with social-style captions."""
     output.parent.mkdir(parents=True, exist_ok=True)
     subtitle_file = output.with_suffix(".ass")
     _write_ass(candidate, segments, subtitle_file, caption_style)
