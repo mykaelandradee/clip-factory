@@ -1,23 +1,34 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import {
-  decryptYouTubeRefreshToken,
-  getYouTubeCookieName,
-} from "../../../../lib/youtube-auth";
+import { createClient } from "../../../../lib/supabase/server";
+import { createAdminClient } from "../../../../lib/supabase/admin";
 
 export const runtime = "nodejs";
 
 export async function GET() {
-  const cookieStore = await cookies();
-  const encrypted = cookieStore.get(getYouTubeCookieName())?.value;
-  const connected = Boolean(encrypted && decryptYouTubeRefreshToken(encrypted));
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ configured: false, connected: false, authenticated: false });
+  }
+
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("youtube_connections")
+    .select("id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (error) {
+    console.error("YouTube status lookup failed:", error.message);
+    return NextResponse.json({ error: "Não foi possível consultar a conexão." }, { status: 500 });
+  }
 
   return NextResponse.json({
-    configured: connected,
-    connected,
+    configured: true,
+    connected: Boolean(data),
+    authenticated: true,
     scope: "https://www.googleapis.com/auth/youtube.upload",
-    message: connected
-      ? "YouTube conectado nesta sessão."
-      : "Conecte sua conta do YouTube para publicar.",
+    message: data ? "YouTube conectado." : "Conecte sua conta do YouTube para publicar.",
   });
 }
