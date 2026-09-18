@@ -126,7 +126,7 @@ def select_clips(
 
     selected: list[ClipCandidate] = []
 
-    # First pass: prioritize quality while strongly reducing duplicate/overlapping clips.
+    # Prefer distinct clips first.
     for candidate in candidates:
         if any(_overlap_ratio(candidate, chosen) >= 0.30 for chosen in selected):
             continue
@@ -134,12 +134,27 @@ def select_clips(
         if len(selected) >= count:
             return selected
 
-    # Second pass: if the transcript is sparse, relax the overlap constraint so the
-    # requested number can still be produced when there are distinct candidate windows.
+    # Short videos may not have enough non-overlapping material. Relax overlap.
     for candidate in candidates:
         if candidate in selected:
             continue
         if any(_overlap_ratio(candidate, chosen) >= 0.70 for chosen in selected):
+            continue
+        selected.append(candidate)
+        if len(selected) >= count:
+            return selected
+
+    # Last resort: satisfy the requested count with different candidate windows.
+    # This can create intentionally overlapping clips, but avoids silently returning
+    # fewer clips from a short source when enough distinct windows exist.
+    for candidate in candidates:
+        if candidate in selected:
+            continue
+        if any(
+            abs(candidate.start - chosen.start) < 5
+            and abs(candidate.end - chosen.end) < 5
+            for chosen in selected
+        ):
             continue
         selected.append(candidate)
         if len(selected) >= count:
