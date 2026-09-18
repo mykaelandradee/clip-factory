@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { createClient } from "../../../../lib/supabase/server";
-import { createAdminClient } from "../../../../lib/supabase/admin";
-import { encryptYouTubeRefreshToken, getOAuthStateCookieName } from "../../../../lib/youtube-auth";
+import { createClient } from "../../../lib/supabase/server";
+import { createAdminClient } from "../../../lib/supabase/admin";
+import { encryptYouTubeRefreshToken, getOAuthStateCookieName } from "../../../lib/youtube-auth";
 
 export const runtime = "nodejs";
 
