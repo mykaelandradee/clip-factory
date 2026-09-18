@@ -45,6 +45,14 @@ jobs:
           test -n "${FOUND}"
           cp "${FOUND}" publish/video.mp4
 
+      - name: Validate publisher configuration
+        run: |
+          test -n "${CLIP_FACTORY_PUBLISH_API_KEY}"
+          test -n "${JOB_ID}"
+          test -n "${CONNECTION_ID}"
+          test -n "${FILE}"
+          test -n "${VIDEO_TITLE}"
+
       - name: Upload to YouTube
         run: |
           cat > publish_youtube.py <<'PY'
