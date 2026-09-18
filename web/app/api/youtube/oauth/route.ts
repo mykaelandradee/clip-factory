@@ -1,4 +1,9 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import {
+  createOAuthState,
+  getOAuthStateCookieName,
+} from "@/lib/youtube-auth";
 
 export const runtime = "nodejs";
 
@@ -11,6 +16,16 @@ export async function GET(request: Request) {
     );
   }
 
+  const state = createOAuthState();
+  const cookieStore = await cookies();
+  cookieStore.set(getOAuthStateCookieName(), state, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 600,
+  });
+
   const origin = new URL(request.url).origin;
   const redirectUri = `${origin}/api/youtube/callback`;
   const params = new URLSearchParams({
@@ -20,6 +35,7 @@ export async function GET(request: Request) {
     access_type: "offline",
     prompt: "consent",
     scope: "https://www.googleapis.com/auth/youtube.upload",
+    state,
   });
 
   return NextResponse.redirect(
