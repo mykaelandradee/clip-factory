@@ -50,6 +50,7 @@ export default function Home() {
   const [youtubeConnected, setYoutubeConnected] = useState(false);
   const [publishingFile, setPublishingFile] = useState<string | null>(null);
   const [publishMessage, setPublishMessage] = useState("");
+  const [publishDrafts, setPublishDrafts] = useState<Record<string, { title: string; description: string }>>({});
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const selectedTemplate = CAPTION_TEMPLATES.find(([id]) => id === captionStyle) ?? CAPTION_TEMPLATES[0];
@@ -90,9 +91,29 @@ export default function Home() {
     }
   }
 
+  function defaultPublishTitle(index: number) {
+    return videoInfo?.title || "Clip Factory · Clip " + (index + 1);
+  }
+
+  function getPublishDraft(file: string, index: number) {
+    return publishDrafts[file] ?? {
+      title: defaultPublishTitle(index),
+      description: "Criado com o Clip Factory.",
+    };
+  }
+
+  function updatePublishDraft(file: string, index: number, field: "title" | "description", value: string) {
+    const current = getPublishDraft(file, index);
+    setPublishDrafts((previous) => ({
+      ...previous,
+      [file]: { ...current, [field]: value },
+    }));
+  }
+
   async function publishToYouTube(file: string, index: number) {
     setPublishMessage("");
     setPublishingFile(file);
+    const draft = getPublishDraft(file, index);
     try {
       const response = await fetch("/api/youtube/publish", {
         method: "POST",
@@ -100,8 +121,8 @@ export default function Home() {
         body: JSON.stringify({
           jobId,
           file,
-          title: videoInfo?.title ? `${videoInfo.title} · Clip ${index + 1}` : `Clip Factory · Clip ${index + 1}`,
-          description: "Criado com o Clip Factory.",
+          title: draft.title.trim(),
+          description: draft.description,
         }),
       });
       const data = await response.json();
@@ -113,7 +134,6 @@ export default function Home() {
       setPublishingFile(null);
     }
   }
-
   async function checkWorker() {
     try {
       const response = await fetch("/api/health", { cache: "no-store" });
@@ -308,9 +328,47 @@ export default function Home() {
                       <span className="cf-clip-number">0{index + 1}</span>
                     </div>
                     <div className="cf-result-info">
-                      <div><strong>Clip {index + 1}</strong><span>{duration === "15-30" ? "15–30s" : duration === "45-90" ? "45–90s" : "30–60s"}</span></div>
-                      <div className="cf-result-actions"><a href={download} download className="cf-download">Baixar <span>↓</span></a>{youtubeConnected && <button type="button" className="cf-download cf-publish-button" onClick={() => publishToYouTube(file, index)} disabled={publishingFile === file}>{publishingFile === file ? "Enviando…" : "YouTube ↗"}</button>}</div>
-                    </div>
+                      <div className="cf-result-heading"><strong>Clip {index + 1}</strong><span>{duration === "15-30" ? "15–30s" : duration === "45-90" ? "45–90s" : "30–60s"} · 9:16 · SHORT</span></div>
+                      {youtubeConnected && (
+                        <div className="cf-publish-fields">
+                          <label>
+                            <span>Título do Short</span>
+                            <input
+                              value={getPublishDraft(file, index).title}
+                              maxLength={100}
+                              onChange={(e) => updatePublishDraft(file, index, "title", e.target.value)}
+                              placeholder="Digite o título..."
+                              disabled={publishingFile === file}
+                            />
+                            <small>{getPublishDraft(file, index).title.length}/100</small>
+                          </label>
+                          <label>
+                            <span>Descrição</span>
+                            <textarea
+                              value={getPublishDraft(file, index).description}
+                              maxLength={5000}
+                              rows={3}
+                              onChange={(e) => updatePublishDraft(file, index, "description", e.target.value)}
+                              placeholder="Digite a descrição..."
+                              disabled={publishingFile === file}
+                            />
+                            <small>{getPublishDraft(file, index).description.length}/5000</small>
+                          </label>
+                        </div>
+                      )}
+                      <div className="cf-result-actions">
+                        <a href={download} download className="cf-download">Baixar <span>↓</span></a>
+                        {youtubeConnected && (
+                          <button
+                            type="button"
+                            className="cf-download cf-publish-button"
+                            onClick={() => publishToYouTube(file, index)}
+                            disabled={publishingFile === file || !getPublishDraft(file, index).title.trim()}
+                          >
+                            {publishingFile === file ? "Enviando…" : "Publicar Short ↗"}
+                          </button>
+                        )}
+                      </div>                    </div>
                   </article>
                 );
               })}
