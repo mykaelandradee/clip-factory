@@ -19,6 +19,7 @@ export default function Home() {
   const [url, setUrl] = useState("");
   const [clips, setClips] = useState("5");
   const [subtitleLanguage, setSubtitleLanguage] = useState("original");
+  const [captionStyle, setCaptionStyle] = useState("dynamic");
   const [workerOnline, setWorkerOnline] = useState(false);
   const [jobId, setJobId] = useState("");
   const [job, setJob] = useState<Job | null>(null);
@@ -76,6 +77,7 @@ export default function Home() {
           min_duration: 20,
           max_duration: 60,
           subtitle_language: subtitleLanguage,
+          caption_style: captionStyle,
         }),
       });
       const data = await response.json();
@@ -123,46 +125,14 @@ export default function Home() {
                 <option value="original">Português / idioma original</option>
                 <option value="en">English</option>
               </select>
-              <small>O modo English traduz a fala para inglês usando o Whisper local.</small>
+              <small>Português (Brasil) traduz automaticamente quando o vídeo estiver em outro idioma.</small>
             </div>
-          </div>
-          <div className="cf-actions">
-            <button className="cf-button" type="submit" disabled={submitting}>
-              {submitting ? "Processando..." : "Analisar vídeo"}
-            </button>
-          </div>
-
-          {jobId && job && <div className="cf-job">
-            <div className="cf-job-top"><strong>{job.message}</strong><span>{job.progress}%</span></div>
-            <div className="cf-progress"><div style={{ width: `${job.progress}%` }} /></div>
-            <small>Job {jobId}{job.stage ? ` · ${job.stage}` : ""}</small>
-          </div>}
-
-          {error && <p className="cf-error">{error}</p>}
-          {job?.status === "failed" && <p className="cf-error">{job.error || job.message}</p>}
-        </form>
-
-        {job?.status === "completed" && job.result && (
-          <section className="cf-results">
-            <div className="cf-results-head">
-              <h2>Processamento concluído</h2>
-              <span>resultado disponível</span>
+             <div className="cf-field">
+              <label htmlFor="caption-style">Estilo da legenda</label>
+              <select id="caption-style" value={captionStyle} onChange={(e) => setCaptionStyle(e.target.value)} disabled={submitting}>
+                <option value="dynamic">Dinâmica — destaque por palavras</option>
+                <option value="clean">Clean — discreta</option>
+                <option value="bold">Bold — maior destaque</option>
+              </select>
+              <small>As legendas ficam na faixa inferior, sem cobrir o centro do vídeo.</small>
             </div>
-            <div className="cf-card">
-              <p>Os clips e o resultado foram gerados pelo GitHub Actions.</p>
-              <a className="cf-button" href={job.result.downloadUrl} target="_blank" rel="noreferrer">
-                Baixar clips
-              </a>
-            </div>
-          </section>
-        )}
-
-        <section className="cf-roadmap">
-          <div className="cf-step"><strong>01 · Analisar</strong><span>yt-dlp + Whisper executam no runner gratuito do GitHub.</span></div>
-          <div className="cf-step"><strong>02 · Selecionar</strong><span>O processamento local identifica os melhores trechos.</span></div>
-          <div className="cf-step"><strong>03 · Baixar</strong><span>Os resultados ficam disponíveis como artefato por 3 dias.</span></div>
-        </section>
-      </div>
-    </main>
-  );
-}
