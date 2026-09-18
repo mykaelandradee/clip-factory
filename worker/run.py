@@ -13,7 +13,8 @@ def main() -> None:
     parser.add_argument("--count", type=int, default=5)
     parser.add_argument("--min-duration", type=int, default=20)
     parser.add_argument("--max-duration", type=int, default=60)
-    parser.add_argument("--subtitle-language", choices=["original", "en"], default="original")
+    parser.add_argument("--subtitle-language", choices=["original", "pt-BR", "en"], default="original")
+    parser.add_argument("--caption-style", choices=["dynamic", "clean", "bold"], default="dynamic")
     parser.add_argument("--no-render", action="store_true")
     args = parser.parse_args()
 
@@ -25,6 +26,7 @@ def main() -> None:
         args.max_duration,
         not args.no_render,
         subtitle_language=args.subtitle_language,
+        caption_style=args.caption_style,
     )
     print(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
 
