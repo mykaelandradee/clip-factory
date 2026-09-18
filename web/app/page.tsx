@@ -122,7 +122,16 @@ export default function Home() {
             
           </div>
 
-          <div className="cf-label-row cf-section-gap"><span>Duração do clip</span><small>Defina o tamanho dos cortes</small></div>\n          <div className="cf-duration-grid">\n            {[["15-30", "15–30s"], ["30-60", "30–60s"], ["45-90", "45–90s"]].map(([id, label]) => (\n              <button type="button" key={id} className={`cf-duration ${duration === id ? "selected" : ""}`} onClick={() => setDuration(id)} disabled={submitting}>\n                <strong>{label}</strong><span>Clips entre essa duração</span>\n              </button>\n            ))}\n          </div>\n\n          <div className="cf-label-row"><span>Templates</span><small>Escolha um estilo</small></div>
+          <div className="cf-label-row cf-section-gap"><span>Duração do clip</span><small>Defina o tamanho dos cortes</small></div>
+          <div className="cf-duration-grid">
+            {[["15-30", "15–30s"], ["30-60", "30–60s"], ["45-90", "45–90s"]].map(([id, label]) => (
+              <button type="button" key={id} className={`cf-duration ${duration === id ? "selected" : ""}`} onClick={() => setDuration(id)} disabled={submitting}>
+                <strong>{label}</strong><span>Clips entre essa duração</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="cf-label-row"><span>Templates</span><small>Escolha um estilo</small></div>
           <div className="cf-template-grid">{["dynamic","clean","bold","highlight","neon","minimal"].map((id) => <button type="button" key={id} className={`cf-template ${captionStyle===id ? "selected":""} ${["highlight","neon","minimal"].includes(id) ? "coming":""}`} onClick={() => !["highlight","neon","minimal"].includes(id) && setCaptionStyle(id)} disabled={submitting || ["highlight","neon","minimal"].includes(id)}><div className={`cf-template-preview accent-${id}`}><span className="preview-top">A</span><span className="preview-subtitle">{id==="bold"?"ISSO MUDA TUDO":id==="dynamic"?"isso MUDA tudo":"isso muda tudo"}</span></div><div className="cf-template-info"><strong>{id[0].toUpperCase()+id.slice(1)}</strong><span>{id==="dynamic"?"Destaque palavra por palavra":id==="clean"?"Discreta e elegante":id==="bold"?"Grande e marcante":id==="highlight"?"Palavra em destaque":id==="neon"?"Visual forte e moderno":"Pequena e sofisticada"}</span></div>{["highlight","neon","minimal"].includes(id) ? <span className="cf-coming">Em breve</span> : captionStyle===id ? <span className="cf-check">✓</span> : null}</button>)}</div>
 
           <div className="cf-actions">
