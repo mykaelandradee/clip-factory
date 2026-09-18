@@ -124,3 +124,34 @@ button{appearance:none}
 @media(max-width:980px){.cf-template-grid{grid-template-columns:repeat(3,1fr)}.cf-grid{grid-template-columns:1fr 1fr}.cf-field:first-child{grid-column:1/-1}.cf-hero-mark-wrap{margin-right:0}.cf-results-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:600px){.cf-shell{padding:12px 10px 50px}.cf-header{height:50px}.cf-header-meta{gap:8px}.cf-live-label{display:none}.cf-hero{min-height:300px;padding:48px 2px 42px}.cf-hero h2{font-size:52px}.cf-hero p{font-size:11px}.cf-hero-pills span{font-size:7px}.cf-hero-mark-wrap{display:none}.cf-builder{padding:15px;border-radius:18px}.cf-grid{grid-template-columns:1fr}.cf-field:first-child{grid-column:auto}.cf-template-grid{grid-template-columns:repeat(2,1fr)}.cf-template-preview{height:140px}.cf-duration-grid{grid-template-columns:1fr}.cf-actions{justify-content:stretch}.cf-button{width:100%}.cf-style-detail{align-items:flex-start}.cf-style-wave{display:none}.cf-results-head{align-items:stretch;flex-direction:column;gap:12px}.cf-results-grid{grid-template-columns:1fr}.cf-button-secondary{width:100%}.cf-video-info img{width:92px;height:52px}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}}
+
+
+.cf-youtube-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 999px;
+  background: rgba(255,255,255,.04);
+  color: inherit;
+  text-decoration: none;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  transition: .2s ease;
+}
+.cf-youtube-button:hover { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.2); }
+.cf-yt-dot { width: 7px; height: 7px; border-radius: 50%; background: #71717a; }
+.cf-yt-dot.connected { background: #22c55e; box-shadow: 0 0 10px rgba(34,197,94,.55); }
+.cf-result-actions { display: flex; gap: 8px; align-items: center; }
+.cf-publish-button { border: 0; cursor: pointer; font: inherit; }
+.cf-publish-button:disabled { opacity: .55; cursor: wait; }
+.cf-youtube-message { margin: 16px 0 0; color: #a1a1aa; font-size: 13px; }
+@media (max-width: 720px) {
+  .cf-header-meta { gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .cf-live-label { display: none; }
+  .cf-youtube-button { font-size: 10px; }
+  .cf-result-actions { flex-wrap: wrap; }
+}
