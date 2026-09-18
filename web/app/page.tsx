@@ -1,6 +1,8 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
+import type { User } from "@supabase/supabase-js";
+import { createClient } from "../lib/supabase/client";
 
 type Job = {
   status: string;
@@ -48,6 +50,9 @@ export default function Home() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [youtubeConnected, setYoutubeConnected] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authMessage, setAuthMessage] = useState("");
   const [publishingFile, setPublishingFile] = useState<string | null>(null);
   const [publishMessage, setPublishMessage] = useState("");
   const [publishDrafts, setPublishDrafts] = useState<Record<string, { title: string; description: string }>>({});
@@ -56,8 +61,8 @@ export default function Home() {
   const selectedTemplate = CAPTION_TEMPLATES.find(([id]) => id === captionStyle) ?? CAPTION_TEMPLATES[0];
 
   useEffect(() => {
+    initAuth();
     checkWorker();
-    checkYouTube();
     return () => { if (timer.current) clearInterval(timer.current); };
   }, []);
 
@@ -79,6 +84,52 @@ export default function Home() {
     }, 450);
     return () => clearTimeout(timeout);
   }, [url]);
+
+  async function initAuth() {
+    try {
+      const supabase = createClient();
+      const { data } = await supabase.auth.getUser();
+      setUser(data.user ?? null);
+      if (data.user) await checkYouTube();
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("auth_required") === "1") setAuthMessage("Entre no Clip Factory antes de conectar uma conta.");
+      if (params.get("auth_error")) setAuthMessage("Não foi possível concluir o login. Tente novamente.");
+      supabase.auth.onAuthStateChange((_event, session) => {
+        setUser(session?.user ?? null);
+        if (session?.user) checkYouTube();
+        else setYoutubeConnected(false);
+      });
+    } catch {
+      setAuthMessage("Autenticação ainda não está configurada.");
+    } finally {
+      setAuthLoading(false);
+    }
+  }
+
+  async function signIn() {
+    setAuthMessage("");
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: window.location.origin + "/auth/callback" },
+      });
+      if (error) setAuthMessage(error.message);
+    } catch {
+      setAuthMessage("Não foi possível iniciar o login.");
+    }
+  }
+
+  async function signOut() {
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      setUser(null);
+      setYoutubeConnected(false);
+    } catch {
+      setAuthMessage("Não foi possível sair.");
+    }
+  }
 
   async function checkYouTube() {
     try {
@@ -202,13 +253,24 @@ export default function Home() {
           <div className="cf-brand"><div className="cf-logo">CF</div><span>Clip Factory</span></div>
           <div className="cf-header-meta">
             <span className="cf-live-label">LOCAL AI PIPELINE</span>
-            <a className="cf-youtube-button" href="/api/youtube/oauth" aria-label="Conectar YouTube">
-              <span className={`cf-yt-dot ${youtubeConnected ? "connected" : ""}`} />
-              {youtubeConnected ? "YouTube conectado" : "Conectar YouTube"}
-            </a>
+            {user ? (
+              <>
+                <a className="cf-youtube-button" href="/api/youtube/oauth" aria-label="Conectar YouTube">
+                  <span className={`cf-yt-dot ${youtubeConnected ? "connected" : ""}`} />
+                  {youtubeConnected ? "YouTube conectado" : "Conectar YouTube"}
+                </a>
+                <button type="button" className="cf-auth-button" onClick={signOut}>{user.email?.split("@")[0] || "Sair"} · Sair</button>
+              </>
+            ) : (
+              <button type="button" className="cf-youtube-button" onClick={signIn} disabled={authLoading}>
+                {authLoading ? "Carregando..." : "Entrar com Google"}
+              </button>
+            )}
             <div className={`cf-status-pill ${workerOnline ? "online" : "offline"}`}><span /> GitHub Actions {workerOnline ? "conectado" : "não configurado"}</div>
           </div>
         </header>
+
+        {authMessage && <div className="cf-auth-message">{authMessage}</div>}
 
         <section className="cf-hero">
           <div className="cf-hero-copy">
@@ -291,8 +353,8 @@ export default function Home() {
           </div>
 
           <div className="cf-actions">
-            <button className="cf-button" type="submit" disabled={submitting}>
-              <span>{submitting ? "PROCESSANDO..." : "GERAR CLIPS"}</span><b>↗</b>
+            <button className="cf-button" type="submit" disabled={submitting || !user}>
+              <span>{!user ? "ENTRE PARA GERAR" : submitting ? "PROCESSANDO..." : "GERAR CLIPS"}</span><b>↗</b>
             </button>
           </div>
 
