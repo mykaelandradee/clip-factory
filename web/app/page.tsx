@@ -182,6 +182,10 @@ export default function Home() {
           <div className="cf-brand"><div className="cf-logo">CF</div><span>Clip Factory</span></div>
           <div className="cf-header-meta">
             <span className="cf-live-label">LOCAL AI PIPELINE</span>
+            <a className="cf-youtube-button" href="/api/youtube/oauth" aria-label="Conectar YouTube">
+              <span className={`cf-yt-dot ${youtubeConnected ? "connected" : ""}`} />
+              {youtubeConnected ? "YouTube conectado" : "Conectar YouTube"}
+            </a>
             <div className={`cf-status-pill ${workerOnline ? "online" : "offline"}`}><span /> GitHub Actions {workerOnline ? "conectado" : "não configurado"}</div>
           </div>
         </header>
@@ -283,6 +287,7 @@ export default function Home() {
 
           {error && <p className="cf-error">{error}</p>}
           {job?.status === "failed" && <p className="cf-error">{job.error || job.message}</p>}
+          {publishMessage && <p className="cf-youtube-message">{publishMessage}</p>}
         </form>
 
         {job?.status === "completed" && job.result && (
