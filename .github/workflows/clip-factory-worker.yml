@@ -150,21 +150,12 @@ jobs:
           rm -f "${YOUTUBE_COOKIE_FILE:-}"
           rm -rf "$RUNNER_TEMP/clip-factory-secrets"
 
-      - name: Package results
-        if: always()
-        run: |
-          mkdir -p worker/data
-          if [ -d worker/data/projects ]; then
-            tar -czf "clip-factory-${JOB_ID}.tar.gz" -C worker/data projects
-          fi
-
       - name: Upload results
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: clip-factory-${{ env.JOB_ID }}
           path: |
-            clip-factory-${{ env.JOB_ID }}.tar.gz
-            worker/data/projects/**/result.json
+            worker/data/projects/**/clip-*.mp4
           if-no-files-found: warn
           retention-days: 3
