@@ -13,22 +13,23 @@ type Job = {
 
 const CAPTION_TEMPLATES = [
   ["karaoke", "Karaoke", "Palavra por palavra, destaque amarelo"],
-  ["fire", "Fire", "Impacto forte com destaque quente"],
-  ["beasty", "Beasty", "Pesada, grande e agressiva"],
-  ["youshaei", "Youshaei", "Clean, central e dinâmica"],
-  ["harmozi", "Harmozi", "Bold com palavras em destaque"],
-  ["cinematic", "Cinematic", "Elegante, limpa e cinematográfica"],
+  ["fire", "Fire", "Impacto quente, glow e punch-in"],
+  ["beasty", "Beasty", "Grande, pesada e agressiva"],
+  ["youshaei", "Youshaei", "Clean, editorial e dinâmica"],
+  ["harmozi", "Harmozi", "Bold, contraste e ênfase"],
+  ["cinematic", "Cinematic", "Minimalista, suave e elegante"],
 ] as const;
 
 function CaptionPreview({ id }: { id: string }) {
   return (
     <div className={`cf-template-preview accent-${id}`}>
-      <span className="preview-top">9:16</span>
+      <span className="preview-top">9:16 • LIVE PREVIEW</span>
       <span className="preview-context">VOCÊ PRECISA VER ISSO</span>
       <span className="preview-subtitle">
-        <i>isso</i> <b>MUDA</b> <i>tudo</i>
+        <i>ISSO</i> <b>MUDA</b> <i>TUDO</i>
       </span>
       <span className="preview-progress"><span /></span>
+      <span className="preview-style-mark">{id}</span>
     </div>
   );
 }
@@ -47,6 +48,8 @@ export default function Home() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const selectedTemplate = CAPTION_TEMPLATES.find(([id]) => id === captionStyle) ?? CAPTION_TEMPLATES[0];
 
   useEffect(() => {
     checkWorker();
@@ -133,24 +136,45 @@ export default function Home() {
 
   return (
     <main className="cf-shell">
+      <div className="cf-bg-orb cf-bg-orb-a" />
+      <div className="cf-bg-orb cf-bg-orb-b" />
       <div className="cf-container">
         <header className="cf-header cf-header-modern">
           <div className="cf-brand"><div className="cf-logo">CF</div><span>Clip Factory</span></div>
-          <div className={`cf-status-pill ${workerOnline ? "online" : "offline"}`}><span /> GitHub Actions {workerOnline ? "conectado" : "não configurado"}</div>
+          <div className="cf-header-meta">
+            <span className="cf-live-label">LOCAL AI PIPELINE</span>
+            <div className={`cf-status-pill ${workerOnline ? "online" : "offline"}`}><span /> GitHub Actions {workerOnline ? "conectado" : "não configurado"}</div>
+          </div>
         </header>
 
-        <section className="cf-hero"><div><div className="cf-hero-label">VIDEO → CLIPS</div><h2>Transforme seu vídeo<br /><em>em conteúdo.</em></h2></div><div className="cf-hero-mark">9:16</div></section>
+        <section className="cf-hero">
+          <div className="cf-hero-copy">
+            <div className="cf-hero-label"><span /> VIDEO → CLIPS → SOCIAL</div>
+            <h2>Transforme seu vídeo<br /><em>em conteúdo.</em></h2>
+            <p>Recorte automático, legendas animadas e formato 9:16 em um único fluxo.</p>
+            <div className="cf-hero-pills"><span>AI CLIPPING</span><span>9:16</span><span>WORD SYNC</span><span>READY TO POST</span></div>
+          </div>
+          <div className="cf-hero-mark-wrap">
+            <div className="cf-hero-mark"><strong>9:16</strong><span>SHORT FORM</span></div>
+            <div className="cf-hero-orbit orbit-one" />
+            <div className="cf-hero-orbit orbit-two" />
+          </div>
+        </section>
 
         <form className="cf-card cf-builder" onSubmit={submit}>
+          <div className="cf-builder-head">
+            <div><span className="cf-kicker">01 / SOURCE</span><h3>Escolha o vídeo</h3></div>
+            <span className="cf-step-dot">01</span>
+          </div>
           <div className="cf-grid">
             <div className="cf-field">
               <label htmlFor="url">URL do YouTube</label>
-              <input id="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://www.youtube.com/watch?v=..." disabled={submitting} />
-              {loadingInfo && <small>Carregando informações do vídeo...</small>}
+              <input id="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="Cole o link do YouTube aqui..." disabled={submitting} />
+              {loadingInfo && <small>Buscando thumbnail e informações...</small>}
               {videoInfo && (
                 <div className="cf-video-info">
                   <img src={videoInfo.thumbnail} alt="" />
-                  <div><strong>{videoInfo.title}</strong><span>{videoInfo.author}</span></div>
+                  <div><strong>{videoInfo.title}</strong><span>{videoInfo.author}</span><small className="cf-video-ready">● VÍDEO IDENTIFICADO</small></div>
                 </div>
               )}
             </div>
@@ -161,26 +185,33 @@ export default function Home() {
               </select>
             </div>
             <div className="cf-field">
-              <label htmlFor="subtitle-language">Idioma da legenda</label>
+              <label htmlFor="subtitle-language">Idioma</label>
               <select id="subtitle-language" value={subtitleLanguage} onChange={(e) => setSubtitleLanguage(e.target.value)} disabled={submitting}>
                 <option value="original">Idioma original</option>
                 <option value="pt-BR">Português (Brasil)</option>
                 <option value="en">English</option>
               </select>
-              <small>Português (Brasil) traduz a fala para PT-BR usando modelos locais.</small>
+              <small>Tradução local para PT-BR, sem API paga.</small>
             </div>
           </div>
 
-          <div className="cf-label-row cf-section-gap"><span>Duração do clip</span><small>Defina o tamanho dos cortes</small></div>
+          <div className="cf-builder-head cf-section-head">
+            <div><span className="cf-kicker">02 / CUT</span><h3>Defina a duração</h3></div>
+            <span className="cf-section-note">Escolha o ritmo do conteúdo</span>
+          </div>
           <div className="cf-duration-grid">
             {[["15-30", "15–30s"], ["30-60", "30–60s"], ["45-90", "45–90s"]].map(([id, label]) => (
               <button type="button" key={id} className={`cf-duration ${duration === id ? "selected" : ""}`} onClick={() => setDuration(id)} disabled={submitting}>
-                <strong>{label}</strong><span>Clips entre essa duração</span>
+                <span className="cf-duration-num">0{id === "15-30" ? "1" : id === "30-60" ? "2" : "3"}</span>
+                <strong>{label}</strong><span>clips nesta faixa</span>
               </button>
             ))}
           </div>
 
-          <div className="cf-label-row"><span>Templates de legenda</span><small>Visualize o estilo antes de gerar</small></div>
+          <div className="cf-builder-head cf-section-head">
+            <div><span className="cf-kicker">03 / STYLE</span><h3>Escolha a personalidade da legenda</h3></div>
+            <span className="cf-section-note">Cada preset usa tipografia e animação próprias</span>
+          </div>
           <div className="cf-template-grid">
             {CAPTION_TEMPLATES.map(([id, name, description]) => (
               <button type="button" key={id} className={`cf-template ${captionStyle === id ? "selected" : ""}`} onClick={() => setCaptionStyle(id)} disabled={submitting}>
@@ -190,15 +221,23 @@ export default function Home() {
               </button>
             ))}
           </div>
+          <div className={`cf-style-detail accent-${selectedTemplate[0]}`}>
+            <div className="cf-style-detail-icon">✦</div>
+            <div><span>PRESET SELECIONADO</span><strong>{selectedTemplate[1]}</strong><p>{selectedTemplate[2]} · maiúsculas · word-sync · 9:16</p></div>
+            <div className="cf-style-wave"><i/><i/><i/><i/><i/><i/></div>
+          </div>
 
           <div className="cf-actions">
-            <button className="cf-button" type="submit" disabled={submitting}>{submitting ? "Processando..." : "Analisar vídeo"}</button>
+            <button className="cf-button" type="submit" disabled={submitting}>
+              <span>{submitting ? "PROCESSANDO..." : "GERAR CLIPS"}</span><b>↗</b>
+            </button>
           </div>
 
           {jobId && job && (
             <div className="cf-job">
               <div className="cf-job-top"><strong>{job.message}</strong><span>{job.progress}%</span></div>
               <div className="cf-progress"><div style={{ width: `${job.progress}%` }} /></div>
+              <div className="cf-job-steps"><span className={job.progress >= 20 ? "done" : ""}>DOWNLOAD</span><span className={job.progress >= 45 ? "done" : ""}>TRANSCRIÇÃO</span><span className={job.progress >= 70 ? "done" : ""}>CLIPS</span><span className={job.progress >= 90 ? "done" : ""}>RENDER</span></div>
               <small>Job {jobId}{job.stage ? ` · ${job.stage}` : ""}</small>
             </div>
           )}
@@ -210,8 +249,8 @@ export default function Home() {
         {job?.status === "completed" && job.result && (
           <section className="cf-results">
             <div className="cf-results-head">
-              <div><div className="cf-section-kicker">Resultado</div><h2>Seus clips estão prontos.</h2></div>
-              <a className="cf-button cf-button-secondary" href={job.result.downloadUrl} download>Baixar tudo</a>
+              <div><div className="cf-section-kicker">04 / OUTPUT</div><h2>Seus clips estão prontos.</h2><p>Formato vertical, legendas queimadas e prontos para publicar.</p></div>
+              <a className="cf-button cf-button-secondary" href={job.result.downloadUrl} download>Baixar tudo <b>↓</b></a>
             </div>
             <div className="cf-results-grid">
               {Array.from({ length: Number(clips) }, (_, index) => {
