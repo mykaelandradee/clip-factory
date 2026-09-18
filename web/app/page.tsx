@@ -149,12 +149,6 @@ export default function Home() {
             </div>
           </section>
         )}
-
-        <section className="cf-roadmap">
-          <div className="cf-step"><strong>01 · Analisar</strong><span>yt-dlp + Whisper executam no runner gratuito do GitHub.</span></div>
-          <div className="cf-step"><strong>02 · Selecionar</strong><span>O processamento local identifica os melhores trechos.</span></div>
-          <div className="cf-step"><strong>03 · Baixar</strong><span>Os resultados ficam disponíveis como artefato por 3 dias.</span></div>
-        </section>
       </div>
     </main>
   );
