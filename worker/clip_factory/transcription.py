@@ -14,15 +14,38 @@ from .models import TranscriptSegment
 
 
 def _translate_to_pt(texts: list[str]) -> list[str]:
-    from transformers import pipeline
+    from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
-    translator = pipeline(
-        "text2text-generation",
-        model="Helsinki-NLP/opus-mt-tc-big-en-pt",
-        device=-1,
-    )
-    translated = translator(texts, batch_size=8, max_new_tokens=256)
-    return [str(item["generated_text"]).strip() for item in translated]
+    if not texts:
+        return []
+
+    tokenizer = AutoTokenizer.from_pretrained("Helsinki-NLP/opus-mt-tc-big-en-pt")
+    model = AutoModelForSeq2SeqLM.from_pretrained("Helsinki-NLP/opus-mt-tc-big-en-pt")
+
+    translated: list[str] = []
+    try:
+        for start in range(0, len(texts), 8):
+            batch = texts[start : start + 8]
+            inputs = tokenizer(
+                batch,
+                return_tensors="pt",
+                padding=True,
+                truncation=True,
+                max_length=512,
+            )
+            output_ids = model.generate(
+                **inputs,
+                max_new_tokens=256,
+                num_beams=4,
+            )
+            decoded = tokenizer.batch_decode(output_ids, skip_special_tokens=True)
+            translated.extend(str(text).strip() for text in decoded)
+    finally:
+        del model
+        del tokenizer
+        gc.collect()
+
+    return translated
 
 
 def _retime_translated_words(text: str, start: float, end: float) -> list[dict]:
