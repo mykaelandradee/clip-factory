@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import {
   decryptYouTubeRefreshToken,
   getYouTubeCookieName,
-} from "@/lib/youtube-auth";
+} from "../../../../lib/youtube-auth";
 
 export const runtime = "nodejs";
 
