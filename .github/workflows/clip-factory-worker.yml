@@ -29,6 +29,11 @@ on:
         required: false
         default: "original"
         type: string
+      caption_style:
+        description: "Caption style"
+        required: false
+        default: "dynamic"
+        type: string
   repository_dispatch:
     types: [clip-factory-job]
 
@@ -54,6 +59,7 @@ jobs:
       MIN_DURATION: ${{ github.event.client_payload.min_duration || inputs.min_duration || '20' }}
       MAX_DURATION: ${{ github.event.client_payload.max_duration || inputs.max_duration || '60' }}
       SUBTITLE_LANGUAGE: ${{ github.event.client_payload.subtitle_language || inputs.subtitle_language || 'original' }}
+      CAPTION_STYLE: ${{ github.event.client_payload.caption_style || inputs.caption_style || 'dynamic' }}
       BGUTIL_POT_URL: http://127.0.0.1:4416
 
     steps:
@@ -146,7 +152,7 @@ jobs:
           YT_DLP_POT_PROVIDER_URL: http://127.0.0.1:4416
           YOUTUBE_COOKIES_FILE: ${{ env.YOUTUBE_COOKIE_FILE }}
         run: |
-          python run.py "$VIDEO_URL" --provider local --count "$COUNT" --min-duration "$MIN_DURATION" --max-duration "$MAX_DURATION" --subtitle-language "$SUBTITLE_LANGUAGE"
+          python run.py "$VIDEO_URL" --provider local --count "$COUNT" --min-duration "$MIN_DURATION" --max-duration "$MAX_DURATION" --subtitle-language "$SUBTITLE_LANGUAGE" --caption-style "$CAPTION_STYLE"
 
       - name: Cleanup YouTube cookies
         if: always()
