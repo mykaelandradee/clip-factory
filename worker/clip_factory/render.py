@@ -14,32 +14,82 @@ def _srt_time(seconds: float) -> str:
     return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
 
 
+def _split_words(
+    words: list[dict],
+    max_chars: int = 38,
+    max_words: int = 7,
+) -> list[tuple[float, float, str]]:
+    chunks: list[tuple[float, float, str]] = []
+    current: list[dict] = []
+    current_chars = 0
+
+    def flush() -> None:
+        nonlocal current, current_chars
+        if not current:
+            return
+        text = " ".join(str(w["text"]).strip() for w in current).strip()
+        if text:
+            chunks.append((float(current[0]["start"]), float(current[-1]["end"]), text))
+        current = []
+        current_chars = 0
+
+    for word in words:
+        text = str(word.get("text", "")).strip()
+        if not text:
+            continue
+        punctuation_break = text.endswith((".", "?", "!", ":", ";"))
+        projected = current_chars + (1 if current else 0) + len(text)
+        if current and (projected > max_chars or len(current) >= max_words):
+            flush()
+        current.append(word)
+        current_chars += (1 if current_chars else 0) + len(text)
+        if punctuation_break:
+            flush()
+
+    flush()
+    return chunks
+
+
 def write_srt(
     candidate: ClipCandidate,
     segments: list[TranscriptSegment],
     output: Path,
 ) -> Path:
-    """Create timed subtitles using the original Whisper segment timestamps."""
+    """Create short, readable caption blocks with word-level timing."""
     entries: list[str] = []
     index = 1
 
     for segment in segments:
-        start = max(segment.start, candidate.start)
-        end = min(segment.end, candidate.end)
-        text = " ".join(segment.text.split())
-        if end <= start or not text:
-            continue
+        overlapping_words = []
+        if segment.words:
+            for word in segment.words:
+                start = float(word["start"])
+                end = float(word["end"])
+                if end > candidate.start and start < candidate.end:
+                    overlapping_words.append({
+                        "start": max(start, candidate.start) - candidate.start,
+                        "end": min(end, candidate.end) - candidate.start,
+                        "text": word["text"],
+                    })
 
-        relative_start = start - candidate.start
-        relative_end = end - candidate.start
-        entries.append(
-            f"{index}\n"
-            f"{_srt_time(relative_start)} --> {_srt_time(relative_end)}\n"
-            f"{text}\n"
-        )
-        index += 1
+        chunks = _split_words(overlapping_words) if overlapping_words else []
+        if not chunks:
+            start = max(segment.start, candidate.start) - candidate.start
+            end = min(segment.end, candidate.end) - candidate.start
+            text = " ".join(segment.text.split())
+            if end > start and text:
+                chunks = [(start, end, text)]
 
-    # Fallback for an unusually sparse transcript.
+        for start, end, text in chunks:
+            if end <= start:
+                continue
+            entries.append(
+                f"{index}\n"
+                f"{_srt_time(start)} --> {_srt_time(end)}\n"
+                f"{text}\n"
+            )
+            index += 1
+
     if not entries and candidate.transcript.strip():
         text = " ".join(candidate.transcript.split())
         entries.append(
@@ -56,7 +106,7 @@ def render_vertical(
     output: Path,
     segments: list[TranscriptSegment],
 ) -> Path:
-    """Render a 9:16 MP4 with correctly timed burned-in captions."""
+    """Render a 9:16 MP4 with readable, correctly timed burned-in captions."""
     output.parent.mkdir(parents=True, exist_ok=True)
     subtitle_file = output.with_suffix(".srt")
     write_srt(candidate, segments, subtitle_file)
@@ -66,8 +116,8 @@ def render_vertical(
         "scale=1080:1920:force_original_aspect_ratio=increase,"
         "crop=1080:1920,setsar=1,"
         f"subtitles='{subtitle_path}':charenc=UTF-8:force_style='FontName=Arial,"
-        "FontSize=20,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,Outline=3,"
-        "Alignment=2,MarginV=220'"
+        "FontSize=22,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,Outline=3,"
+        "Alignment=2,MarginV=180'"
     )
 
     cmd = [
