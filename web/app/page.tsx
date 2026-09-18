@@ -14,6 +14,7 @@ type Job = {
 export default function Home() {
   const [url, setUrl] = useState("");
   const [clips, setClips] = useState("5");
+  const [duration, setDuration] = useState("30-60");
   const [subtitleLanguage, setSubtitleLanguage] = useState("original");
   const [captionStyle, setCaptionStyle] = useState("dynamic");
   const [workerOnline, setWorkerOnline] = useState(false);
@@ -68,8 +69,8 @@ export default function Home() {
         body: JSON.stringify({
           url: url.trim(),
           count: Number(clips),
-          min_duration: 20,
-          max_duration: 60,
+          min_duration: duration === "15-30" ? 15 : duration === "45-90" ? 45 : 30,
+          max_duration: duration === "15-30" ? 30 : duration === "45-90" ? 90 : 60,
           subtitle_language: subtitleLanguage,
           caption_style: captionStyle,
         }),
@@ -121,7 +122,7 @@ export default function Home() {
             
           </div>
 
-          <div className="cf-label-row"><span>Templates</span><small>Escolha um estilo</small></div>
+          <div className="cf-label-row cf-section-gap"><span>Duração do clip</span><small>Defina o tamanho dos cortes</small></div>\n          <div className="cf-duration-grid">\n            {[["15-30", "15–30s"], ["30-60", "30–60s"], ["45-90", "45–90s"]].map(([id, label]) => (\n              <button type="button" key={id} className={`cf-duration ${duration === id ? "selected" : ""}`} onClick={() => setDuration(id)} disabled={submitting}>\n                <strong>{label}</strong><span>Clips entre essa duração</span>\n              </button>\n            ))}\n          </div>\n\n          <div className="cf-label-row"><span>Templates</span><small>Escolha um estilo</small></div>
           <div className="cf-template-grid">{["dynamic","clean","bold","highlight","neon","minimal"].map((id) => <button type="button" key={id} className={`cf-template ${captionStyle===id ? "selected":""} ${["highlight","neon","minimal"].includes(id) ? "coming":""}`} onClick={() => !["highlight","neon","minimal"].includes(id) && setCaptionStyle(id)} disabled={submitting || ["highlight","neon","minimal"].includes(id)}><div className={`cf-template-preview accent-${id}`}><span className="preview-top">A</span><span className="preview-subtitle">{id==="bold"?"ISSO MUDA TUDO":id==="dynamic"?"isso MUDA tudo":"isso muda tudo"}</span></div><div className="cf-template-info"><strong>{id[0].toUpperCase()+id.slice(1)}</strong><span>{id==="dynamic"?"Destaque palavra por palavra":id==="clean"?"Discreta e elegante":id==="bold"?"Grande e marcante":id==="highlight"?"Palavra em destaque":id==="neon"?"Visual forte e moderno":"Pequena e sofisticada"}</span></div>{["highlight","neon","minimal"].includes(id) ? <span className="cf-coming">Em breve</span> : captionStyle===id ? <span className="cf-check">✓</span> : null}</button>)}</div>
 
           <div className="cf-actions">
@@ -142,10 +143,28 @@ export default function Home() {
 
         {job?.status === "completed" && job.result && (
           <section className="cf-results">
-            <div className="cf-results-head"><h2>Processamento concluído</h2><span>resultado disponível</span></div>
-            <div className="cf-card">
-              <p>Os clips e o resultado foram gerados pelo GitHub Actions.</p>
-              <a className="cf-button" href={job.result.downloadUrl} target="_blank" rel="noreferrer">Baixar clips</a>
+            <div className="cf-results-head">
+              <div><div className="cf-section-kicker">Resultado</div><h2>Seus clips estão prontos.</h2></div>
+              <a className="cf-button cf-button-secondary" href={job.result.downloadUrl} download>Baixar tudo</a>
+            </div>
+            <div className="cf-results-grid">
+              {Array.from({ length: Number(clips) }, (_, index) => {
+                const file = `clip-${String(index + 1).padStart(2, "0")}.mp4`;
+                const source = `/api/jobs/file?id=${encodeURIComponent(jobId)}&file=${encodeURIComponent(file)}&preview=1`;
+                const download = `/api/jobs/file?id=${encodeURIComponent(jobId)}&file=${encodeURIComponent(file)}`;
+                return (
+                  <article className="cf-result-card" key={file}>
+                    <div className="cf-video-wrap">
+                      <video controls preload="metadata" src={source} />
+                      <span className="cf-clip-number">0{index + 1}</span>
+                    </div>
+                    <div className="cf-result-info">
+                      <div><strong>Clip {index + 1}</strong><span>{duration === "15-30" ? "15–30s" : duration === "45-90" ? "45–90s" : "30–60s"}</span></div>
+                      <a href={download} download className="cf-download">Baixar <span>↓</span></a>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           </section>
         )}
