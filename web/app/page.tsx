@@ -91,17 +91,13 @@ export default function Home() {
     <main className="cf-shell">
       <div className="cf-container">
         <header className="cf-header cf-header-modern">
-          <div>
-            <div className="cf-brand"><div className="cf-logo">CF</div><div><div className="cf-kicker">AI video pipeline</div><h1>Clip Factory</h1></div></div>
-            <p className="cf-subtitle">Cole um vídeo longo e deixe o Clip Factory encontrar os melhores momentos usando processamento local no GitHub Actions.</p>
-          </div>
+          <div className="cf-brand"><div className="cf-logo">CF</div><span>Clip Factory</span></div>
           <div className={`cf-status-pill ${workerOnline ? "online" : "offline"}`}><span /> GitHub Actions {workerOnline ? "conectado" : "não configurado"}</div>
         </header>
 
-        <section className="cf-hero"><div><span className="cf-eyebrow">Transforme vídeos longos em conteúdo curto</span><h2>Encontre os melhores momentos.<br /><em>Publique mais rápido.</em></h2><p>Insira um vídeo do YouTube, escolha o idioma e o estilo das legendas. O processamento acontece automaticamente.</p></div><div className="cf-hero-mark">9:16</div></section>
+        <section className="cf-hero"><div><div className="cf-hero-label">VIDEO → CLIPS</div><h2>Transforme seu vídeo<br /><em>em conteúdo.</em></h2></div><div className="cf-hero-mark">9:16</div></section>
 
         <form className="cf-card cf-builder" onSubmit={submit}>
-          <div className="cf-section-head"><div><span className="cf-number">01</span><div><h3>Seu vídeo</h3><p>Comece com a URL do YouTube.</p></div></div></div>
           <div className="cf-grid">
             <div className="cf-field">
               <label htmlFor="url">URL do YouTube</label>
@@ -122,18 +118,10 @@ export default function Home() {
               </select>
               <small>Português (Brasil) traduz a fala para PT-BR usando modelos locais.</small>
             </div>
-            <div className="cf-field">
-              <label htmlFor="caption-style">Estilo da legenda</label>
-              <select id="caption-style" value={captionStyle} onChange={(e) => setCaptionStyle(e.target.value)} disabled={submitting}>
-                <option value="dynamic">Dinâmica — destaque por palavras</option>
-                <option value="clean">Clean — discreta</option>
-                <option value="bold">Bold — maior destaque</option>
-              </select>
-              <small>Posicionamento inferior, compacto e pensado para vídeo vertical.</small>
-            </div>
+            
           </div>
 
-          <div className="cf-section-head template-head"><div><span className="cf-number">03</span><div><h3>Estilo da legenda</h3><p>Escolha um template visual para seus clips.</p></div></div><span className="cf-template-count">3 disponíveis</span></div>
+          <div className="cf-label-row"><span>Templates</span><small>Escolha um estilo</small></div>
           <div className="cf-template-grid">{["dynamic","clean","bold","highlight","neon","minimal"].map((id) => <button type="button" key={id} className={`cf-template ${captionStyle===id ? "selected":""} ${["highlight","neon","minimal"].includes(id) ? "coming":""}`} onClick={() => !["highlight","neon","minimal"].includes(id) && setCaptionStyle(id)} disabled={submitting || ["highlight","neon","minimal"].includes(id)}><div className={`cf-template-preview accent-${id}`}><span className="preview-top">A</span><span className="preview-subtitle">{id==="bold"?"ISSO MUDA TUDO":id==="dynamic"?"isso MUDA tudo":"isso muda tudo"}</span></div><div className="cf-template-info"><strong>{id[0].toUpperCase()+id.slice(1)}</strong><span>{id==="dynamic"?"Destaque palavra por palavra":id==="clean"?"Discreta e elegante":id==="bold"?"Grande e marcante":id==="highlight"?"Palavra em destaque":id==="neon"?"Visual forte e moderno":"Pequena e sofisticada"}</span></div>{["highlight","neon","minimal"].includes(id) ? <span className="cf-coming">Em breve</span> : captionStyle===id ? <span className="cf-check">✓</span> : null}</button>)}</div>
 
           <div className="cf-actions">
