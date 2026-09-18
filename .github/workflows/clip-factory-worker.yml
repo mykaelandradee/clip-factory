@@ -24,6 +24,11 @@ on:
         required: false
         default: "60"
         type: string
+      subtitle_language:
+        description: "Subtitle language"
+        required: false
+        default: "original"
+        type: string
   repository_dispatch:
     types: [clip-factory-job]
 
@@ -48,6 +53,7 @@ jobs:
       COUNT: ${{ github.event.client_payload.count || inputs.count || '5' }}
       MIN_DURATION: ${{ github.event.client_payload.min_duration || inputs.min_duration || '20' }}
       MAX_DURATION: ${{ github.event.client_payload.max_duration || inputs.max_duration || '60' }}
+      SUBTITLE_LANGUAGE: ${{ github.event.client_payload.subtitle_language || inputs.subtitle_language || 'original' }}
       BGUTIL_POT_URL: http://127.0.0.1:4416
 
     steps:
@@ -107,7 +113,6 @@ jobs:
             fi
             sleep 1
           done
-          echo "--- bgutil provider process ---"
           pgrep -af "bgutil|src/main.ts" || true
 
       - name: Set up Python
@@ -127,7 +132,6 @@ jobs:
         run: |
           set -o pipefail
           test -s "$YOUTUBE_COOKIE_FILE" || { echo "YouTube cookie file is missing or empty"; exit 1; }
-          echo "--- versions ---"
           ffmpeg -version | head -n 1
           yt-dlp -v \
             --js-runtimes deno \
@@ -142,7 +146,7 @@ jobs:
           YT_DLP_POT_PROVIDER_URL: http://127.0.0.1:4416
           YOUTUBE_COOKIES_FILE: ${{ env.YOUTUBE_COOKIE_FILE }}
         run: |
-          python run.py "$VIDEO_URL" --provider local --count "$COUNT" --min-duration "$MIN_DURATION" --max-duration "$MAX_DURATION"
+          python run.py "$VIDEO_URL" --provider local --count "$COUNT" --min-duration "$MIN_DURATION" --max-duration "$MAX_DURATION" --subtitle-language "$SUBTITLE_LANGUAGE"
 
       - name: Cleanup YouTube cookies
         if: always()
