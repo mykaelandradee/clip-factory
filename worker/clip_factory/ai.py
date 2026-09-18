@@ -5,8 +5,6 @@ from typing import Iterable
 
 from .models import ClipCandidate, TranscriptSegment
 
-# Local, dependency-free clip selector. It deliberately does not call any paid API.
-# The score is a heuristic for finding self-contained, information-dense moments.
 HOOK_WORDS = {
     "como", "por que", "porque", "segredo", "erro", "nunca", "sempre", "importante",
     "problema", "solução", "dica", "atenção", "cuidado", "descobri", "descoberta",
@@ -45,8 +43,6 @@ def _score_window(text: str, start: float, end: float) -> float:
     if text.rstrip().endswith((",", ":", ";", "-")):
         score -= 10
 
-    # Slight preference for clips around the requested range's middle is applied
-    # by the caller; this base score only measures textual potential.
     return score
 
 
@@ -89,6 +85,27 @@ def _hook(text: str) -> str:
     return hook
 
 
+def _candidate(start: float, end: float, text: str, target: float) -> ClipCandidate:
+    duration = end - start
+    duration_bonus = max(0.0, 12.0 - abs(duration - target) * 0.25)
+    score = _score_window(text, start, end) + duration_bonus
+    return ClipCandidate(
+        start,
+        end,
+        _title(text),
+        _hook(text),
+        "Seleção local por densidade de conteúdo, frases completas e diversidade temporal.",
+        round(score, 2),
+        text,
+    )
+
+
+def _overlap_ratio(a: ClipCandidate, b: ClipCandidate) -> float:
+    overlap = max(0.0, min(a.end, b.end) - max(a.start, b.start))
+    shorter = min(a.duration, b.duration)
+    return overlap / shorter if shorter else 0.0
+
+
 def select_clips(
     provider: str,
     segments: list[TranscriptSegment],
@@ -97,43 +114,34 @@ def select_clips(
     max_duration: int,
     settings,
 ) -> list[ClipCandidate]:
-    # Keep the provider argument for API compatibility, but local selection is
-    # the only supported mode so this worker never incurs API charges.
     if provider not in {"local", "heuristic", "ollama"}:
         raise ValueError("Paid AI providers are disabled. Use provider=local.")
 
-    candidates: list[ClipCandidate] = []
     target = (min_duration + max_duration) / 2
-    for start, end, text in _make_windows(segments, min_duration, max_duration):
-        duration = end - start
-        duration_bonus = max(0.0, 12.0 - abs(duration - target) * 0.25)
-        score = _score_window(text, start, end) + duration_bonus
-        candidates.append(
-            ClipCandidate(
-                start,
-                end,
-                _title(text),
-                _hook(text),
-                "Seleção local por densidade de conteúdo, frases completas e sinais de gancho.",
-                round(score, 2),
-                text,
-            )
-        )
-
+    candidates = [
+        _candidate(start, end, text, target)
+        for start, end, text in _make_windows(segments, min_duration, max_duration)
+    ]
     candidates.sort(key=lambda c: c.score, reverse=True)
 
     selected: list[ClipCandidate] = []
+
+    # First pass: prioritize quality while strongly reducing duplicate/overlapping clips.
     for candidate in candidates:
-        # Avoid returning several nearly identical overlapping windows.
-        overlaps = False
-        for chosen in selected:
-            overlap = max(0.0, min(candidate.end, chosen.end) - max(candidate.start, chosen.start))
-            shorter = min(candidate.end - candidate.start, chosen.end - chosen.start)
-            if shorter and overlap / shorter >= 0.45:
-                overlaps = True
-                break
-        if not overlaps:
-            selected.append(candidate)
+        if any(_overlap_ratio(candidate, chosen) >= 0.30 for chosen in selected):
+            continue
+        selected.append(candidate)
+        if len(selected) >= count:
+            return selected
+
+    # Second pass: if the transcript is sparse, relax the overlap constraint so the
+    # requested number can still be produced when there are distinct candidate windows.
+    for candidate in candidates:
+        if candidate in selected:
+            continue
+        if any(_overlap_ratio(candidate, chosen) >= 0.70 for chosen in selected):
+            continue
+        selected.append(candidate)
         if len(selected) >= count:
             break
 
