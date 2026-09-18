@@ -51,7 +51,7 @@ export async function POST(request: Request) {
   const minDuration = Math.max(5, Number(body.min_duration ?? 20));
   const maxDuration = Math.max(minDuration, Number(body.max_duration ?? 60));
   const subtitleLanguage = ["original", "pt-BR", "en"].includes(body.subtitle_language) ? body.subtitle_language : "original";
-  const captionStyle = ["dynamic", "clean", "bold"].includes(body.caption_style) ? body.caption_style : "dynamic";
+  const captionStyles = ["karaoke", "fire", "beasty", "youshaei", "harmozi", "cinematic"];\n  const captionStyle = captionStyles.includes(body.caption_style) ? body.caption_style : "karaoke";
   const jobId = crypto.randomUUID();
 
   try {
