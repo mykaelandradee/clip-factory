@@ -136,7 +136,46 @@ export async function GET(request: Request) {
       if (!artifact?.archive_download_url) {
         return NextResponse.json({ error: "Resultado ainda não está disponível." }, { status: 404 });
       }
-      return NextResponse.redirect(artifact.archive_download_url);
+      const downloadResponse = await fetch(artifact.archive_download_url, {
+        headers: githubHeaders(),
+        redirect: "manual",
+        cache: "no-store",
+      });
+
+      if (![301, 302, 303, 307, 308].includes(downloadResponse.status)) {
+        if (!downloadResponse.ok) {
+          return NextResponse.json({ error: "Não foi possível baixar o resultado." }, { status: 502 });
+        }
+        return new Response(downloadResponse.body, {
+          status: 200,
+          headers: {
+            "Content-Type": downloadResponse.headers.get("content-type") ?? "application/octet-stream",
+            "Content-Length": downloadResponse.headers.get("content-length") ?? "",
+            "Content-Disposition": `attachment; filename="clip-factory-${id}.zip"`,
+            "Cache-Control": "private, no-store",
+          },
+        });
+      }
+
+      const signedUrl = downloadResponse.headers.get("location");
+      if (!signedUrl) {
+        return NextResponse.json({ error: "GitHub não forneceu o link de download." }, { status: 502 });
+      }
+
+      const fileResponse = await fetch(signedUrl, { cache: "no-store" });
+      if (!fileResponse.ok) {
+        return NextResponse.json({ error: "Não foi possível baixar o resultado." }, { status: 502 });
+      }
+
+      return new Response(fileResponse.body, {
+        status: 200,
+        headers: {
+          "Content-Type": fileResponse.headers.get("content-type") ?? "application/zip",
+          "Content-Length": fileResponse.headers.get("content-length") ?? "",
+          "Content-Disposition": `attachment; filename="clip-factory-${id}.zip"`,
+          "Cache-Control": "private, no-store",
+        },
+      });
     }
 
     const progress = status === "completed" ? 100 : run.status === "queued" ? 10 : 50;
