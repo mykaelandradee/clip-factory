@@ -3,3 +3,6 @@ pydantic
 python-dotenv
 requests
 yt-dlp[default]
+transformers
+sentencepiece
+
