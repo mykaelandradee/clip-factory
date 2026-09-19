@@ -199,6 +199,7 @@ export default function Home() {
       const response = await fetch("/api/jobs?id=" + encodeURIComponent(id), { cache: "no-store" });
       if (!response.ok) throw new Error("Não foi possível consultar o processamento.");
       const data = await response.json() as Job;
+      setError("");
       setJob(data);
       setWorkerOnline(true);
       if (data.status === "completed" || data.status === "failed") {
