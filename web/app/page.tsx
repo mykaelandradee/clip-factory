@@ -50,6 +50,7 @@ export default function Home() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [youtubeConnected, setYoutubeConnected] = useState(false);
+  const [instagramConnected, setInstagramConnected] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authMessage, setAuthMessage] = useState("");
@@ -90,14 +91,24 @@ export default function Home() {
       const supabase = createClient();
       const { data } = await supabase.auth.getUser();
       setUser(data.user ?? null);
-      if (data.user) await checkYouTube();
+      if (data.user) {
+        await checkYouTube();
+        await checkInstagram();
+      }
       const params = new URLSearchParams(window.location.search);
       if (params.get("auth_required") === "1") setAuthMessage("Para conectar uma conta do YouTube, entre com Google. A geração de clips continua disponível sem login.");
       if (params.get("auth_error")) setAuthMessage("Não foi possível concluir o login. Tente novamente.");
+      if (params.get("instagram_connected") === "1") setAuthMessage("Instagram conectado com sucesso.");
+      if (params.get("instagram_error")) setAuthMessage("Não foi possível conectar o Instagram. Verifique a configuração e tente novamente.");
       supabase.auth.onAuthStateChange((_event, session) => {
         setUser(session?.user ?? null);
-        if (session?.user) checkYouTube();
-        else setYoutubeConnected(false);
+        if (session?.user) {
+          checkYouTube();
+          checkInstagram();
+        } else {
+          setYoutubeConnected(false);
+          setInstagramConnected(false);
+        }
       });
     } catch {
       setAuthMessage("Autenticação ainda não está configurada.");
@@ -126,8 +137,20 @@ export default function Home() {
       await supabase.auth.signOut();
       setUser(null);
       setYoutubeConnected(false);
+      setInstagramConnected(false);
     } catch {
       setAuthMessage("Não foi possível sair.");
+    }
+  }
+
+  async function checkInstagram() {
+    try {
+      const response = await fetch("/api/instagram/status", { cache: "no-store" });
+      if (!response.ok) return;
+      const data = await response.json();
+      setInstagramConnected(Boolean(data.connected));
+    } catch {
+      setInstagramConnected(false);
     }
   }
 
@@ -261,6 +284,10 @@ export default function Home() {
                 <a className="cf-youtube-button" href="/api/youtube/oauth" aria-label="Conectar YouTube">
                   <span className={`cf-yt-dot ${youtubeConnected ? "connected" : ""}`} />
                   {youtubeConnected ? "YouTube conectado" : "Conectar YouTube"}
+                </a>
+                <a className="cf-youtube-button" href="/api/instagram/oauth" aria-label="Conectar Instagram">
+                  <span className={`cf-yt-dot ${instagramConnected ? "connected" : ""}`} />
+                  {instagramConnected ? "Instagram conectado" : "Conectar Instagram"}
                 </a>
                 <button type="button" className="cf-auth-button" onClick={signOut}>{user.email?.split("@")[0] || "Sair"} · Sair</button>
               </>
