@@ -22,9 +22,6 @@ function headers() {
 export async function GET(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Entre no Clip Factory para acessar o clip." }, { status: 401 });
-  }
 
   const params = new URL(request.url).searchParams;
   const id = params.get("id");
@@ -37,12 +34,10 @@ export async function GET(request: Request) {
 
   try {
     const admin = createAdminClient();
-    const { data: ownedJob } = await admin
-      .from("clip_jobs")
-      .select("id")
-      .eq("id", id)
-      .eq("user_id", user.id)
-      .maybeSingle();
+    const jobQuery = admin.from("clip_jobs").select("id").eq("id", id);
+    const { data: ownedJob } = user
+      ? await jobQuery.eq("user_id", user.id).maybeSingle()
+      : await jobQuery.is("user_id", null).maybeSingle();
 
     if (!ownedJob) {
       return NextResponse.json({ error: "Processamento não encontrado." }, { status: 404 });
