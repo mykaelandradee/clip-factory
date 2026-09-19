@@ -92,7 +92,7 @@ export default function Home() {
       setUser(data.user ?? null);
       if (data.user) await checkYouTube();
       const params = new URLSearchParams(window.location.search);
-      if (params.get("auth_required") === "1") setAuthMessage("Entre no Clip Factory antes de conectar uma conta.");
+      if (params.get("auth_required") === "1") setAuthMessage("Para conectar uma conta do YouTube, entre com Google. A geração de clips continua disponível sem login.");
       if (params.get("auth_error")) setAuthMessage("Não foi possível concluir o login. Tente novamente.");
       supabase.auth.onAuthStateChange((_event, session) => {
         setUser(session?.user ?? null);
@@ -278,7 +278,7 @@ export default function Home() {
           <div className="cf-hero-copy">
             <div className="cf-hero-label"><span /> VIDEO → CLIPS → SOCIAL</div>
             <h2>Transforme seu vídeo<br /><em>em conteúdo.</em></h2>
-            <p>Recorte automático, legendas animadas e formato 9:16 em um único fluxo.</p>
+            <p>Recorte automático, legendas animadas e formato 9:16 em um único fluxo. Sem precisar conectar uma conta para gerar.</p>
             <div className="cf-hero-pills"><span>AI CLIPPING</span><span>9:16</span><span>WORD SYNC</span><span>READY TO POST</span></div>
           </div>
           <div className="cf-hero-mark-wrap">
@@ -355,8 +355,8 @@ export default function Home() {
           </div>
 
           <div className="cf-actions">
-            <button className="cf-button" type="submit" disabled={submitting || !user}>
-              <span>{!user ? "ENTRE PARA GERAR" : submitting ? "PROCESSANDO..." : "GERAR CLIPS"}</span><b>↗</b>
+            <button className="cf-button" type="submit" disabled={submitting}>
+              <span>{submitting ? "PROCESSANDO..." : "GERAR CLIPS"}</span><b>↗</b>
             </button>
           </div>
 
