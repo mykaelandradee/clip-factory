@@ -20,9 +20,12 @@ alter table public.youtube_connections enable row level security;
 
 create table if not exists public.clip_jobs (
   id uuid primary key,
-  user_id uuid not null references auth.users(id) on delete cascade,
+  user_id uuid references auth.users(id) on delete cascade,
   created_at timestamptz not null default now()
 );
+
+-- Anonymous visitors may generate clips. Authenticated users keep ownership when logged in.
+alter table public.clip_jobs alter column user_id drop not null;
 
 create index if not exists clip_jobs_user_id_idx
   on public.clip_jobs(user_id);
