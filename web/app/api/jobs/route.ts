@@ -46,7 +46,6 @@ function validateYoutubeUrl(value: unknown) {
 export async function POST(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Entre no Clip Factory antes de gerar clips." }, { status: 401 });
 
   const body = await request.json().catch(() => null);
   if (!validateYoutubeUrl(body?.url)) {
@@ -63,7 +62,7 @@ export async function POST(request: Request) {
 
   try {
     const admin = createAdminClient();
-    const { error: jobError } = await admin.from("clip_jobs").insert({ id: jobId, user_id: user.id });
+    const { error: jobError } = await admin.from("clip_jobs").insert({ id: jobId, user_id: user?.id ?? null });
     if (jobError) {
       console.error("Clip job storage failed:", jobError.message);
       return NextResponse.json({ error: "Não foi possível registrar o processamento." }, { status: 500 });
@@ -110,7 +109,6 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Entre no Clip Factory antes de consultar o processamento." }, { status: 401 });
 
   const params = new URL(request.url).searchParams;
   const id = params.get("id");
@@ -120,7 +118,10 @@ export async function GET(request: Request) {
 
   try {
     const admin = createAdminClient();
-    const { data: ownedJob } = await admin.from("clip_jobs").select("id").eq("id", id).eq("user_id", user.id).maybeSingle();
+    const ownedJobQuery = admin.from("clip_jobs").select("id").eq("id", id);
+    const { data: ownedJob } = user
+      ? await ownedJobQuery.eq("user_id", user.id).maybeSingle()
+      : await ownedJobQuery.is("user_id", null).maybeSingle();
     if (!ownedJob) return NextResponse.json({ error: "Processamento não encontrado." }, { status: 404 });
 
     const response = await githubFetch(
