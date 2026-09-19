@@ -49,3 +49,40 @@ drop trigger if exists youtube_connections_updated_at on public.youtube_connecti
 create trigger youtube_connections_updated_at
 before update on public.youtube_connections
 for each row execute function public.set_updated_at();
+
+-- Instagram connections are isolated by the authenticated Clip Factory user.
+create table if not exists public.instagram_connections (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  instagram_user_id text not null,
+  username text,
+  access_token_encrypted text not null,
+  expires_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (user_id)
+);
+
+create index if not exists instagram_connections_user_id_idx
+  on public.instagram_connections(user_id);
+
+alter table public.instagram_connections enable row level security;
+
+drop policy if exists "Users can view their Instagram connection" on public.instagram_connections;
+create policy "Users can view their Instagram connection"
+  on public.instagram_connections
+  for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert their Instagram connection" on public.instagram_connections;
+create policy "Users can insert their Instagram connection"
+  on public.instagram_connections
+  for insert
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update their Instagram connection" on public.instagram_connections;
+create policy "Users can update their Instagram connection"
+  on public.instagram_connections
+  for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
