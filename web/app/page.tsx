@@ -203,26 +203,25 @@ export default function Home() {
             if (publishTimer.current) clearInterval(publishTimer.current);
             publishTimer.current = null;
             setPublishingTarget(null);
+            return false;
           } else if (statusData.status === "failed") {
             setStatus("failed", statusData.message || "A publicação no YouTube falhou.");
             if (publishTimer.current) clearInterval(publishTimer.current);
             publishTimer.current = null;
             setPublishingTarget(null);
+            return false;
           } else {
             setStatus(statusData.status === "running" ? "running" : "queued", statusData.message || "Publicação em andamento no YouTube.");
+            return true;
           }
         } catch (err) {
           setStatus("running", err instanceof Error ? err.message : "Consultando a publicação...");
+          return true;
         }
       };
-      await check();
-      if (publishTimer.current !== null || !publishTimer.current) {
-        // Only keep polling while the publication is still active.
-        // check() clears the timer and resets the target when it reaches a terminal state.
-        const currentStatus = publishStatuses[file]?.status;
-        if (currentStatus !== "success" && currentStatus !== "failed") {
-          publishTimer.current = setInterval(check, 3000);
-        }
+      const shouldKeepPolling = await check();
+      if (shouldKeepPolling) {
+        publishTimer.current = setInterval(check, 3000);
       }
     } catch (err) {
       setStatus("failed", err instanceof Error ? err.message : "Erro ao publicar no YouTube.");
