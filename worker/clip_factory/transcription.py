@@ -71,7 +71,12 @@ def transcribe(
     model_name: str,
     subtitle_language: str = "original",
 ) -> list[TranscriptSegment]:
-    """Transcribe with Whisper and optionally translate captions to PT-BR locally."""
+    """Transcribe with Whisper and optionally translate captions to PT-BR locally.
+    
+    Uses deterministic beam decoding with conservative fallback temperatures and
+    silence-aware timestamp handling. This improves recognition without adding
+    a paid API dependency.
+    """
     import whisper
 
     if subtitle_language not in {"original", "pt-BR", "en"}:
@@ -84,9 +89,11 @@ def transcribe(
             str(video_path),
             verbose=False,
             fp16=False,
-            temperature=0,
+            temperature=(0.0, 0.2, 0.4, 0.6),
+            beam_size=5,
             condition_on_previous_text=False,
             word_timestamps=True,
+            hallucination_silence_threshold=1.0,
             task=task,
         )
     finally:
