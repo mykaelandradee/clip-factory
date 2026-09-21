@@ -46,7 +46,8 @@ export async function POST(request: Request) {
   const { data: ownedJob } = await admin.from("clip_jobs").select("id").eq("id", jobId).eq("user_id", user.id).maybeSingle();
   if (!ownedJob) return NextResponse.json({ error: "Este processamento não pertence ao usuário autenticado." }, { status: 403 });
 
-  const response = await fetch("https://api.github.com/repos/mykaelandradee/clip-factory/dispatches", {
+  const dispatchedAt = new Date().toISOString();
+  const response = await fetch("https://api.github.com/repos/mykaelandradee/clip-factory/dispatches",
     method: "POST",
     headers: {
       Accept: "application/vnd.github+json",
@@ -64,5 +65,33 @@ export async function POST(request: Request) {
     console.error("YouTube publisher dispatch failed:", response.status, await response.text());
     return NextResponse.json({ error: "Não foi possível iniciar a publicação." }, { status: 502 });
   }
-  return NextResponse.json({ ok: true, status: publishAt ? "scheduled" : "queued", jobId, file }, { status: 202 });
+
+  // repository_dispatch returns 204, so resolve the created workflow run explicitly.
+  let runId: number | null = null;
+  for (let attempt = 0; attempt < 10 && runId === null; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    const runsResponse = await fetch(
+      "https://api.github.com/repos/mykaelandradee/clip-factory/actions/workflows/youtube-publisher.yml/runs?event=repository_dispatch&per_page=20",
+      {
+        headers: {
+          Accept: "application/vnd.github+json",
+          Authorization: `Bearer ${process.env.CLIP_FACTORY_GITHUB_TOKEN}`,
+          "X-GitHub-Api-Version": "2022-11-28",
+        },
+        cache: "no-store",
+      },
+    );
+    if (!runsResponse.ok) continue;
+    const runsData = await runsResponse.json();
+    const createdAfter = Date.parse(dispatchedAt) - 5000;
+    const run = runsData.workflow_runs?.find((item: { id?: number; created_at?: string }) =>
+      typeof item.id === "number" && typeof item.created_at === "string" && Date.parse(item.created_at) >= createdAfter,
+    );
+    if (run?.id) runId = run.id;
+  }
+
+  return NextResponse.json(
+    { ok: true, status: publishAt ? "scheduled" : "queued", jobId, file, runId, startedAt: dispatchedAt },
+    { status: 202 },
+  );
 }
