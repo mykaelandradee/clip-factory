@@ -47,7 +47,7 @@ export async function POST(request: Request) {
   if (!ownedJob) return NextResponse.json({ error: "Este processamento não pertence ao usuário autenticado." }, { status: 403 });
 
   const dispatchedAt = new Date().toISOString();
-  const response = await fetch("https://api.github.com/repos/mykaelandradee/clip-factory/dispatches",
+  const response = await fetch("https://api.github.com/repos/mykaelandradee/clip-factory/dispatches", {
     method: "POST",
     headers: {
       Accept: "application/vnd.github+json",
