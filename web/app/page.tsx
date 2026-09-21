@@ -96,8 +96,7 @@ export default function Home() {
         await checkInstagram();
       }
       const params = new URLSearchParams(window.location.search);
-      if (params.get("auth_required") === "1") setAuthMessage("Para conectar uma conta do YouTube, entre com Google. A geração de clips continua disponível sem login.");
-      if (params.get("auth_error")) setAuthMessage("Não foi possível concluir o login. Tente novamente.");
+      if (params.get("auth_error")) setAuthMessage("Não foi possível concluir a autenticação. Tente novamente.");
       if (params.get("instagram_connected") === "1") setAuthMessage("Instagram conectado com sucesso.");
       if (params.get("instagram_error")) setAuthMessage("Não foi possível conectar o Instagram. Verifique a configuração e tente novamente.");
       supabase.auth.onAuthStateChange((_event, session) => {
@@ -114,20 +113,6 @@ export default function Home() {
       setAuthMessage("Autenticação ainda não está configurada.");
     } finally {
       setAuthLoading(false);
-    }
-  }
-
-  async function signIn() {
-    setAuthMessage("");
-    try {
-      const supabase = createClient();
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: { redirectTo: window.location.origin + "/auth/callback" },
-      });
-      if (error) setAuthMessage(error.message);
-    } catch {
-      setAuthMessage("Não foi possível iniciar o login.");
     }
   }
 
@@ -300,23 +285,17 @@ export default function Home() {
           <div className="cf-brand"><div className="cf-logo">CF</div><span>Clip Factory</span></div>
           <div className="cf-header-meta">
             <span className="cf-live-label">LOCAL AI PIPELINE</span>
-            {user ? (
-              <>
-                <a className="cf-youtube-button" href="/api/youtube/oauth" aria-label="Conectar YouTube">
-                  <span className={`cf-yt-dot ${youtubeConnected ? "connected" : ""}`} />
-                  {youtubeConnected ? "YouTube conectado" : "Conectar YouTube"}
-                </a>
-                <a className="cf-youtube-button" href="/api/instagram/oauth" aria-label="Conectar Instagram">
-                  <span className={`cf-yt-dot ${instagramConnected ? "connected" : ""}`} />
-                  {instagramConnected ? "Instagram conectado" : "Conectar Instagram"}
-                </a>
-                <button type="button" className="cf-auth-button" onClick={signOut}>{user.email?.split("@")[0] || "Sair"} · Sair</button>
-              </>
-            ) : (
-              <button type="button" className="cf-youtube-button" onClick={signIn} disabled={authLoading}>
-                {authLoading ? "Carregando..." : "Entrar com Google"}
-              </button>
-            )}
+            <>
+              <a className="cf-youtube-button" href="/api/youtube/oauth" aria-label="Conectar YouTube">
+                <span className={`cf-yt-dot ${youtubeConnected ? "connected" : ""}`} />
+                {youtubeConnected ? "YouTube conectado" : "Conectar YouTube"}
+              </a>
+              <a className="cf-youtube-button" href="/api/instagram/oauth" aria-label="Conectar Instagram">
+                <span className={`cf-yt-dot ${instagramConnected ? "connected" : ""}`} />
+                {instagramConnected ? "Instagram conectado" : "Conectar Instagram"}
+              </a>
+              {user && <button type="button" className="cf-auth-button" onClick={signOut}>{user.email?.split("@")[0] || "Sair"} · Sair</button>}
+            </>
             <div className={`cf-status-pill ${workerOnline ? "online" : "offline"}`}><span /> GitHub Actions {workerOnline ? "conectado" : "não configurado"}</div>
           </div>
         </header>
@@ -442,7 +421,7 @@ export default function Home() {
                     </div>
                     <div className="cf-result-info">
                       <div className="cf-result-heading"><strong>Clip {index + 1}</strong><span>{duration === "15-30" ? "15–30s" : duration === "45-90" ? "45–90s" : "30–60s"} · 9:16 · SHORT</span></div>
-                      {youtubeConnected && (
+                      {(youtubeConnected || instagramConnected) && (
                         <div className="cf-publish-fields">
                           <label>
                             <span>Título do Short</span>
