@@ -329,20 +329,24 @@ export default function Home() {
             <span className="cf-live-label">LOCAL AI PIPELINE</span>
             <>
               {!user && !authLoading && (
-                <a className="cf-auth-button" href="/api/auth/google" aria-label="Entrar no Clip Factory">
-                  Entrar no Clip Factory
+                <a className="cf-auth-button" href="/api/auth/google" aria-label="Logar no Clip Factory">
+                  Logar no Clip Factory
                 </a>
               )}
-              <a className="cf-youtube-button" href="/api/youtube/oauth" aria-label="Conectar YouTube">
-                <span className={`cf-yt-dot ${youtubeConnected ? "connected" : ""}`} />
-                {youtubeConnected ? "YouTube conectado" : "Conectar YouTube"}
-              </a>
-              <a className="cf-youtube-button" href="/api/instagram/oauth" aria-label="Conectar Instagram">
-                <span className={`cf-yt-dot ${instagramConnected ? "connected" : ""}`} />
-                {instagramConnected ? "Instagram conectado" : "Conectar Instagram"}
-              </a>
-              {user && <span className="cf-account-label">{user.email?.split("@")[0] || "Conta conectada"}</span>}
-              {user && <button type="button" className="cf-auth-button" onClick={signOut}>Sair</button>}
+              {user && (
+                <>
+                  <a className="cf-youtube-button" href="/api/youtube/oauth" aria-label="Conectar YouTube">
+                    <span className={`cf-yt-dot ${youtubeConnected ? "connected" : ""}`} />
+                    {youtubeConnected ? "YouTube conectado" : "Conectar YouTube"}
+                  </a>
+                  <a className="cf-youtube-button" href="/api/instagram/oauth" aria-label="Conectar Instagram">
+                    <span className={`cf-yt-dot ${instagramConnected ? "connected" : ""}`} />
+                    {instagramConnected ? "Instagram conectado" : "Conectar Instagram"}
+                  </a>
+                  <span className="cf-account-label" title={user.email || "Conta Google"}>Google conectado</span>
+                  <button type="button" className="cf-auth-button" onClick={signOut}>Sair</button>
+                </>
+              )}
             </>
             <div className={`cf-status-pill ${workerOnline ? "online" : "offline"}`}><span /> GitHub Actions {workerOnline ? "conectado" : "não configurado"}</div>
           </div>
@@ -350,7 +354,7 @@ export default function Home() {
 
         {authMessage && <div className="cf-auth-message">{authMessage}</div>}
         {!user && !authLoading && (
-          <div className="cf-auth-hint">A geração de clips é livre. Entre no Clip Factory apenas se quiser conectar YouTube ou Instagram para publicar.</div>
+          <div className="cf-auth-hint">A geração e o download dos clips são livres. O login no Clip Factory é opcional e só é necessário para conectar Google, YouTube ou Instagram e publicar.</div>
         )}
 
         <section className="cf-hero">
