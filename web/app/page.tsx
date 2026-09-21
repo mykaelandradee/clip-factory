@@ -330,9 +330,15 @@ export default function Home() {
             <span className="cf-live-label">LOCAL AI PIPELINE</span>
             <>
               {!user && !authLoading && (
-                <a className="cf-auth-button" href="/api/auth/google" aria-label="Logar no Clip Factory">
-                  Logar no Clip Factory
-                </a>
+                <div className="cf-auth-group">
+                  <button type="button" className="cf-auth-info" onClick={() => setShowAuthInfo((value) => !value)} aria-label="Informações sobre o login">
+                    <span>i</span>
+                    {showAuthInfo && <span className="cf-auth-info-popover">A geração e o download dos clips são livres. O login no Clip Factory é opcional e só é necessário para conectar Google, YouTube ou Instagram e publicar.</span>}
+                  </button>
+                  <a className="cf-auth-button" href="/api/auth/google" aria-label="Logar no Clip Factory">
+                    Logar no Clip Factory
+                  </a>
+                </div>
               )}
               {user && (
                 <>
@@ -354,13 +360,6 @@ export default function Home() {
         </header>
 
         {authMessage && <div className="cf-auth-message">{authMessage}</div>}
-        {!user && !authLoading && (
-          <button type="button" className="cf-auth-info" onClick={() => setShowAuthInfo((value) => !value)} aria-label="Informações sobre o login">
-            <span>i</span>
-            {showAuthInfo && <span className="cf-auth-info-popover">A geração e o download dos clips são livres. O login no Clip Factory é opcional e só é necessário para conectar Google, YouTube ou Instagram e publicar.</span>}
-          </button>
-        )}
-
         <section className="cf-hero">
           <div className="cf-hero-copy">
             <div className="cf-hero-label"><span /> VIDEO → CLIPS → SOCIAL</div>
