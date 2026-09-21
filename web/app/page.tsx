@@ -528,7 +528,7 @@ export default function Home() {
                                 onChange={(e) => updatePublishDraft(file, index, "publishAt", e.target.value)}
                                 disabled={publishingTarget === `instagram:${file}`}
                               />
-                              <small>Preencha data e horário e clique em “Agendar YouTube”. Deixe em branco para publicar imediatamente.</small>
+                              <small>Preencha data e horário e clique em “Agendar YouTube”. Deixe em branco para publicar imediatamente. O agendamento nesta tela é exclusivo do YouTube.</small>
                             </label>
                           )}
                         </div>
