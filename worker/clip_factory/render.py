@@ -150,7 +150,7 @@ def _write_ass(candidate: ClipCandidate, segments: list[TranscriptSegment], outp
         ),
         (
             f"Style: BeastyBox,{p['font']},{p['size']},&H00000000,&H00000000,"
-            f"&H00000000,&H00FFFFFF,{p['bold']},0,0,0,105,100,{p['spacing']},0,3,0,0,2,"
+            f"&H00FFFFFF,&H00FFFFFF,{p['bold']},0,0,0,100,100,{p['spacing']},0,3,2,0,2,"
             f"70,70,{p['margin']},1"
         ),
         "",
