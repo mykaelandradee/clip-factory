@@ -5,6 +5,7 @@ import { decryptInstagramAccessToken } from "../../../../lib/instagram-auth";
 import { deleteR2Clip, getR2PublicClipUrl } from "../../../../lib/r2";
 
 export const runtime = "nodejs";
+export const maxDuration = 300;
 
 const INSTAGRAM_API_VERSION = "v25.0";
 const INSTAGRAM_GRAPH = `https://graph.instagram.com/${INSTAGRAM_API_VERSION}`;
