@@ -27,6 +27,8 @@ export async function GET(request: Request) {
   const platform = params.get("platform");
   const jobId = params.get("jobId") || "";
   const file = params.get("file") || "";
+  const runId = params.get("runId") || "";
+  const startedAt = params.get("startedAt") || "";
 
   if (platform !== "youtube" || !jobId || !/^clip-\d{2}\.mp4$/.test(file)) {
     return NextResponse.json({ error: "platform, jobId e file são obrigatórios." }, { status: 400 });
@@ -37,16 +39,27 @@ export async function GET(request: Request) {
   if (!ownedJob) return NextResponse.json({ error: "Este processamento não pertence ao usuário autenticado." }, { status: 403 });
 
   try {
-    const response = await fetch(
-      `${GITHUB_API}/repos/${OWNER}/${REPO}/actions/workflows/youtube-publisher.yml/runs?event=repository_dispatch&per_page=50`,
-      { headers: headers(), cache: "no-store" },
-    );
-    if (!response.ok) return NextResponse.json({ error: "Não foi possível consultar o GitHub Actions." }, { status: 502 });
+    let run: { id?: number; status?: string; conclusion?: string } | undefined;
 
-    const data = await response.json();
-    const run = data.workflow_runs?.find((item: { run_name?: string; name?: string }) =>
-      item.run_name === `YouTube Publisher ${jobId}` || item.name === `YouTube Publisher ${jobId}`,
-    );
+    if (runId) {
+      const response = await fetch(
+        `${GITHUB_API}/repos/${OWNER}/${REPO}/actions/runs/${encodeURIComponent(runId)}`,
+        { headers: headers(), cache: "no-store" },
+      );
+      if (response.ok) run = await response.json();
+    } else {
+      const response = await fetch(
+        `${GITHUB_API}/repos/${OWNER}/${REPO}/actions/workflows/youtube-publisher.yml/runs?event=repository_dispatch&per_page=20`,
+        { headers: headers(), cache: "no-store" },
+      );
+      if (!response.ok) return NextResponse.json({ error: "Não foi possível consultar o GitHub Actions." }, { status: 502 });
+
+      const data = await response.json();
+      const createdAfter = startedAt ? Date.parse(startedAt) - 5000 : Date.now() - 120000;
+      run = data.workflow_runs?.find((item: { id?: number; created_at?: string }) =>
+        typeof item.id === "number" && typeof item.created_at === "string" && Date.parse(item.created_at) >= createdAfter,
+      );
+    }
 
     if (!run) return NextResponse.json({ status: "queued", message: "Aguardando o GitHub Actions iniciar a publicação." });
 
