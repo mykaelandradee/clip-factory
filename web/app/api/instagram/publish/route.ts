@@ -134,7 +134,7 @@ export async function POST(request: Request) {
 
     // Instagram fetches the rendered MP4 directly from the public R2 URL.
     const containerResponse = await fetch(
-      `${INSTAGRAM_GRAPH}/${encodeURIComponent(connection.instagram_user_id)}/media`,
+      `${INSTAGRAM_GRAPH}/me/media`,
       {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -206,7 +206,7 @@ export async function POST(request: Request) {
     }
 
     const publishResponse = await fetch(
-      `${INSTAGRAM_GRAPH}/${encodeURIComponent(connection.instagram_user_id)}/media_publish`,
+      `${INSTAGRAM_GRAPH}/me/media_publish`,
       {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
