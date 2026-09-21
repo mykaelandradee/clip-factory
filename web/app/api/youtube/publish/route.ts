@@ -90,7 +90,6 @@ export async function POST(request: Request) {
     const run = runsData.workflow_runs?.find((item: { id?: number; created_at?: string; name?: string; display_title?: string }) =>
       typeof item.id === "number" &&
       item.name === "YouTube Publisher" &&
-        item.display_title === expectedRunTitle &&
       typeof item.created_at === "string" &&
       Date.parse(item.created_at) >= createdAfter,
     );
