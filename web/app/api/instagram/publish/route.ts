@@ -71,6 +71,10 @@ export async function POST(request: Request) {
 
   try {
     const accessToken = decryptInstagramAccessToken(connection.access_token_encrypted);
+    if (!accessToken) {
+      return NextResponse.json({ error: "Não foi possível descriptografar o token do Instagram. Conecte a conta novamente." }, { status: 401 });
+    }
+
     const videoUrl = getR2PublicClipUrl(jobId, file);
 
     // Instagram fetches the rendered MP4 directly from the public R2 URL.
