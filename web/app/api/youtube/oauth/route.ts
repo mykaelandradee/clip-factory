@@ -8,7 +8,16 @@ export const runtime = "nodejs";
 export async function GET(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.redirect(new URL("/?auth_required=1", request.url));
+  if (!user) {
+    const origin = new URL(request.url).origin;
+    const next = encodeURIComponent("/api/youtube/oauth");
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${origin}/auth/callback?next=${next}` },
+    });
+    if (error || !data.url) return NextResponse.redirect(new URL("/?auth_error=google_login", request.url));
+    return NextResponse.redirect(data.url);
+  }
 
   const clientId = process.env.YOUTUBE_CLIENT_ID;
   if (!clientId) return NextResponse.json({ error: "YOUTUBE_CLIENT_ID não configurado na Vercel." }, { status: 503 });
