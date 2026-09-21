@@ -77,62 +77,63 @@ def transcribe(
     silence-aware timestamp handling. This improves recognition without adding
     a paid API dependency.
     """
-    from faster_whisper import WhisperModel
+    import whisper
 
     if subtitle_language not in {"original", "pt-BR", "en"}:
         raise ValueError("Idioma de legenda não suportado.")
 
-    model = WhisperModel(model_name, device="cpu", compute_type="int8")
+    model = whisper.load_model(model_name, device="cpu")
     try:
         task = "translate" if subtitle_language == "en" else "transcribe"
-        raw_segments, info = model.transcribe(
+        result = model.transcribe(
             str(video_path),
-            task=task,
+            verbose=False,
+            fp16=False,
+            temperature=(0.0, 0.2, 0.4, 0.6),
             beam_size=5,
-            temperature=0.0,
             condition_on_previous_text=False,
             word_timestamps=True,
-            vad_filter=True,
-            vad_parameters={
-                "threshold": 0.65,
-                "min_speech_duration_ms": 250,
-                "min_silence_duration_ms": 450,
-                "speech_pad_ms": 120,
-            },
+            hallucination_silence_threshold=1.0,
+            task=task,
         )
-        raw_segments = list(raw_segments)
     finally:
         del model
         gc.collect()
 
-    raw_segments = [raw for raw in raw_segments if str(raw.text).strip()]
-    detected_language = str(getattr(info, "language", "")).lower()
+    raw_segments = [raw for raw in result.get("segments", []) if raw.get("text", "").strip()]
+    detected_language = str(result.get("language", "")).lower()
     is_translated_to_pt = subtitle_language == "pt-BR" and detected_language not in {"pt", "pt-br"}
 
     if is_translated_to_pt:
-        translated = _translate_to_pt([str(raw.text).strip() for raw in raw_segments])
+        translated = _translate_to_pt([str(raw["text"]).strip() for raw in raw_segments])
     else:
-        translated = [str(raw.text).strip() for raw in raw_segments]
+        translated = [str(raw["text"]).strip() for raw in raw_segments]
 
     segments: list[TranscriptSegment] = []
     for raw, text in zip(raw_segments, translated):
-        raw_start = float(raw.start)
-        raw_end = float(raw.end)
         if is_translated_to_pt:
-            words = _retime_translated_words(text, raw_start, raw_end)
+            words = _retime_translated_words(
+                text,
+                float(raw["start"]),
+                float(raw["end"]),
+            )
         else:
             words = []
-            for word in raw.words or []:
-                word_text = str(word.word).strip()
+            for word in raw.get("words", []) or []:
+                word_text = str(word.get("word", "")).strip()
                 if not word_text:
                     continue
                 words.append({
-                    "start": float(word.start),
-                    "end": float(word.end),
+                    "start": float(word.get("start", raw["start"])),
+                    "end": float(word.get("end", raw["end"])),
                     "text": word_text,
                 })
 
-        segments.append(TranscriptSegment(raw_start, raw_end, text, words))
+        segments.append(
+            TranscriptSegment(
+                float(raw["start"]), float(raw["end"]), text, words
+            )
+        )
 
     output_json.parent.mkdir(parents=True, exist_ok=True)
     output_json.write_text(
