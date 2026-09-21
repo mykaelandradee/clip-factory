@@ -56,6 +56,8 @@ export default function Home() {
   const [authMessage, setAuthMessage] = useState("");
   const [publishingFile, setPublishingFile] = useState<string | null>(null);
   const [publishMessage, setPublishMessage] = useState("");
+  const [publishStatuses, setPublishStatuses] = useState<Record<string, { platform: "youtube" | "instagram"; status: "queued" | "running" | "success" | "failed"; message: string }>>({});
+  const publishTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const [publishDrafts, setPublishDrafts] = useState<Record<string, { title: string; description: string; publishAt: string }>>({});
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -64,7 +66,7 @@ export default function Home() {
   useEffect(() => {
     initAuth();
     checkWorker();
-    return () => { if (timer.current) clearInterval(timer.current); };
+    return () => { if (timer.current) clearInterval(timer.current); if (publishTimer.current) clearInterval(publishTimer.current); };
   }, []);
 
   useEffect(() => {
@@ -171,9 +173,11 @@ export default function Home() {
   }
 
   async function publishToYouTube(file: string, index: number) {
-    setPublishMessage("");
+    if (publishTimer.current) clearInterval(publishTimer.current);
     setPublishingFile(file);
     const draft = getPublishDraft(file, index);
+    const setStatus = (status: "queued" | "running" | "success" | "failed", message: string) =>
+      setPublishStatuses((previous) => ({ ...previous, [file]: { platform: "youtube", status, message } }));
     try {
       const response = await fetch("/api/youtube/publish", {
         method: "POST",
@@ -187,18 +191,42 @@ export default function Home() {
         }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Não foi possível publicar no YouTube.");
-      setPublishMessage(`Clip ${index + 1} enviado para publicação no YouTube.`);
+      if (!response.ok) throw new Error(data.error || "Não foi possível iniciar a publicação no YouTube.");
+      setStatus("queued", draft.publishAt ? "Publicação agendada no YouTube. Aguardando o GitHub Actions." : "Publicação iniciada no YouTube. Aguardando o envio.");
+      const check = async () => {
+        try {
+          const statusResponse = await fetch(`/api/publish/status?platform=youtube&jobId=${encodeURIComponent(jobId)}&file=${encodeURIComponent(file)}`, { cache: "no-store" });
+          const statusData = await statusResponse.json();
+          if (!statusResponse.ok) throw new Error(statusData.error || "Não foi possível consultar a publicação.");
+          if (statusData.status === "success") {
+            setStatus("success", draft.publishAt ? "Publicação agendada com sucesso no YouTube." : "Vídeo publicado com sucesso no YouTube.");
+            if (publishTimer.current) clearInterval(publishTimer.current);
+            publishTimer.current = null;
+            setPublishingFile(null);
+          } else if (statusData.status === "failed") {
+            setStatus("failed", statusData.message || "A publicação no YouTube falhou.");
+            if (publishTimer.current) clearInterval(publishTimer.current);
+            publishTimer.current = null;
+            setPublishingFile(null);
+          } else {
+            setStatus(statusData.status === "running" ? "running" : "queued", statusData.message || "Publicação em andamento no YouTube.");
+          }
+        } catch (err) {
+          setStatus("running", err instanceof Error ? err.message : "Consultando a publicação...");
+        }
+      };
+      await check();
+      publishTimer.current = setInterval(check, 3000);
     } catch (err) {
-      setPublishMessage(err instanceof Error ? err.message : "Erro ao publicar no YouTube.");
-    } finally {
+      setStatus("failed", err instanceof Error ? err.message : "Erro ao publicar no YouTube.");
       setPublishingFile(null);
     }
   }
 
   async function publishToInstagram(file: string, index: number) {
-    setPublishMessage("");
+    if (publishTimer.current) clearInterval(publishTimer.current);
     setPublishingFile(file);
+    setPublishStatuses((previous) => ({ ...previous, [file]: { platform: "instagram", status: "running", message: "Enviando o Reel para o Instagram..." } }));
     const draft = getPublishDraft(file, index);
     const caption = [draft.title.trim(), draft.description.trim()].filter(Boolean).join("\n\n");
     try {
@@ -209,9 +237,9 @@ export default function Home() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Não foi possível publicar no Instagram.");
-      setPublishMessage(`Clip ${index + 1} publicado no Instagram.${data.message && data.message !== "Reel publicado com sucesso." ? " " + data.message : ""}`);
+      setPublishStatuses((previous) => ({ ...previous, [file]: { platform: "instagram", status: "success", message: data.message || "Reel publicado com sucesso no Instagram." } }));
     } catch (err) {
-      setPublishMessage(err instanceof Error ? err.message : "Erro ao publicar no Instagram.");
+      setPublishStatuses((previous) => ({ ...previous, [file]: { platform: "instagram", status: "failed", message: err instanceof Error ? err.message : "Erro ao publicar no Instagram." } }));
     } finally {
       setPublishingFile(null);
     }
@@ -399,7 +427,7 @@ export default function Home() {
 
           {error && <p className="cf-error">{error}</p>}
           {job?.status === "failed" && <p className="cf-error">{job.error || job.message}</p>}
-          {publishMessage && <p className="cf-youtube-message">{publishMessage}</p>}
+          
         </form>
 
         {job?.status === "completed" && job.result && (
@@ -458,6 +486,12 @@ export default function Home() {
                               <small>Deixe em branco para publicar assim que o envio terminar.</small>
                             </label>
                           )}
+                        </div>
+                      )}
+                      {publishStatuses[file] && (
+                        <div className={`cf-publish-status cf-publish-status-${publishStatuses[file].status}`}>
+                          <strong>{publishStatuses[file].status === "success" ? "✓" : publishStatuses[file].status === "failed" ? "!" : "⋯"}</strong>
+                          <span>{publishStatuses[file].message}</span>
                         </div>
                       )}
                       <div className="cf-result-actions">
