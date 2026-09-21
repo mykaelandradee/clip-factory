@@ -116,7 +116,7 @@ export async function POST(request: Request) {
       console.error("Instagram container creation failed:", containerData);
       return NextResponse.json({
         error: containerData?.error?.message
-          ? `${containerData.error.message}${containerData.error.fbtrace_id ? ` (Meta fbtrace_id: ${containerData.error.fbtrace_id})` : ""}`
+          ? containerData.error.message + (containerData.error.code ? ` [código ${String(containerData.error.code)}]` : "") + (containerData.error.type ? ` [${String(containerData.error.type)}]` : "") + (containerData.error.fbtrace_id ? ` (Meta fbtrace_id: ${String(containerData.error.fbtrace_id)})` : "")
           : "O Instagram não conseguiu criar o processamento do Reel.",
       }, { status: 502 });
     }

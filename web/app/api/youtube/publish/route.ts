@@ -66,10 +66,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Não foi possível iniciar a publicação." }, { status: 502 });
   }
 
-  // repository_dispatch returns 204, so resolve the created workflow run explicitly.
+  const expectedRunName = `YouTube Publisher ${jobId}`;
   let runId: number | null = null;
+
   for (let attempt = 0; attempt < 10 && runId === null; attempt += 1) {
     await new Promise((resolve) => setTimeout(resolve, 500));
+
     const runsResponse = await fetch(
       "https://api.github.com/repos/mykaelandradee/clip-factory/actions/workflows/youtube-publisher.yml/runs?event=repository_dispatch&per_page=20",
       {
@@ -82,10 +84,14 @@ export async function POST(request: Request) {
       },
     );
     if (!runsResponse.ok) continue;
+
     const runsData = await runsResponse.json();
     const createdAfter = Date.parse(dispatchedAt) - 5000;
-    const run = runsData.workflow_runs?.find((item: { id?: number; created_at?: string }) =>
-      typeof item.id === "number" && typeof item.created_at === "string" && Date.parse(item.created_at) >= createdAfter,
+    const run = runsData.workflow_runs?.find((item: { id?: number; created_at?: string; name?: string }) =>
+      typeof item.id === "number" &&
+      item.name === expectedRunName &&
+      typeof item.created_at === "string" &&
+      Date.parse(item.created_at) >= createdAfter,
     );
     if (run?.id) runId = run.id;
   }
