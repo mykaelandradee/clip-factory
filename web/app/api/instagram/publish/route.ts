@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "../../../../lib/supabase/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
-import { decryptInstagramAccessToken } from "../../../../lib/instagram-auth";
+import { decryptInstagramAccessToken, encryptInstagramAccessToken, refreshInstagramLongLivedToken } from "../../../../lib/instagram-auth";
 import { deleteR2Clip, getR2PublicClipUrl } from "../../../../lib/r2";
 
 export const runtime = "nodejs";
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
   const [{ data: connection }, { data: ownedJob }] = await Promise.all([
     admin
       .from("instagram_connections")
-      .select("instagram_user_id, access_token_encrypted")
+      .select("instagram_user_id, access_token_encrypted, expires_at")
       .eq("user_id", user.id)
       .maybeSingle(),
     admin
@@ -71,9 +71,47 @@ export async function POST(request: Request) {
   }
 
   try {
-    const accessToken = decryptInstagramAccessToken(connection.access_token_encrypted);
+    let accessToken = decryptInstagramAccessToken(connection.access_token_encrypted);
     if (!accessToken) {
       return NextResponse.json({ error: "Não foi possível descriptografar o token do Instagram. Conecte a conta novamente." }, { status: 401 });
+    }
+
+    if (connection.expires_at) {
+      const expiresAt = Date.parse(connection.expires_at);
+      if (!Number.isNaN(expiresAt) && expiresAt <= Date.now()) {
+        return NextResponse.json({
+          error: "A sessão do Instagram expirou. Conecte o Instagram novamente.",
+        }, { status: 401 });
+      }
+
+      const refreshWindow = 7 * 24 * 60 * 60 * 1000;
+      if (!Number.isNaN(expiresAt) && expiresAt - Date.now() <= refreshWindow) {
+        try {
+          const refreshed = await refreshInstagramLongLivedToken(accessToken);
+          accessToken = refreshed.accessToken;
+          const newExpiresAt = refreshed.expiresIn > 0
+            ? new Date(Date.now() + refreshed.expiresIn * 1000).toISOString()
+            : connection.expires_at;
+
+          const { error: refreshSaveError } = await admin
+            .from("instagram_connections")
+            .update({
+              access_token_encrypted: encryptInstagramAccessToken(accessToken),
+              expires_at: newExpiresAt,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("user_id", user.id);
+
+          if (refreshSaveError) {
+            console.error("Instagram refreshed token save failed:", refreshSaveError.message);
+          }
+        } catch (refreshError) {
+          console.error("Instagram token refresh failed:", refreshError);
+          return NextResponse.json({
+            error: "A sessão do Instagram está próxima de expirar e não pôde ser renovada. Conecte o Instagram novamente.",
+          }, { status: 401 });
+        }
+      }
     }
 
     const videoUrl = getR2PublicClipUrl(jobId, file);
