@@ -9,14 +9,7 @@ export async function GET(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
-    const origin = new URL(request.url).origin;
-    const next = encodeURIComponent("/api/youtube/oauth");
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${origin}/auth/callback?next=${next}` },
-    });
-    if (error || !data.url) return NextResponse.redirect(new URL("/?auth_error=google_login", request.url));
-    return NextResponse.redirect(data.url);
+    return NextResponse.redirect(new URL("/api/auth/google?next=/api/youtube/oauth", request.url));
   }
 
   const clientId = process.env.YOUTUBE_CLIENT_ID;
