@@ -3,6 +3,8 @@ from __future__ import annotations
 import gc
 import json
 import os
+import re
+import subprocess
 from pathlib import Path
 
 os.environ.setdefault("OMP_NUM_THREADS", "1")
@@ -11,6 +13,41 @@ os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
 os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
 
 from .models import TranscriptSegment
+
+
+def _speech_only_audio(video_path: Path) -> Path:
+    """Create a mono speech-focused track by suppressing low-frequency music bed.
+    This is intentionally conservative: it reduces music contamination without
+    requiring a paid API or a large extra ML model."""
+    output = video_path.with_name(video_path.stem + ".speech.wav")
+    cmd = [
+        "ffmpeg", "-y", "-i", str(video_path),
+        "-vn", "-ac", "1", "-ar", "16000",
+        "-af", "highpass=f=120,lowpass=f=5000,dynaudnorm=f=150:g=7",
+        str(output),
+    ]
+    subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return output
+
+
+def _normalize_pt_br(text: str) -> str:
+    # Keep the local translation model, but normalize a few common European
+    # Portuguese forms that are undesirable in Brazilian short-form captions.
+    replacements = {
+        r"\\bficheiro\\b": "arquivo",
+        r"\\btelemóvel\\b": "celular",
+        r"\\bautocarro\\b": "ônibus",
+        r"\\bcomboio\\b": "trem",
+        r"\\becrã\\b": "tela",
+        r"\\btu\\b": "você",
+        r"\\btuas\\b": "suas",
+        r"\\bteu\\b": "seu",
+        r"\\btua\\b": "sua",
+    }
+    out = text.strip()
+    for pattern, replacement in replacements.items():
+        out = re.sub(pattern, replacement, out, flags=re.IGNORECASE)
+    return out
 
 
 def _translate_to_pt(texts: list[str]) -> list[str]:
@@ -82,11 +119,14 @@ def transcribe(
     if subtitle_language not in {"original", "pt-BR", "en"}:
         raise ValueError("Idioma de legenda não suportado.")
 
+    # First pass on a speech-focused track. The original video remains the
+    # source for final timestamps; this pass is only used to reduce music bleed.
+    speech_audio = _speech_only_audio(video_path)
     model = whisper.load_model(model_name, device="cpu")
     try:
         task = "translate" if subtitle_language == "en" else "transcribe"
         result = model.transcribe(
-            str(video_path),
+            str(speech_audio),
             verbose=False,
             fp16=False,
             temperature=(0.0, 0.2, 0.4, 0.6),
@@ -100,12 +140,21 @@ def transcribe(
         del model
         gc.collect()
 
-    raw_segments = [raw for raw in result.get("segments", []) if raw.get("text", "").strip()]
+    raw_segments = [
+        raw for raw in result.get("segments", [])
+        if raw.get("text", "").strip()
+        and float(raw.get("no_speech_prob", 0.0)) < 0.55
+        and float(raw.get("avg_logprob", -10.0)) > -1.2
+        and float(raw.get("compression_ratio", 0.0)) < 2.8
+    ]
     detected_language = str(result.get("language", "")).lower()
     is_translated_to_pt = subtitle_language == "pt-BR" and detected_language not in {"pt", "pt-br"}
 
     if is_translated_to_pt:
-        translated = _translate_to_pt([str(raw["text"]).strip() for raw in raw_segments])
+        translated = [
+            _normalize_pt_br(text)
+            for text in _translate_to_pt([str(raw["text"]).strip() for raw in raw_segments])
+        ]
     else:
         translated = [str(raw["text"]).strip() for raw in raw_segments]
 
