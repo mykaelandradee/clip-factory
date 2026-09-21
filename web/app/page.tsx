@@ -521,14 +521,14 @@ export default function Home() {
                           </label>
                           {youtubeConnected && (
                             <label>
-                              <span>Agendar publicação no YouTube (opcional)</span>
+                              <span>Agendar publicação no YouTube</span>
                               <input
                                 type="datetime-local"
                                 value={getPublishDraft(file, index).publishAt}
                                 onChange={(e) => updatePublishDraft(file, index, "publishAt", e.target.value)}
                                 disabled={publishingTarget === `instagram:${file}`}
                               />
-                              <small>Deixe em branco para publicar assim que o envio terminar.</small>
+                              <small>Preencha data e horário e clique em “Agendar YouTube”. Deixe em branco para publicar imediatamente.</small>
                             </label>
                           )}
                         </div>
@@ -548,7 +548,7 @@ export default function Home() {
                             onClick={() => publishToYouTube(file, index)}
                             disabled={publishingTarget === `youtube:${file}` || publishingTarget === `instagram:${file}` || !getPublishDraft(file, index).title.trim()}
                           >
-                            {publishingTarget === `youtube:${file}` ? "Enviando…" : "Publicar YouTube ↗"}
+                            {publishingTarget === `youtube:${file}` ? "Enviando…" : (getPublishDraft(file, index).publishAt ? "Agendar YouTube ↗" : "Publicar YouTube ↗")}
                           </button>
                         )}
                         {instagramConnected && (
