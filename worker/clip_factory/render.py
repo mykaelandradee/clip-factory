@@ -189,15 +189,15 @@ def render_vertical(source: Path, candidate: ClipCandidate, output: Path,
     subtitle_path = str(subtitle_file.resolve()).replace("\\", "/").replace(":", "\\:")
     vf = (
         "scale=1080:1920:force_original_aspect_ratio=increase,"
-        "crop=1080:1920,setsar=1,"
+        "crop=1080:1920,setsar=1,fps=30,"
         f"ass='{subtitle_path}'"
     )
 
     cmd = [
         "ffmpeg", "-y", "-ss", f"{candidate.start:.3f}", "-i", str(source),
         "-t", f"{candidate.duration:.3f}", "-vf", vf,
-        "-c:v", "libx264", "-preset", "medium", "-crf", "20",
-        "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(output),
+        "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-maxrate", "20M", "-bufsize", "40M",
+        "-c:a", "aac", "-b:a", "128k", "-ar", "48000", "-movflags", "+faststart", str(output),
     ]
     subprocess.run(cmd, check=True)
     return output
