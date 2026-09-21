@@ -51,6 +51,7 @@ export default function Home() {
   const [submitting, setSubmitting] = useState(false);
   const [youtubeConnected, setYoutubeConnected] = useState(false);
   const [instagramConnected, setInstagramConnected] = useState(false);
+  const [showAuthInfo, setShowAuthInfo] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authMessage, setAuthMessage] = useState("");
@@ -343,7 +344,7 @@ export default function Home() {
                     <span className={`cf-yt-dot ${instagramConnected ? "connected" : ""}`} />
                     {instagramConnected ? "Instagram conectado" : "Conectar Instagram"}
                   </a>
-                  <span className="cf-account-label" title={user.email || "Conta Google"}>Google conectado</span>
+                  <span className="cf-account-label" title={user.email || "Conta do Clip Factory"}>Clip Factory conectado</span>
                   <button type="button" className="cf-auth-button" onClick={signOut}>Sair</button>
                 </>
               )}
@@ -354,7 +355,10 @@ export default function Home() {
 
         {authMessage && <div className="cf-auth-message">{authMessage}</div>}
         {!user && !authLoading && (
-          <div className="cf-auth-hint">A geração e o download dos clips são livres. O login no Clip Factory é opcional e só é necessário para conectar Google, YouTube ou Instagram e publicar.</div>
+          <button type="button" className="cf-auth-info" onClick={() => setShowAuthInfo((value) => !value)} aria-label="Informações sobre o login">
+            <span>i</span>
+            {showAuthInfo && <span className="cf-auth-info-popover">A geração e o download dos clips são livres. O login no Clip Factory é opcional e só é necessário para conectar Google, YouTube ou Instagram e publicar.</span>}
+          </button>
         )}
 
         <section className="cf-hero">
