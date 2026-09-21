@@ -216,7 +216,14 @@ export default function Home() {
         }
       };
       await check();
-      publishTimer.current = setInterval(check, 3000);
+      if (publishTimer.current !== null || !publishTimer.current) {
+        // Only keep polling while the publication is still active.
+        // check() clears the timer and resets the target when it reaches a terminal state.
+        const currentStatus = publishStatuses[file]?.status;
+        if (currentStatus !== "success" && currentStatus !== "failed") {
+          publishTimer.current = setInterval(check, 3000);
+        }
+      }
     } catch (err) {
       setStatus("failed", err instanceof Error ? err.message : "Erro ao publicar no YouTube.");
       setPublishingTarget(null);
