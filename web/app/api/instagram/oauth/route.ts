@@ -29,6 +29,8 @@ export async function GET(request: Request) {
     redirect_uri: redirectUri,
     response_type: "code",
     scope: "instagram_business_basic,instagram_business_content_publish",
+    enable_fb_login: "0",
+    force_reauth: "true",
     state,
   });
 
