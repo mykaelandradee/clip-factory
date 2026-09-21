@@ -104,9 +104,9 @@ def _event_text(group, style: str) -> str:
         elif style == "beasty":
             # Block/punch style: active words become oversized with a dark backing.
             pieces.append(
-                f"{{\\c{p['active']}\\3c&H000000&\\bord10\\shad5"
+                f"{{\\c{p['active']}\\3c&H00FFFFFF&\\bord14\\shad0"
                 f"\\fscx122\\fscy115\\t(0,120,\\fscx105\\fscy100)\\k{duration_cs}}}{text}"
-                f"{{\\c{p['primary']}\\bord8}}"
+                f"{{\\c{p['primary']}\\3c&H00000000&\\bord8}}"
             )
 
         elif style == "youshaei":
