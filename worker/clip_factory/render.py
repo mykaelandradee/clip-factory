@@ -92,49 +92,39 @@ def _event_text(group, style: str) -> str:
         text = _ass_escape(raw_text.upper())
 
         if style == "karaoke":
-            pieces.append(f"{{\\c{p['active']}\\k{duration_cs}}}{text}{{\\c{p['primary']}}}")
-
+            pieces.append(
+                f"{{\\c{p['active']}\\k{duration_cs}}}{text}"
+                f"{{\\c{p['primary']}}}"
+            )
         elif style == "fire":
             pieces.append(
-                f"{{\\c{p['active']}\\bord9\\shad4\\fscx116\\fscy116"
-                f"\\t(0,100,\\fscx100\\fscy100)\\k{duration_cs}}}{text}"
-                f"{{\\c{p['primary']}\\bord7}}"
+                f"{{\\c{p['active']}\\bord9\\shad4"
+                f"\\fscx116\\fscy116\\k{duration_cs}"
+                f"\\t(0,120,\\fscx100\\fscy100)}}{text}"
+                f"{{\\c{p['primary']}\\bord7\\shad4}}"
             )
-
         elif style == "beasty":
-            # Base text stays fully white. The active word is rendered as a
-            # separate overlay so it can have a true white rectangular box.
             pieces.append(
-                f"{{\\c{p['primary']}\\3c&H00000000&\\bord8\\shad0\\k{duration_cs}}}{text}"
-                f"{{\\c{p['primary']}\\3c&H00000000&\\bord8}}"
+                f"{{\\c{p['primary']}\\3c&H00000000&\\bord7\\shad0\\k{duration_cs}}}{text}"
+                f"{{\\c{p['primary']}\\3c&H00000000&\\bord7}}"
             )
-
         elif style == "youshaei":
-            # Clean editorial: cyan underline and restrained emphasis.
             pieces.append(
-                f"{{\\c{p['active']}\\u1\\bord2\\k{duration_cs}}}{text}"
-                f"{{\\c{p['primary']}\\u0}}"
+                f"{{\\c{p['active']}\\bord2\\shad1\\k{duration_cs}}}{text}"
+                f"{{\\c{p['primary']}\\bord3\\shad1}}"
             )
-
         elif style == "harmozi":
-            # Motivational emphasis: bright lime active word with a strong keyline.
             pieces.append(
                 f"{{\\c{p['active']}\\3c&H000000&\\bord8\\shad3"
-                f"\\fscx110\\fscy110\\k{duration_cs}}}{text}"
+                f"\\fscx112\\fscy112\\k{duration_cs}}}{text}"
                 f"{{\\c{p['primary']}\\fscx100\\fscy100}}"
             )
-
         else:
-            # Cinematic: understated serif, spaced lettering and soft reveal.
             pieces.append(
                 f"{{\\alpha&H55&\\fscx96\\k{duration_cs}}}{text}"
-                f"{{\\alpha&H00&\\fscx100\\t(0,180,\\fscx100)}}"
+                f"{{\\alpha&H00&\\fscx100}}"
             )
 
-    if style == "beasty":
-        return " ".join(pieces)
-    if style == "cinematic":
-        return " ".join(pieces)
     return " ".join(pieces)
 
 
@@ -177,12 +167,13 @@ def _write_ass(candidate: ClipCandidate, segments: list[TranscriptSegment], outp
         if style == "beasty":
             # DejaVu Sans Mono makes character width predictable enough to
             # place the active word over the same centered base caption.
-            total_chars = sum(len(item[2]) for item in group)
-            total_width = total_chars * (p["size"] * 0.55) * (p["scale_x"] / 100)
-            total_width += max(0, len(group) - 1) * (p["spacing"] or 0)
+            char_width = p["size"] * 0.60 * (p["scale_x"] / 100)
+            space_width = char_width
+            word_widths = [len(raw_word) * char_width for _, _, raw_word in group]
+            total_width = sum(word_widths)
+            total_width += max(0, len(group) - 1) * (space_width + (p["spacing"] or 0))
             cursor = -total_width / 2
-            for word_start, word_end, raw_word in group:
-                word_width = len(raw_word) * (p["size"] * 0.55) * (p["scale_x"] / 100)
+            for (word_start, word_end, raw_word), word_width in zip(group, word_widths):
                 word_center = cursor + (word_width / 2)
                 x = max(70, min(1010, 540 + word_center))
                 y = 1920 - p["margin"]
@@ -191,7 +182,7 @@ def _write_ass(candidate: ClipCandidate, segments: list[TranscriptSegment], outp
                     f"Dialogue: 1,{_ass_time(word_start)},{_ass_time(word_end)},"
                     f"BeastyBox,,0,0,0,{{\\pos({x:.0f},{y:.0f})}}{word_text}"
                 )
-                cursor += word_width + (p["spacing"] or 0)
+                cursor += word_width + space_width + (p["spacing"] or 0)
 
     if not groups:
         for segment in segments:
