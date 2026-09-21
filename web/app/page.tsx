@@ -210,6 +210,27 @@ export default function Home() {
       setPublishingFile(null);
     }
   }
+
+  async function publishToInstagram(file: string, index: number) {
+    setPublishMessage("");
+    setPublishingFile(file);
+    const draft = getPublishDraft(file, index);
+    const caption = [draft.title.trim(), draft.description.trim()].filter(Boolean).join("\n\n");
+    try {
+      const response = await fetch("/api/instagram/publish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobId, file, caption }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Não foi possível publicar no Instagram.");
+      setPublishMessage(`Clip ${index + 1} publicado no Instagram.${data.message && data.message !== "Reel publicado com sucesso." ? " " + data.message : ""}`);
+    } catch (err) {
+      setPublishMessage(err instanceof Error ? err.message : "Erro ao publicar no Instagram.");
+    } finally {
+      setPublishingFile(null);
+    }
+  }
   async function checkWorker() {
     try {
       const response = await fetch("/api/health", { cache: "no-store" });
@@ -446,16 +467,18 @@ export default function Home() {
                             />
                             <small>{getPublishDraft(file, index).description.length}/5000</small>
                           </label>
-                          <label>
-                            <span>Agendar publicação (opcional)</span>
-                            <input
-                              type="datetime-local"
-                              value={getPublishDraft(file, index).publishAt}
-                              onChange={(e) => updatePublishDraft(file, index, "publishAt", e.target.value)}
-                              disabled={publishingFile === file}
-                            />
-                            <small>Deixe em branco para publicar assim que o envio terminar.</small>
-                          </label>
+                          {youtubeConnected && (
+                            <label>
+                              <span>Agendar publicação no YouTube (opcional)</span>
+                              <input
+                                type="datetime-local"
+                                value={getPublishDraft(file, index).publishAt}
+                                onChange={(e) => updatePublishDraft(file, index, "publishAt", e.target.value)}
+                                disabled={publishingFile === file}
+                              />
+                              <small>Deixe em branco para publicar assim que o envio terminar.</small>
+                            </label>
+                          )}
                         </div>
                       )}
                       <div className="cf-result-actions">
@@ -467,7 +490,17 @@ export default function Home() {
                             onClick={() => publishToYouTube(file, index)}
                             disabled={publishingFile === file || !getPublishDraft(file, index).title.trim()}
                           >
-                            {publishingFile === file ? "Enviando…" : "Publicar Short ↗"}
+                            {publishingFile === file ? "Enviando…" : "Publicar YouTube ↗"}
+                          </button>
+                        )}
+                        {instagramConnected && (
+                          <button
+                            type="button"
+                            className="cf-download cf-publish-button"
+                            onClick={() => publishToInstagram(file, index)}
+                            disabled={publishingFile === file || !getPublishDraft(file, index).title.trim()}
+                          >
+                            {publishingFile === file ? "Publicando…" : "Publicar Instagram ↗"}
                           </button>
                         )}
                       </div>                    </div>
