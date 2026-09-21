@@ -64,14 +64,22 @@ export async function GET(request: Request) {
     if (!run) return NextResponse.json({ status: "queued", message: "Aguardando o GitHub Actions iniciar a publicação." });
 
     if (run.status !== "completed") {
-      return NextResponse.json({ status: run.status === "in_progress" ? "running" : "queued", message: run.status === "in_progress" ? "O GitHub Actions está enviando o vídeo para o YouTube." : "Publicação na fila do GitHub Actions." });
+      return NextResponse.json({
+        status: run.status === "in_progress" ? "running" : "queued",
+        message: run.status === "in_progress"
+          ? "O GitHub Actions está enviando o vídeo para o YouTube."
+          : "Publicação na fila do GitHub Actions.",
+      });
     }
 
     if (run.conclusion === "success") {
       return NextResponse.json({ status: "success", message: "Vídeo publicado com sucesso no YouTube." });
     }
 
-    return NextResponse.json({ status: "failed", message: `A publicação no YouTube terminou com erro (${run.conclusion || "falha"}).` });
+    return NextResponse.json({
+      status: "failed",
+      message: `A publicação no YouTube terminou com erro (${run.conclusion || "falha"}).`,
+    });
   } catch (error) {
     console.error("YouTube publish status error:", error);
     return NextResponse.json({ error: error instanceof Error ? error.message : "Erro ao consultar a publicação." }, { status: 502 });
