@@ -152,6 +152,11 @@ export async function POST(request: Request) {
     const containerData = await readJson(containerResponse);
     if (!containerResponse.ok || !containerData.id) {
       console.error("Instagram container creation failed:", containerData);
+      if (String(containerData?.error?.code || "") === "190") {
+        return NextResponse.json({
+          error: "A sessão do Instagram expirou ou foi invalidada. Conecte o Instagram novamente.",
+        }, { status: 401 });
+      }
       return NextResponse.json({
         error: containerData?.error?.message
           ? containerData.error.message + (containerData.error.code ? ` [código ${String(containerData.error.code)}]` : "") + (containerData.error.type ? ` [${String(containerData.error.type)}]` : "") + (containerData.error.fbtrace_id ? ` (Meta fbtrace_id: ${String(containerData.error.fbtrace_id)})` : "")
@@ -173,6 +178,11 @@ export async function POST(request: Request) {
       const statusData = await readJson(statusResponse);
       if (!statusResponse.ok) {
         console.error("Instagram container status failed:", statusData);
+        if (String(statusData?.error?.code || "") === "190") {
+          return NextResponse.json({
+            error: "A sessão do Instagram expirou ou foi invalidada. Conecte o Instagram novamente.",
+          }, { status: 401 });
+        }
         return NextResponse.json({
           error: statusData?.error?.message || "Não foi possível consultar o processamento do Reel no Instagram.",
         }, { status: 502 });
@@ -211,6 +221,11 @@ export async function POST(request: Request) {
     const publishData = await readJson(publishResponse);
     if (!publishResponse.ok || !publishData.id) {
       console.error("Instagram publish failed:", publishData);
+      if (String(publishData?.error?.code || "") === "190") {
+        return NextResponse.json({
+          error: "A sessão do Instagram expirou ou foi invalidada. Conecte o Instagram novamente.",
+        }, { status: 401 });
+      }
       return NextResponse.json({
         error: publishData?.error?.message || "O Instagram não conseguiu publicar o Reel.",
       }, { status: 502 });
