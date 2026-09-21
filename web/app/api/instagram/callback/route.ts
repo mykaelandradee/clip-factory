@@ -22,14 +22,9 @@ export async function GET(request: Request) {
   }
 
   const supabase = await createClient();
-  let { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
-    const { data: anonymousData, error: anonymousError } = await supabase.auth.signInAnonymously();
-    if (anonymousError || !anonymousData.user) {
-      console.error("Anonymous Clip Factory session failed in Instagram callback:", anonymousError?.message);
-      return NextResponse.redirect(new URL("/?instagram_error=session_required", url.origin));
-    }
-    user = anonymousData.user;
+    return NextResponse.redirect(new URL("/?auth_error=session_required", url.origin));
   }
 
   const clientId = process.env.INSTAGRAM_CLIENT_ID;
