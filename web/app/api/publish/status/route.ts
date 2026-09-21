@@ -49,7 +49,7 @@ export async function GET(request: Request) {
       );
       if (response.ok) {
         const candidate = await response.json();
-        if (candidate?.name === "YouTube Publisher" && candidate?.display_title === expectedRunTitle) run = candidate;
+        if (candidate?.name === "YouTube Publisher") run = candidate;
       }
     }
 
@@ -65,7 +65,6 @@ export async function GET(request: Request) {
       run = data.workflow_runs?.find((item: { id?: number; created_at?: string; name?: string; display_title?: string }) =>
         typeof item.id === "number" &&
         item.name === "YouTube Publisher" &&
-        item.display_title === expectedRunTitle &&
         typeof item.created_at === "string" &&
         Date.parse(item.created_at) >= createdAfter,
       );
