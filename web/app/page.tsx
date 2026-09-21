@@ -22,14 +22,29 @@ const CAPTION_TEMPLATES = [
   ["cinematic", "Cinematic", "Minimalista, suave e elegante"],
 ] as const;
 
+const idMap = {
+  karaoke: true,
+  fire: true,
+  beasty: true,
+  youshaei: true,
+  harmozi: true,
+  cinematic: true,
+};
+
 function CaptionPreview({ id }: { id: string }) {
+  const content = {
+    karaoke: <><i>ISSO</i> <b>MUDA</b> <i>TUDO</i></>,
+    fire: <><i>ISSO</i> <b>MUDA</b> <i>TUDO</i></>,
+    beasty: <><i>ISSO</i> <b>MUDA</b> <i>TUDO</i></>,
+    youshaei: <><i>ISSO</i> <b>MUDA</b> <i>TUDO</i></>,
+    harmozi: <><i>ISSO</i> <b>MUDA</b> <i>TUDO</i></>,
+    cinematic: <><i>isso</i> <b>muda</b> <i>tudo</i></>,
+  }[id as keyof typeof idMap];
   return (
     <div className={`cf-template-preview accent-${id}`}>
       <span className="preview-top">9:16 • LIVE PREVIEW</span>
       <span className="preview-context">VOCÊ PRECISA VER ISSO</span>
-      <span className="preview-subtitle">
-        <i>ISSO</i> <b>MUDA</b> <i>TUDO</i>
-      </span>
+      <span className="preview-subtitle">{content}</span>
       <span className="preview-progress"><span /></span>
       <span className="preview-style-mark">{id}</span>
     </div>
