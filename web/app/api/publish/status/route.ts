@@ -39,15 +39,21 @@ export async function GET(request: Request) {
   if (!ownedJob) return NextResponse.json({ error: "Este processamento não pertence ao usuário autenticado." }, { status: 403 });
 
   try {
-    let run: { id?: number; status?: string; conclusion?: string } | undefined;
+    const expectedRunName = `YouTube Publisher ${jobId}`;
+    let run: { id?: number; status?: string; conclusion?: string; name?: string } | undefined;
 
     if (runId) {
       const response = await fetch(
         `${GITHUB_API}/repos/${OWNER}/${REPO}/actions/runs/${encodeURIComponent(runId)}`,
         { headers: headers(), cache: "no-store" },
       );
-      if (response.ok) run = await response.json();
-    } else {
+      if (response.ok) {
+        const candidate = await response.json();
+        if (candidate?.name === expectedRunName) run = candidate;
+      }
+    }
+
+    if (!run) {
       const response = await fetch(
         `${GITHUB_API}/repos/${OWNER}/${REPO}/actions/workflows/youtube-publisher.yml/runs?event=repository_dispatch&per_page=20`,
         { headers: headers(), cache: "no-store" },
@@ -56,8 +62,11 @@ export async function GET(request: Request) {
 
       const data = await response.json();
       const createdAfter = startedAt ? Date.parse(startedAt) - 5000 : Date.now() - 120000;
-      run = data.workflow_runs?.find((item: { id?: number; created_at?: string }) =>
-        typeof item.id === "number" && typeof item.created_at === "string" && Date.parse(item.created_at) >= createdAfter,
+      run = data.workflow_runs?.find((item: { id?: number; created_at?: string; name?: string }) =>
+        typeof item.id === "number" &&
+        item.name === expectedRunName &&
+        typeof item.created_at === "string" &&
+        Date.parse(item.created_at) >= createdAfter,
       );
     }
 
