@@ -38,20 +38,21 @@ def _word_events(candidate: ClipCandidate, segments: list[TranscriptSegment]) ->
 
 PRESETS = {
     # Position is intentionally in the lower-middle safe zone, never vertically centered.
+    # Colors use ASS AABBGGRR notation so they match the UI previews.
     "karaoke": dict(font="DejaVu Sans", size=76, bold=1, primary="&H00FFFFFF",
                    active="&H0000D7FF", outline=5, shadow=2, margin=440, spacing=0,
                    alignment=2, scale_x=100, scale_y=100),
     "fire": dict(font="DejaVu Sans Condensed", size=82, bold=1, primary="&H00FFFFFF",
                  active="&H00004DFF", outline=7, shadow=4, margin=420, spacing=-1,
                  alignment=2, scale_x=100, scale_y=100),
-    "beasty": dict(font="DejaVu Sans Mono", size=86, bold=1, primary="&H00FFFFFF",
-                   active="&H0000B5FF", outline=8, shadow=4, margin=455, spacing=-2,
+    "beasty": dict(font="DejaVu Sans Mono", size=86, bold=1, primary="&H00000000",
+                   active="&H00FFFFFF", outline=8, shadow=4, margin=455, spacing=-2,
                    alignment=2, scale_x=105, scale_y=100),
     "youshaei": dict(font="DejaVu Sans", size=72, bold=1, primary="&H00FFFFFF",
-                    active="&H00D7FF", outline=3, shadow=1, margin=475, spacing=0,
+                    active="&H00FFE78F", outline=3, shadow=1, margin=475, spacing=0,
                     alignment=2, scale_x=100, scale_y=100),
     "harmozi": dict(font="DejaVu Sans Condensed", size=80, bold=1, primary="&H00FFFFFF",
-                    active="&H0000A5FF", outline=5, shadow=3, margin=430, spacing=-1,
+                    active="&H0037FFD8", outline=5, shadow=3, margin=430, spacing=-1,
                     alignment=2, scale_x=100, scale_y=100),
     "cinematic": dict(font="DejaVu Serif", size=62, bold=0, primary="&H00FFFFFF",
                       active="&H00FFFFFF", outline=2, shadow=2, margin=500, spacing=2,
@@ -109,14 +110,14 @@ def _event_text(group, style: str) -> str:
             )
 
         elif style == "youshaei":
-            # Clean editorial: thin cyan underline and restrained emphasis.
+            # Clean editorial: cyan underline and restrained emphasis.
             pieces.append(
                 f"{{\\c{p['active']}\\u1\\bord2\\k{duration_cs}}}{text}"
                 f"{{\\c{p['primary']}\\u0}}"
             )
 
         elif style == "harmozi":
-            # Motivational card-like emphasis: bright active word with heavy black keyline.
+            # Motivational emphasis: bright lime active word with a strong keyline.
             pieces.append(
                 f"{{\\c{p['active']}\\3c&H000000&\\bord8\\shad3"
                 f"\\fscx110\\fscy110\\k{duration_cs}}}{text}"
