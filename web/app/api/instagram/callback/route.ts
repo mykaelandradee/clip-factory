@@ -61,11 +61,15 @@ export async function GET(request: Request) {
       { cache: "no-store" }
     );
     const profile = await profileResponse.json();
+    if (!profileResponse.ok || !profile.user_id) {
+      console.error("Instagram profile lookup failed:", profile);
+      return NextResponse.redirect(new URL("/?instagram_error=profile_lookup", url.origin));
+    }
 
     const admin = createAdminClient();
     const { error } = await admin.from("instagram_connections").upsert({
       user_id: user.id,
-      instagram_user_id: String(tokenData.user_id),
+      instagram_user_id: String(profile.user_id),
       username: profile.username ?? null,
       access_token_encrypted: encryptInstagramAccessToken(longLived.accessToken),
       expires_at: longLived.expiresIn > 0 ? new Date(Date.now() + longLived.expiresIn * 1000).toISOString() : null,
