@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "../../../../lib/supabase/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
-import { encryptInstagramAccessToken, getInstagramOAuthStateCookieName } from "../../../../lib/instagram-auth";
+import { encryptInstagramAccessToken, exchangeInstagramShortLivedToken, getInstagramOAuthStateCookieName } from "../../../../lib/instagram-auth";
 
 export const runtime = "nodejs";
 
@@ -52,8 +52,10 @@ export async function GET(request: Request) {
       return NextResponse.redirect(new URL("/?instagram_error=token_exchange", url.origin));
     }
 
+    const longLived = await exchangeInstagramShortLivedToken(String(tokenData.access_token));
+
     const profileResponse = await fetch(
-      "https://graph.instagram.com/me?fields=user_id,username&access_token=" + encodeURIComponent(tokenData.access_token),
+      "https://graph.instagram.com/me?fields=user_id,username&access_token=" + encodeURIComponent(longLived.accessToken),
       { cache: "no-store" }
     );
     const profile = await profileResponse.json();
@@ -63,8 +65,8 @@ export async function GET(request: Request) {
       user_id: user.id,
       instagram_user_id: String(tokenData.user_id),
       username: profile.username ?? null,
-      access_token_encrypted: encryptInstagramAccessToken(tokenData.access_token),
-      expires_at: null,
+      access_token_encrypted: encryptInstagramAccessToken(longLived.accessToken),
+      expires_at: longLived.expiresIn > 0 ? new Date(Date.now() + longLived.expiresIn * 1000).toISOString() : null,
       updated_at: new Date().toISOString(),
     }, { onConflict: "user_id" });
 
