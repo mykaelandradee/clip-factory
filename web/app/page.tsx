@@ -98,7 +98,8 @@ export default function Home() {
         await checkInstagram();
       }
       const params = new URLSearchParams(window.location.search);
-      if (params.get("auth_error")) setAuthMessage("Não foi possível concluir a autenticação. Tente novamente.");
+      if (params.get("auth_error") === "session_required") setAuthMessage("Entre no Clip Factory para conectar YouTube ou Instagram.");
+      else if (params.get("auth_error")) setAuthMessage("Não foi possível concluir a autenticação. Tente novamente.");
       if (params.get("instagram_connected") === "1") setAuthMessage("Instagram conectado com sucesso.");
       if (params.get("instagram_error")) setAuthMessage("Não foi possível conectar o Instagram. Verifique a configuração e tente novamente.");
       supabase.auth.onAuthStateChange((_event, session) => {
@@ -327,6 +328,11 @@ export default function Home() {
           <div className="cf-header-meta">
             <span className="cf-live-label">LOCAL AI PIPELINE</span>
             <>
+              {!user && !authLoading && (
+                <a className="cf-auth-button" href="/api/auth/google" aria-label="Entrar no Clip Factory">
+                  Entrar no Clip Factory
+                </a>
+              )}
               <a className="cf-youtube-button" href="/api/youtube/oauth" aria-label="Conectar YouTube">
                 <span className={`cf-yt-dot ${youtubeConnected ? "connected" : ""}`} />
                 {youtubeConnected ? "YouTube conectado" : "Conectar YouTube"}
@@ -335,13 +341,17 @@ export default function Home() {
                 <span className={`cf-yt-dot ${instagramConnected ? "connected" : ""}`} />
                 {instagramConnected ? "Instagram conectado" : "Conectar Instagram"}
               </a>
-              {user && <button type="button" className="cf-auth-button" onClick={signOut}>{user.email?.split("@")[0] || "Sair"} · Sair</button>}
+              {user && <span className="cf-account-label">{user.email?.split("@")[0] || "Conta conectada"}</span>}
+              {user && <button type="button" className="cf-auth-button" onClick={signOut}>Sair</button>}
             </>
             <div className={`cf-status-pill ${workerOnline ? "online" : "offline"}`}><span /> GitHub Actions {workerOnline ? "conectado" : "não configurado"}</div>
           </div>
         </header>
 
         {authMessage && <div className="cf-auth-message">{authMessage}</div>}
+        {!user && !authLoading && (
+          <div className="cf-auth-hint">A geração de clips é livre. Entre no Clip Factory apenas se quiser conectar YouTube ou Instagram para publicar.</div>
+        )}
 
         <section className="cf-hero">
           <div className="cf-hero-copy">
