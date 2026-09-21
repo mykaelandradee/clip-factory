@@ -78,6 +78,22 @@ export async function POST(request: Request) {
 
     const videoUrl = getR2PublicClipUrl(jobId, file);
 
+    // Validate the public object before asking Meta to fetch it.
+    const mediaCheck = await fetch(videoUrl, { method: "HEAD", cache: "no-store" });
+    const contentType = mediaCheck.headers.get("content-type") || "";
+    const contentLength = Number(mediaCheck.headers.get("content-length") || "0");
+    if (!mediaCheck.ok || !contentType.toLowerCase().startsWith("video/")) {
+      console.error("Instagram R2 media check failed:", {
+        status: mediaCheck.status,
+        contentType,
+        contentLength,
+        videoUrl,
+      });
+      return NextResponse.json({
+        error: "O vídeo temporário não está publicamente acessível no R2 para o Instagram.",
+      }, { status: 502 });
+    }
+
     // Instagram fetches the rendered MP4 directly from the public R2 URL.
     const containerResponse = await fetch(
       `${INSTAGRAM_GRAPH}/${encodeURIComponent(connection.instagram_user_id)}/media`,
@@ -88,6 +104,7 @@ export async function POST(request: Request) {
           media_type: "REELS",
           video_url: videoUrl,
           caption,
+          share_to_feed: "false",
           access_token: accessToken,
         }),
         cache: "no-store",
@@ -98,7 +115,9 @@ export async function POST(request: Request) {
     if (!containerResponse.ok || !containerData.id) {
       console.error("Instagram container creation failed:", containerData);
       return NextResponse.json({
-        error: containerData?.error?.message || "O Instagram não conseguiu criar o processamento do Reel.",
+        error: containerData?.error?.message
+          ? `${containerData.error.message}${containerData.error.fbtrace_id ? ` (Meta fbtrace_id: ${containerData.error.fbtrace_id})` : ""}`
+          : "O Instagram não conseguiu criar o processamento do Reel.",
       }, { status: 502 });
     }
 
