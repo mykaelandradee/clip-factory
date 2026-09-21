@@ -195,7 +195,14 @@ export default function Home() {
       setStatus("queued", draft.publishAt ? "Publicação agendada no YouTube. Aguardando o GitHub Actions." : "Publicação iniciada no YouTube. Aguardando o envio.");
       const check = async () => {
         try {
-          const statusResponse = await fetch(`/api/publish/status?platform=youtube&jobId=${encodeURIComponent(jobId)}&file=${encodeURIComponent(file)}`, { cache: "no-store" });
+          const statusQuery = new URLSearchParams({
+            platform: "youtube",
+            jobId,
+            file,
+            ...(data.runId ? { runId: String(data.runId) } : {}),
+            ...(data.startedAt ? { startedAt: String(data.startedAt) } : {}),
+          });
+          const statusResponse = await fetch(`/api/publish/status?${statusQuery.toString()}`, { cache: "no-store" });
           const statusData = await statusResponse.json();
           if (!statusResponse.ok) throw new Error(statusData.error || "Não foi possível consultar a publicação.");
           if (statusData.status === "success") {
