@@ -102,10 +102,10 @@ def _event_text(group, style: str) -> str:
             )
 
         elif style == "beasty":
-            # Block/punch style: active words become oversized with a dark backing.
+            # Base text stays fully white. The active word is rendered as a
+            # separate overlay so it can have a true white rectangular box.
             pieces.append(
-                f"{{\\c{p['active']}\\3c&H00FFFFFF&\\bord14\\shad0"
-                f"\\fscx122\\fscy115\\t(0,120,\\fscx105\\fscy100)\\k{duration_cs}}}{text}"
+                f"{{\\c{p['primary']}\\3c&H00000000&\\bord8\\shad0\\k{duration_cs}}}{text}"
                 f"{{\\c{p['primary']}\\3c&H00000000&\\bord8}}"
             )
 
@@ -132,7 +132,7 @@ def _event_text(group, style: str) -> str:
             )
 
     if style == "beasty":
-        return "  ".join(pieces)
+        return " ".join(pieces)
     if style == "cinematic":
         return " ".join(pieces)
     return " ".join(pieces)
@@ -157,6 +157,11 @@ def _write_ass(candidate: ClipCandidate, segments: list[TranscriptSegment], outp
             f"{p['spacing']},0,1,{p['outline']},{p['shadow']},{p['alignment']},"
             f"70,70,{p['margin']},1"
         ),
+        (
+            f"Style: BeastyBox,{p['font']},{p['size']},&H00000000,&H00000000,"
+            f"&H00000000,&H00FFFFFF,{p['bold']},0,0,0,105,100,{p['spacing']},0,3,0,0,2,"
+            f"70,70,{p['margin']},1"
+        ),
         "",
         "[Events]",
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, Effect, Text",
@@ -168,6 +173,25 @@ def _write_ass(candidate: ClipCandidate, segments: list[TranscriptSegment], outp
     for group in groups:
         start, end = group[0][0], group[-1][1]
         lines.append(f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},Caption,,0,0,0,{_event_text(group, style)}")
+
+        if style == "beasty":
+            # DejaVu Sans Mono makes character width predictable enough to
+            # place the active word over the same centered base caption.
+            total_chars = sum(len(item[2]) for item in group)
+            total_width = total_chars * (p["size"] * 0.55) * (p["scale_x"] / 100)
+            total_width += max(0, len(group) - 1) * (p["spacing"] or 0)
+            cursor = -total_width / 2
+            for word_start, word_end, raw_word in group:
+                word_width = len(raw_word) * (p["size"] * 0.55) * (p["scale_x"] / 100)
+                word_center = cursor + (word_width / 2)
+                x = max(70, min(1010, 540 + word_center))
+                y = 1920 - p["margin"]
+                word_text = _ass_escape(raw_word.upper())
+                lines.append(
+                    f"Dialogue: 1,{_ass_time(word_start)},{_ass_time(word_end)},"
+                    f"BeastyBox,,0,0,0,{{\\pos({x:.0f},{y:.0f})}}{word_text}"
+                )
+                cursor += word_width + (p["spacing"] or 0)
 
     if not groups:
         for segment in segments:
