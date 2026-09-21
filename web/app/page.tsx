@@ -470,7 +470,7 @@ export default function Home() {
                               rows={3}
                               onChange={(e) => updatePublishDraft(file, index, "description", e.target.value)}
                               placeholder="Digite a descrição..."
-                              disabled={publishingFile === file}
+                              disabled={publishingTarget === `instagram:${file}`}
                             />
                             <small>{getPublishDraft(file, index).description.length}/5000</small>
                           </label>
@@ -481,7 +481,7 @@ export default function Home() {
                                 type="datetime-local"
                                 value={getPublishDraft(file, index).publishAt}
                                 onChange={(e) => updatePublishDraft(file, index, "publishAt", e.target.value)}
-                                disabled={publishingFile === file}
+                                disabled={publishingTarget === `instagram:${file}`}
                               />
                               <small>Deixe em branco para publicar assim que o envio terminar.</small>
                             </label>
@@ -511,7 +511,7 @@ export default function Home() {
                             type="button"
                             className="cf-download cf-publish-button"
                             onClick={() => publishToInstagram(file, index)}
-                            disabled={publishingFile === file || !getPublishDraft(file, index).title.trim()}
+                            disabled={publishingTarget === `instagram:${file}` || !getPublishDraft(file, index).title.trim()}
                           >
                             {publishingTarget === `instagram:${file}` ? "Publicando…" : "Publicar Instagram ↗"}
                           </button>
