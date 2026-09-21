@@ -104,9 +104,10 @@ def _event_text(group, style: str) -> str:
                 f"{{\\c{p['primary']}\\bord7\\shad4}}"
             )
         elif style == "beasty":
+            # Base phrase: pure white, no active color change. The active word is
+            # drawn separately below with black text on a solid white rectangle.
             pieces.append(
-                f"{{\\c{p['primary']}\\3c&H00000000&\\bord7\\shad0\\k{duration_cs}}}{text}"
-                f"{{\\c{p['primary']}\\3c&H00000000&\\bord7}}"
+                f"{{\\c{p['primary']}\\3c&H00000000&\\bord7\\shad0}}{text}"
             )
         elif style == "youshaei":
             pieces.append(
@@ -165,24 +166,15 @@ def _write_ass(candidate: ClipCandidate, segments: list[TranscriptSegment], outp
         lines.append(f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},Caption,,0,0,0,{_event_text(group, style)}")
 
         if style == "beasty":
-            # DejaVu Sans Mono makes character width predictable enough to
-            # place the active word over the same centered base caption.
-            char_width = p["size"] * 0.60 * (p["scale_x"] / 100)
-            space_width = char_width
-            word_widths = [len(raw_word) * char_width for _, _, raw_word in group]
-            total_width = sum(word_widths)
-            total_width += max(0, len(group) - 1) * (space_width + (p["spacing"] or 0))
-            cursor = -total_width / 2
-            for (word_start, word_end, raw_word), word_width in zip(group, word_widths):
-                word_center = cursor + (word_width / 2)
-                x = max(70, min(1010, 540 + word_center))
-                y = 1920 - p["margin"]
+            # Beasty follows the reference pattern: one spoken word at a time
+            # gets a white rectangular capsule with black text.
+            # Using ASS's centered alignment avoids fragile manual x-positioning.
+            for word_start, word_end, raw_word in group:
                 word_text = _ass_escape(raw_word.upper())
                 lines.append(
                     f"Dialogue: 1,{_ass_time(word_start)},{_ass_time(word_end)},"
-                    f"BeastyBox,,0,0,0,{{\\pos({x:.0f},{y:.0f})}}{word_text}"
+                    f"BeastyBox,,0,0,0,{word_text}"
                 )
-                cursor += word_width + space_width + (p["spacing"] or 0)
 
     if not groups:
         for segment in segments:
