@@ -54,7 +54,7 @@ export default function Home() {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authMessage, setAuthMessage] = useState("");
-  const [publishingFile, setPublishingFile] = useState<string | null>(null);
+  const [publishingTarget, setPublishingTarget] = useState<string | null>(null);
   const [publishMessage, setPublishMessage] = useState("");
   const [publishStatuses, setPublishStatuses] = useState<Record<string, { platform: "youtube" | "instagram"; status: "queued" | "running" | "success" | "failed"; message: string }>>({});
   const publishTimer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -174,7 +174,7 @@ export default function Home() {
 
   async function publishToYouTube(file: string, index: number) {
     if (publishTimer.current) clearInterval(publishTimer.current);
-    setPublishingFile(file);
+    setPublishingTarget(`youtube:${file}`);
     const draft = getPublishDraft(file, index);
     const setStatus = (status: "queued" | "running" | "success" | "failed", message: string) =>
       setPublishStatuses((previous) => ({ ...previous, [file]: { platform: "youtube", status, message } }));
@@ -202,12 +202,12 @@ export default function Home() {
             setStatus("success", draft.publishAt ? "Publicação agendada com sucesso no YouTube." : "Vídeo publicado com sucesso no YouTube.");
             if (publishTimer.current) clearInterval(publishTimer.current);
             publishTimer.current = null;
-            setPublishingFile(null);
+            setPublishingTarget(null);
           } else if (statusData.status === "failed") {
             setStatus("failed", statusData.message || "A publicação no YouTube falhou.");
             if (publishTimer.current) clearInterval(publishTimer.current);
             publishTimer.current = null;
-            setPublishingFile(null);
+            setPublishingTarget(null);
           } else {
             setStatus(statusData.status === "running" ? "running" : "queued", statusData.message || "Publicação em andamento no YouTube.");
           }
@@ -219,13 +219,13 @@ export default function Home() {
       publishTimer.current = setInterval(check, 3000);
     } catch (err) {
       setStatus("failed", err instanceof Error ? err.message : "Erro ao publicar no YouTube.");
-      setPublishingFile(null);
+      setPublishingTarget(null);
     }
   }
 
   async function publishToInstagram(file: string, index: number) {
     if (publishTimer.current) clearInterval(publishTimer.current);
-    setPublishingFile(file);
+    setPublishingTarget(`instagram:${file}`);
     setPublishStatuses((previous) => ({ ...previous, [file]: { platform: "instagram", status: "running", message: "Enviando o Reel para o Instagram..." } }));
     const draft = getPublishDraft(file, index);
     const caption = [draft.title.trim(), draft.description.trim()].filter(Boolean).join("\n\n");
@@ -241,7 +241,7 @@ export default function Home() {
     } catch (err) {
       setPublishStatuses((previous) => ({ ...previous, [file]: { platform: "instagram", status: "failed", message: err instanceof Error ? err.message : "Erro ao publicar no Instagram." } }));
     } finally {
-      setPublishingFile(null);
+      setPublishingTarget(null);
     }
   }
   async function checkWorker() {
@@ -458,7 +458,7 @@ export default function Home() {
                               maxLength={100}
                               onChange={(e) => updatePublishDraft(file, index, "title", e.target.value)}
                               placeholder="Digite o título..."
-                              disabled={publishingFile === file}
+                              disabled={publishingTarget === `youtube:${file}`}
                             />
                             <small>{getPublishDraft(file, index).title.length}/100</small>
                           </label>
@@ -501,9 +501,9 @@ export default function Home() {
                             type="button"
                             className="cf-download cf-publish-button"
                             onClick={() => publishToYouTube(file, index)}
-                            disabled={publishingFile === file || !getPublishDraft(file, index).title.trim()}
+                            disabled={publishingTarget === `youtube:${file}` || publishingTarget === `instagram:${file}` || !getPublishDraft(file, index).title.trim()}
                           >
-                            {publishingFile === file ? "Enviando…" : "Publicar YouTube ↗"}
+                            {publishingTarget === `youtube:${file}` ? "Enviando…" : "Publicar YouTube ↗"}
                           </button>
                         )}
                         {instagramConnected && (
@@ -513,7 +513,7 @@ export default function Home() {
                             onClick={() => publishToInstagram(file, index)}
                             disabled={publishingFile === file || !getPublishDraft(file, index).title.trim()}
                           >
-                            {publishingFile === file ? "Publicando…" : "Publicar Instagram ↗"}
+                            {publishingTarget === `instagram:${file}` ? "Publicando…" : "Publicar Instagram ↗"}
                           </button>
                         )}
                       </div>                    </div>
