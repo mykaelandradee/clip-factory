@@ -64,5 +64,5 @@ export async function POST(request: Request) {
     console.error("YouTube publisher dispatch failed:", response.status, await response.text());
     return NextResponse.json({ error: "Não foi possível iniciar a publicação." }, { status: 502 });
   }
-  return NextResponse.json({ ok: true, status: publishAt ? "scheduled" : "queued" }, { status: 202 });
+  return NextResponse.json({ ok: true, status: publishAt ? "scheduled" : "queued", jobId, file }, { status: 202 });
 }
