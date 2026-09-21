@@ -9,11 +9,7 @@ export async function GET(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    const { error } = await supabase.auth.signInAnonymously();
-    if (error) {
-      console.error("Anonymous Clip Factory session failed:", error.message);
-      return NextResponse.redirect(new URL("/?instagram_error=session_required", request.url));
-    }
+    return NextResponse.redirect(new URL("/api/auth/google?next=/api/instagram/oauth", request.url));
   }
 
   const clientId = process.env.INSTAGRAM_CLIENT_ID;
