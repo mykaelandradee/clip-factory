@@ -66,7 +66,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Não foi possível iniciar a publicação." }, { status: 502 });
   }
 
-  const expectedRunName = `YouTube Publisher ${jobId}`;
+  const expectedRunTitle = `YouTube Publisher ${jobId}`;
   let runId: number | null = null;
 
   for (let attempt = 0; attempt < 10 && runId === null; attempt += 1) {
@@ -87,9 +87,10 @@ export async function POST(request: Request) {
 
     const runsData = await runsResponse.json();
     const createdAfter = Date.parse(dispatchedAt) - 5000;
-    const run = runsData.workflow_runs?.find((item: { id?: number; created_at?: string; name?: string }) =>
+    const run = runsData.workflow_runs?.find((item: { id?: number; created_at?: string; name?: string; display_title?: string }) =>
       typeof item.id === "number" &&
-      item.name === expectedRunName &&
+      item.name === "YouTube Publisher" &&
+        item.display_title === expectedRunTitle &&
       typeof item.created_at === "string" &&
       Date.parse(item.created_at) >= createdAfter,
     );
