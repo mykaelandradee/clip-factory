@@ -125,28 +125,41 @@ def transcribe(
     model = whisper.load_model(model_name, device="cpu")
     try:
         task = "translate" if subtitle_language == "en" else "transcribe"
-        result = model.transcribe(
-            str(speech_audio),
-            verbose=False,
-            fp16=False,
-            temperature=(0.0, 0.2, 0.4, 0.6),
-            beam_size=5,
-            condition_on_previous_text=False,
-            word_timestamps=True,
-            hallucination_silence_threshold=1.0,
-            task=task,
-        )
+
+        def _run(path: Path):
+            return model.transcribe(
+                str(path),
+                verbose=False,
+                fp16=False,
+                temperature=(0.0, 0.2, 0.4, 0.6),
+                beam_size=5,
+                condition_on_previous_text=False,
+                word_timestamps=True,
+                hallucination_silence_threshold=1.0,
+                task=task,
+            )
+
+        result = _run(speech_audio)
+
+        def _keep(raw):
+            return (
+                raw.get("text", "").strip()
+                and float(raw.get("no_speech_prob", 0.0)) < 0.55
+                and float(raw.get("avg_logprob", -10.0)) > -1.2
+                and float(raw.get("compression_ratio", 0.0)) < 2.8
+            )
+
+        raw_segments = [raw for raw in result.get("segments", []) if _keep(raw)]
+
+        # Music-only videos are intentionally supported: when the speech-focused
+        # pass finds no credible speech, fall back to the original soundtrack so
+        # lyrics can still be captioned.
+        if not raw_segments:
+            result = _run(video_path)
+            raw_segments = [raw for raw in result.get("segments", []) if raw.get("text", "").strip()]
     finally:
         del model
         gc.collect()
-
-    raw_segments = [
-        raw for raw in result.get("segments", [])
-        if raw.get("text", "").strip()
-        and float(raw.get("no_speech_prob", 0.0)) < 0.55
-        and float(raw.get("avg_logprob", -10.0)) > -1.2
-        and float(raw.get("compression_ratio", 0.0)) < 2.8
-    ]
     detected_language = str(result.get("language", "")).lower()
     is_translated_to_pt = subtitle_language == "pt-BR" and detected_language not in {"pt", "pt-br"}
 
