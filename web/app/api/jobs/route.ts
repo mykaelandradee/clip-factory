@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "../../../lib/supabase/server";
 import { createAdminClient } from "../../../lib/supabase/admin";
+import { listR2ClipUrls } from "../../../lib/r2";
 
 export const runtime = "nodejs";
 
@@ -112,8 +113,6 @@ export async function GET(request: Request) {
 
   const params = new URL(request.url).searchParams;
   const id = params.get("id");
-  const download = params.get("download") === "1";
-
   if (!id) return NextResponse.json({ error: "id é obrigatório" }, { status: 400 });
 
   try {
@@ -151,58 +150,13 @@ export async function GET(request: Request) {
       ? (run.conclusion === "success" ? "completed" : "failed")
       : "processing";
 
-    if (download && status === "completed") {
-      const artifactResponse = await githubFetch(
-        `/repos/${OWNER}/${REPO}/actions/artifacts?name=clip-factory-${encodeURIComponent(id)}&per_page=1`,
-      );
-      if (!artifactResponse.ok) {
-        return NextResponse.json({ error: "Resultado ainda não está disponível." }, { status: 404 });
+    let files: Array<{ file: string; url: string }> = [];
+    if (status === "completed") {
+      try {
+        files = await listR2ClipUrls(id);
+      } catch (r2Error) {
+        console.error("R2 result listing failed:", r2Error);
       }
-      const artifacts = await artifactResponse.json();
-      const artifact = artifacts.artifacts?.[0];
-      if (!artifact?.archive_download_url) {
-        return NextResponse.json({ error: "Resultado ainda não está disponível." }, { status: 404 });
-      }
-      const downloadResponse = await fetch(artifact.archive_download_url, {
-        headers: githubHeaders(),
-        redirect: "manual",
-        cache: "no-store",
-      });
-
-      if (![301, 302, 303, 307, 308].includes(downloadResponse.status)) {
-        if (!downloadResponse.ok) {
-          return NextResponse.json({ error: "Não foi possível baixar o resultado." }, { status: 502 });
-        }
-        return new Response(downloadResponse.body, {
-          status: 200,
-          headers: {
-            "Content-Type": downloadResponse.headers.get("content-type") ?? "application/octet-stream",
-            "Content-Length": downloadResponse.headers.get("content-length") ?? "",
-            "Content-Disposition": `attachment; filename="clip-factory-${id}.zip"`,
-            "Cache-Control": "private, no-store",
-          },
-        });
-      }
-
-      const signedUrl = downloadResponse.headers.get("location");
-      if (!signedUrl) {
-        return NextResponse.json({ error: "GitHub não forneceu o link de download." }, { status: 502 });
-      }
-
-      const fileResponse = await fetch(signedUrl, { cache: "no-store" });
-      if (!fileResponse.ok) {
-        return NextResponse.json({ error: "Não foi possível baixar o resultado." }, { status: 502 });
-      }
-
-      return new Response(fileResponse.body, {
-        status: 200,
-        headers: {
-          "Content-Type": fileResponse.headers.get("content-type") ?? "application/zip",
-          "Content-Length": fileResponse.headers.get("content-length") ?? "",
-          "Content-Disposition": `attachment; filename="clip-factory-${id}.zip"`,
-          "Cache-Control": "private, no-store",
-        },
-      });
     }
 
     const progress = status === "completed" ? 100 : run.status === "queued" ? 10 : 50;
@@ -223,9 +177,8 @@ export async function GET(request: Request) {
       error: status === "failed" ? `GitHub Actions: ${run.conclusion ?? "erro"}` : undefined,
       result: status === "completed"
         ? {
-            files: [],
+            files,
             candidates: [],
-            downloadUrl: `/api/jobs?id=${encodeURIComponent(id)}&download=1`,
           }
         : undefined,
     });
