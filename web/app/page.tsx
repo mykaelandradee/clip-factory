@@ -10,7 +10,7 @@ type Job = {
   stage?: string;
   message: string;
   error?: string;
-  result?: { downloadUrl?: string };
+  result?: { files?: Array<{ file: string; url: string }>; downloadUrl?: string };
 };
 
 const CAPTION_TEMPLATES = [
@@ -299,6 +299,22 @@ export default function Home() {
     }
   }
 
+  function downloadAllClips() {
+    const files = job?.result?.files ?? [];
+    files.forEach((item, index) => {
+      window.setTimeout(() => {
+        const link = document.createElement("a");
+        link.href = item.url;
+        link.download = item.file;
+        link.target = "_blank";
+        link.rel = "noopener";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      }, index * 350);
+    });
+  }
+
   async function submit(e: FormEvent) {
     e.preventDefault();
     setError("");
@@ -479,13 +495,14 @@ export default function Home() {
           <section className="cf-results">
             <div className="cf-results-head">
               <div><div className="cf-section-kicker">04 / OUTPUT</div><h2>Seus clips estão prontos.</h2><p>Formato vertical, legendas queimadas e prontos para publicar.</p></div>
-              <a className="cf-button cf-button-secondary" href={job.result.downloadUrl} download>Baixar tudo <b>↓</b></a>
+              <button type="button" className="cf-button cf-button-secondary" onClick={downloadAllClips} disabled={!job.result.files?.length}>Baixar tudo <b>↓</b></button>
             </div>
             <div className="cf-results-grid">
               {Array.from({ length: Number(clips) }, (_, index) => {
                 const file = `clip-${String(index + 1).padStart(2, "0")}.mp4`;
-                const source = `/api/jobs/file?id=${encodeURIComponent(jobId)}&file=${encodeURIComponent(file)}&preview=1`;
-                const download = `/api/jobs/file?id=${encodeURIComponent(jobId)}&file=${encodeURIComponent(file)}`;
+                const r2File = job.result?.files?.find((item) => item.file.toLowerCase() === file.toLowerCase());
+                const source = r2File?.url ?? `/api/jobs/file?id=${encodeURIComponent(jobId)}&file=${encodeURIComponent(file)}&preview=1`;
+                const download = r2File?.url ?? `/api/jobs/file?id=${encodeURIComponent(jobId)}&file=${encodeURIComponent(file)}`;
                 return (
                   <article className="cf-result-card" key={file}>
                     <div className="cf-video-wrap">
