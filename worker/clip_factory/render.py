@@ -92,17 +92,13 @@ def _event_text(group, style: str) -> str:
         text = _ass_escape(raw_text.upper())
 
         if style == "karaoke":
-            pieces.append(
-                f"{{\\c{p['active']}\\k{duration_cs}}}{text}"
-                f"{{\\c{p['primary']}}}"
-            )
+            # ASS karaoke timing: SecondaryColour is visible while the current
+            # word is being spoken; after \kf completes it becomes PrimaryColour.
+            pieces.append(f"{{\\kf{duration_cs}}}{text}")
         elif style == "fire":
-            pieces.append(
-                f"{{\\c{p['active']}\\bord9\\shad4"
-                f"\\fscx116\\fscy116\\k{duration_cs}"
-                f"\\t(0,120,\\fscx100\\fscy100)}}{text}"
-                f"{{\\c{p['primary']}\\bord7\\shad4}}"
-            )
+            # Fire keeps its own font/outline/shadow personality, but the active
+            # word follows the exact same spoken-word timing rule.
+            pieces.append(f"{{\\kf{duration_cs}}}{text}")
         elif style == "beasty":
             # Base phrase: pure white, no active color change. The active word is
             # drawn separately below with black text on a solid white rectangle.
@@ -110,16 +106,9 @@ def _event_text(group, style: str) -> str:
                 f"{{\\c{p['primary']}\\3c&H00000000&\\bord7\\shad0}}{text}"
             )
         elif style == "youshaei":
-            pieces.append(
-                f"{{\\c{p['active']}\\bord2\\shad1\\k{duration_cs}}}{text}"
-                f"{{\\c{p['primary']}\\bord3\\shad1}}"
-            )
+            pieces.append(f"{{\\kf{duration_cs}}}{text}")
         elif style == "harmozi":
-            pieces.append(
-                f"{{\\c{p['active']}\\3c&H000000&\\bord8\\shad3"
-                f"\\fscx112\\fscy112\\k{duration_cs}}}{text}"
-                f"{{\\c{p['primary']}\\fscx100\\fscy100}}"
-            )
+            pieces.append(f"{{\\kf{duration_cs}}}{text}")
         else:
             pieces.append(
                 f"{{\\alpha&H55&\\fscx96\\k{duration_cs}}}{text}"
@@ -143,7 +132,7 @@ def _write_ass(candidate: ClipCandidate, segments: list[TranscriptSegment], outp
         "[V4+ Styles]",
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
         (
-            f"Style: Caption,{p['font']},{p['size']},{p['primary']},{p['primary']},"
+            f"Style: Caption,{p['font']},{p['size']},{p['primary']},{p['active']},"
             f"&H00000000,&HCC000000,{p['bold']},0,0,0,{p['scale_x']},{p['scale_y']},"
             f"{p['spacing']},0,1,{p['outline']},{p['shadow']},{p['alignment']},"
             f"70,70,{p['margin']},1"
