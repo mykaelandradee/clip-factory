@@ -92,13 +92,11 @@ def _event_text(group, style: str) -> str:
         text = _ass_escape(raw_text.upper())
 
         if style == "karaoke":
-            # ASS karaoke timing: SecondaryColour is visible while the current
-            # word is being spoken; after \kf completes it becomes PrimaryColour.
-            pieces.append(f"{{\\kf{duration_cs}}}{text}")
+            # \k switches the whole current word between SecondaryColour (active)
+            # and PrimaryColour (inactive), with no progressive fill or fade.
+            pieces.append(f"{{\\k{duration_cs}}}{text}")
         elif style == "fire":
-            # Fire keeps its own font/outline/shadow personality, but the active
-            # word follows the exact same spoken-word timing rule.
-            pieces.append(f"{{\\kf{duration_cs}}}{text}")
+            pieces.append(f"{{\\k{duration_cs}}}{text}")
         elif style == "beasty":
             # Base phrase: pure white, no active color change. The active word is
             # drawn separately below with black text on a solid white rectangle.
@@ -106,9 +104,9 @@ def _event_text(group, style: str) -> str:
                 f"{{\\c{p['primary']}\\3c&H00000000&\\bord7\\shad0}}{text}"
             )
         elif style == "youshaei":
-            pieces.append(f"{{\\kf{duration_cs}}}{text}")
+            pieces.append(f"{{\\k{duration_cs}}}{text}")
         elif style == "harmozi":
-            pieces.append(f"{{\\kf{duration_cs}}}{text}")
+            pieces.append(f"{{\\k{duration_cs}}}{text}")
         else:
             pieces.append(
                 f"{{\\alpha&H55&\\fscx96\\k{duration_cs}}}{text}"
