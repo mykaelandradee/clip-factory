@@ -109,17 +109,13 @@ def _active_phrase(group, active_index: int, style: str) -> str:
     for index, (_, _, raw_text) in enumerate(group):
         text = _ass_escape(raw_text.upper())
         if index != active_index:
-            pieces.append(text)
+            pieces.append(f"{{\\1c{p['primary']}}}{text}")
             continue
 
-        if style == "fire":
-            pieces.append(f"{{\\c{p['active']}}}{text}")
-        elif style == "youshaei":
-            pieces.append(f"{{\\c{p['active']}}}{text}")
-        elif style == "harmozi":
-            pieces.append(f"{{\\c{p['active']}}}{text}")
-        else:
-            pieces.append(f"{{\\c{p['active']}}}{text}")
+        # Explicit primary-channel color only. No karaoke tags, transforms,
+        # alpha animation, or secondary-color fallback: the word changes color
+        # by a hard cut at the Whisper word boundary.
+        pieces.append(f"{{\\1c{p['active']}}}{text}")
     return " ".join(pieces)
 
 
@@ -153,7 +149,7 @@ def _write_ass(candidate: ClipCandidate, segments: list[TranscriptSegment], outp
         "[V4+ Styles]",
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
         (
-            f"Style: Caption,{p['font']},{p['size']},{p['primary']},{p['active']},"
+            f"Style: Caption,{p['font']},{p['size']},{p['primary']},{p['primary']},"
             f"&H00000000,&HCC000000,{p['bold']},0,0,0,{p['scale_x']},{p['scale_y']},"
             f"{p['spacing']},0,1,{p['outline']},{p['shadow']},{p['alignment']},"
             f"70,70,{p['margin']},1"
