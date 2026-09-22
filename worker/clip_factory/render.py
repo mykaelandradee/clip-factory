@@ -163,7 +163,16 @@ def _write_ass(candidate: ClipCandidate, segments: list[TranscriptSegment], outp
 
     for group in groups:
         start, end = group[0][0], group[-1][1]
-        lines.append(f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},Caption,,0,0,0,{_event_text(group, style)}")
+
+        # Beasty is intentionally rendered only as the active boxed word.
+        # Drawing the normal Caption line as well creates a second subtitle
+        # underneath the box, which is the duplicated/background text seen in
+        # the rendered clip.
+        if style != "beasty":
+            lines.append(
+                f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},"
+                f"Caption,,0,0,0,{_event_text(group, style)}"
+            )
 
         if style == "beasty":
             # Beasty follows the reference pattern: one spoken word at a time
