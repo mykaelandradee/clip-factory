@@ -97,30 +97,29 @@ def _base_phrase(group) -> str:
     return " ".join(_ass_escape(raw_text.upper()) for _, _, raw_text in group)
 
 
-def _active_overlay(group, active_index: int, style: str) -> str:
+def _active_phrase(group, active_index: int, style: str) -> str:
+    """Render one complete phrase with exactly one word colorized.
+
+    The phrase is emitted as a single ASS dialogue event. This is intentionally
+    not an overlay: inactive words remain white in the same event, while only
+    the active word receives the preset color.
+    """
     p = PRESETS.get(style, PRESETS["karaoke"])
     pieces = []
     for index, (_, _, raw_text) in enumerate(group):
         text = _ass_escape(raw_text.upper())
-        if index == active_index:
-            if style == "fire":
-                pieces.append(
-                    f"{{\\alpha&H00&\\c{p['active']}\\bord9\\shad4"
-                    f"\\fscx116\\fscy116}}{text}"
-                )
-            elif style == "youshaei":
-                pieces.append(
-                    f"{{\\alpha&H00&\\c{p['active']}\\bord2\\shad1}}{text}"
-                )
-            elif style == "harmozi":
-                pieces.append(
-                    f"{{\\alpha&H00&\\c{p['active']}\\3c&H000000&\\bord8\\shad3"
-                    f"\\fscx112\\fscy112}}{text}"
-                )
-            else:
-                pieces.append(f"{{\\alpha&H00&\\c{p['active']}}}{text}")
+        if index != active_index:
+            pieces.append(text)
+            continue
+
+        if style == "fire":
+            pieces.append(f"{{\\c{p['active']}}}{text}")
+        elif style == "youshaei":
+            pieces.append(f"{{\\c{p['active']}}}{text}")
+        elif style == "harmozi":
+            pieces.append(f"{{\\c{p['active']}}}{text}")
         else:
-            pieces.append(f"{{\\alpha&HFF&}}{text}")
+            pieces.append(f"{{\\c{p['active']}}}{text}")
     return " ".join(pieces)
 
 
@@ -193,22 +192,28 @@ def _write_ass(candidate: ClipCandidate, segments: list[TranscriptSegment], outp
             )
             continue
 
-        # Base phrase: every word stays white for the entire phrase.
-        phrase = _base_phrase(group)
-        lines.append(
-            f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},"
-            f"Caption,,0,0,0,{phrase}"
-        )
-
-        # Active layer: same exact phrase geometry, but only the currently spoken
-        # word is visible and colored. This avoids ASS karaoke fill behavior and
-        # prevents the following word from becoming highlighted early.
+        # Exactly one caption event is visible at any moment. We split the
+        # phrase into word-timed slices instead of drawing a white base plus a
+        # colored overlay. This keeps the caption visually single and prevents
+        # duplicate outlines/shadows from stacking.
         for active_index, (word_start, word_end, _) in enumerate(group):
-            overlay = _active_overlay(group, active_index, style)
+            phrase = _active_phrase(group, active_index, style)
             lines.append(
-                f"Dialogue: 1,{_ass_time(word_start)},{_ass_time(word_end)},"
-                f"Caption,,0,0,0,{overlay}"
+                f"Dialogue: 0,{_ass_time(word_start)},{_ass_time(word_end)},"
+                f"Caption,,0,0,0,{phrase}"
             )
+
+        # Keep the phrase white during pauses between words. This is still a
+        # single caption event, never an overlapping foreground/background pair.
+        for index in range(len(group) - 1):
+            gap_start = group[index][1]
+            gap_end = group[index + 1][0]
+            if gap_end > gap_start:
+                phrase = _base_phrase(group)
+                lines.append(
+                    f"Dialogue: 0,{_ass_time(gap_start)},{_ass_time(gap_end)},"
+                    f"Caption,,0,0,0,{phrase}"
+                )
 
     if not groups:
         for segment in segments:
