@@ -21,18 +21,28 @@ def _ass_escape(text: str) -> str:
 def _word_events(candidate: ClipCandidate, segments: list[TranscriptSegment]) -> list[tuple[float, float, str]]:
     events = []
     for segment in segments:
+        raw_words = []
         for word in segment.words:
             start = float(word["start"])
             end = float(word["end"])
-            if end <= candidate.start or start >= candidate.end:
-                continue
             text = str(word.get("text", "")).strip()
-            if text:
-                events.append((
-                    max(start, candidate.start) - candidate.start,
-                    min(end, candidate.end) - candidate.start,
-                    text,
-                ))
+            if not text or end <= candidate.start or start >= candidate.end:
+                continue
+            raw_words.append((start, end, text))
+
+        # Whisper word timestamps can occasionally overlap into the following
+        # word. Clamp each word to the next word's start so only the word that
+        # is actually being spoken can be highlighted.
+        for index, (start, end, text) in enumerate(raw_words):
+            if index + 1 < len(raw_words):
+                end = min(end, raw_words[index + 1][0])
+            if end <= start:
+                continue
+            events.append((
+                max(start, candidate.start) - candidate.start,
+                min(end, candidate.end) - candidate.start,
+                text,
+            ))
     return events
 
 
@@ -83,36 +93,50 @@ def _group_words(words, style: str):
     return groups
 
 
-def _event_text(group, style: str) -> str:
+def _base_phrase(group) -> str:
+    return " ".join(_ass_escape(raw_text.upper()) for _, _, raw_text in group)
+
+
+def _active_overlay(group, active_index: int, style: str) -> str:
     p = PRESETS.get(style, PRESETS["karaoke"])
     pieces = []
-
-    for _, (ws, we, raw_text) in enumerate(group):
-        duration_cs = max(1, round((we - ws) * 100))
+    for index, (_, _, raw_text) in enumerate(group):
         text = _ass_escape(raw_text.upper())
+        if index == active_index:
+            if style == "fire":
+                pieces.append(
+                    f"{{\\alpha&H00&\\c{p['active']}\\bord9\\shad4"
+                    f"\\fscx116\\fscy116}}{text}"
+                )
+            elif style == "youshaei":
+                pieces.append(
+                    f"{{\\alpha&H00&\\c{p['active']}\\bord2\\shad1}}{text}"
+                )
+            elif style == "harmozi":
+                pieces.append(
+                    f"{{\\alpha&H00&\\c{p['active']}\\3c&H000000&\\bord8\\shad3"
+                    f"\\fscx112\\fscy112}}{text}"
+                )
+            else:
+                pieces.append(f"{{\\alpha&H00&\\c{p['active']}}}{text}")
+        else:
+            pieces.append(f"{{\\alpha&HFF&}}{text}")
+    return " ".join(pieces)
 
-        if style == "karaoke":
-            # \k switches the whole current word between SecondaryColour (active)
-            # and PrimaryColour (inactive), with no progressive fill or fade.
-            pieces.append(f"{{\\k{duration_cs}}}{text}")
-        elif style == "fire":
-            pieces.append(f"{{\\k{duration_cs}}}{text}")
-        elif style == "beasty":
-            # Base phrase: pure white, no active color change. The active word is
-            # drawn separately below with black text on a solid white rectangle.
+
+def _event_text(group, style: str) -> str:
+    # Kept for the existing Beasty/Cinematic paths. The active-word overlay
+    # renderer below is used for the four color-highlight styles.
+    p = PRESETS.get(style, PRESETS["karaoke"])
+    pieces = []
+    for _, (_, _, raw_text) in enumerate(group):
+        text = _ass_escape(raw_text.upper())
+        if style == "beasty":
             pieces.append(
                 f"{{\\c{p['primary']}\\3c&H00000000&\\bord7\\shad0}}{text}"
             )
-        elif style == "youshaei":
-            pieces.append(f"{{\\k{duration_cs}}}{text}")
-        elif style == "harmozi":
-            pieces.append(f"{{\\k{duration_cs}}}{text}")
         else:
-            pieces.append(
-                f"{{\\alpha&H55&\\fscx96\\k{duration_cs}}}{text}"
-                f"{{\\alpha&H00&\\fscx100}}"
-            )
-
+            pieces.append(text)
     return " ".join(pieces)
 
 
@@ -151,26 +175,40 @@ def _write_ass(candidate: ClipCandidate, segments: list[TranscriptSegment], outp
     for group in groups:
         start, end = group[0][0], group[-1][1]
 
-        # Beasty is intentionally rendered only as the active boxed word.
-        # Drawing the normal Caption line as well creates a second subtitle
-        # underneath the box, which is the duplicated/background text seen in
-        # the rendered clip.
-        if style != "beasty":
-            lines.append(
-                f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},"
-                f"Caption,,0,0,0,{_event_text(group, style)}"
-            )
-
+        # Beasty remains exactly on its existing dedicated rendering path.
         if style == "beasty":
-            # Beasty follows the reference pattern: one spoken word at a time
-            # gets a white rectangular capsule with black text.
-            # Using ASS's centered alignment avoids fragile manual x-positioning.
             for word_start, word_end, raw_word in group:
                 word_text = _ass_escape(raw_word.upper())
                 lines.append(
                     f"Dialogue: 1,{_ass_time(word_start)},{_ass_time(word_end)},"
                     f"BeastyBox,,0,0,0,{word_text}"
                 )
+            continue
+
+        # Cinematic remains on its existing personality path.
+        if style == "cinematic":
+            lines.append(
+                f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},"
+                f"Caption,,0,0,0,{_event_text(group, style)}"
+            )
+            continue
+
+        # Base phrase: every word stays white for the entire phrase.
+        phrase = _base_phrase(group)
+        lines.append(
+            f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},"
+            f"Caption,,0,0,0,{phrase}"
+        )
+
+        # Active layer: same exact phrase geometry, but only the currently spoken
+        # word is visible and colored. This avoids ASS karaoke fill behavior and
+        # prevents the following word from becoming highlighted early.
+        for active_index, (word_start, word_end, _) in enumerate(group):
+            overlay = _active_overlay(group, active_index, style)
+            lines.append(
+                f"Dialogue: 1,{_ass_time(word_start)},{_ass_time(word_end)},"
+                f"Caption,,0,0,0,{overlay}"
+            )
 
     if not groups:
         for segment in segments:
