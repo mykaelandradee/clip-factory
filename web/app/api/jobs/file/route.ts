@@ -19,7 +19,7 @@ export async function GET(request: Request) {
   const id = params.get("id");
   const file = params.get("file");
 
-  if (!id || !/^clip-\d{2}\.mp4$/i.test(file ?? "")) {
+  if (!id || !file || !/^clip-\d{2}\.mp4$/i.test(file)) {
     return Response.json({ error: "Clip inválido." }, { status: 400 });
   }
 
