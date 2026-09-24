@@ -11,6 +11,13 @@ const REPO = "clip-factory";
 const WORKFLOW = "clip-factory-worker.yml";
 const GENERATION_ONLY_MODE = process.env.CLIP_FACTORY_GENERATION_ONLY === "true";
 
+async function getCurrentUser() {
+  if (GENERATION_ONLY_MODE) return null;
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getUser();
+  return data.user;
+}
+
 function githubToken() {
   const token = process.env.CLIP_FACTORY_GITHUB_TOKEN;
   if (!token) throw new Error("CLIP_FACTORY_GITHUB_TOKEN não configurado na Vercel");
@@ -46,7 +53,7 @@ function validateYoutubeUrl(value: unknown) {
 }
 
 export async function POST(request: Request) {
-  const user = GENERATION_ONLY_MODE ? null : (await createClient()).auth.getUser().then(({ data }) => data.user);
+  const user = await getCurrentUser();
 
   const body = await request.json().catch(() => null);
   if (!validateYoutubeUrl(body?.url)) {
@@ -108,7 +115,7 @@ export async function POST(request: Request) {
 }
 
 export async function GET(request: Request) {
-  const user = GENERATION_ONLY_MODE ? null : (await createClient()).auth.getUser().then(({ data }) => data.user);
+  const user = await getCurrentUser();
 
   const params = new URL(request.url).searchParams;
   const id = params.get("id");
