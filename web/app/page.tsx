@@ -560,7 +560,7 @@ export default function Home() {
                       )}
                       <div className="cf-result-actions">
                         <a href={download} download className="cf-download">Baixar <span>↓</span></a>
-                        {youtubeConnected && (
+                        {!GENERATION_ONLY_MODE && youtubeConnected && (
                           <button
                             type="button"
                             className="cf-download cf-publish-button"
