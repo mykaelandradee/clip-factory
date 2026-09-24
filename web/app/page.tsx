@@ -340,7 +340,10 @@ export default function Home() {
         }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Não foi possível iniciar o processamento.");
+      if (!response.ok) {
+        const detail = data.githubStatus ? ` (GitHub HTTP ${data.githubStatus})` : "";
+        throw new Error(`${data.error || "Não foi possível iniciar o processamento."}${detail}`);
+      }
       setWorkerOnline(true);
       setJobId(data.jobId);
       setJob(data);
