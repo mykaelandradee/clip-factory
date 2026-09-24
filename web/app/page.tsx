@@ -4,6 +4,8 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "../lib/supabase/client";
 
+const GENERATION_ONLY_MODE = process.env.NEXT_PUBLIC_CLIP_FACTORY_GENERATION_ONLY === "true";
+
 type Job = {
   status: string;
   progress: number;
@@ -80,7 +82,7 @@ export default function Home() {
   const selectedTemplate = CAPTION_TEMPLATES.find(([id]) => id === captionStyle) ?? CAPTION_TEMPLATES[0];
 
   useEffect(() => {
-    initAuth();
+    if (!GENERATION_ONLY_MODE) initAuth();
     checkWorker();
     return () => { if (timer.current) clearInterval(timer.current); if (publishTimer.current) clearInterval(publishTimer.current); };
   }, []);
@@ -359,7 +361,7 @@ export default function Home() {
           <div className="cf-brand"><div className="cf-logo">CF</div><span>Clip Factory</span></div>
           <div className="cf-header-meta">
             <span className="cf-live-label">LOCAL AI PIPELINE</span>
-            <>
+            {!GENERATION_ONLY_MODE && <>
               {!user && !authLoading && (
                 <div className="cf-auth-group">
                   <button type="button" className="cf-auth-info" onClick={() => setShowAuthInfo((value) => !value)} aria-label="Informações sobre o login">
@@ -385,12 +387,12 @@ export default function Home() {
                   <button type="button" className="cf-auth-button" onClick={signOut}>Sair</button>
                 </>
               )}
-            </>
+            </>}
             <div className={`cf-status-pill ${workerOnline ? "online" : "offline"}`}><span /> GitHub Actions {workerOnline ? "conectado" : "não configurado"}</div>
           </div>
         </header>
 
-        {authMessage && <div className="cf-auth-message">{authMessage}</div>}
+        {!GENERATION_ONLY_MODE && authMessage && <div className="cf-auth-message">{authMessage}</div>}
         <section className="cf-hero">
           <div className="cf-hero-copy">
             <div className="cf-hero-label"><span /> VIDEO → CLIPS → SOCIAL</div>
@@ -511,7 +513,7 @@ export default function Home() {
                     </div>
                     <div className="cf-result-info">
                       <div className="cf-result-heading"><strong>Clip {index + 1}</strong><span>{duration === "15-30" ? "15–30s" : duration === "45-90" ? "45–90s" : "30–60s"} · 9:16 · SHORT</span></div>
-                      {(youtubeConnected || instagramConnected) && (
+                      {!GENERATION_ONLY_MODE && (youtubeConnected || instagramConnected) && (
                         <div className="cf-publish-fields">
                           <label>
                             <span>Título do Short</span>
@@ -536,7 +538,7 @@ export default function Home() {
                             />
                             <small>{getPublishDraft(file, index).description.length}/5000</small>
                           </label>
-                          {youtubeConnected && (
+                          {!GENERATION_ONLY_MODE && youtubeConnected && (
                             <label>
                               <span>Agendar publicação no YouTube</span>
                               <input
@@ -568,7 +570,7 @@ export default function Home() {
                             {publishingTarget === `youtube:${file}` ? "Enviando…" : (getPublishDraft(file, index).publishAt ? "Agendar YouTube ↗" : "Publicar YouTube ↗")}
                           </button>
                         )}
-                        {instagramConnected && (
+                        {!GENERATION_ONLY_MODE && instagramConnected && (
                           <button
                             type="button"
                             className="cf-download cf-publish-button"
