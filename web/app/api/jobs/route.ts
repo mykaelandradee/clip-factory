@@ -94,8 +94,16 @@ export async function POST(request: Request) {
     });
 
     if (!response.ok) {
-      console.error("GitHub dispatch failed:", response.status, await response.text());
-      return NextResponse.json({ error: "Não foi possível iniciar o processamento no GitHub Actions." }, { status: 502 });
+      const githubBody = await response.text();
+      console.error("GitHub dispatch failed:", {
+        status: response.status,
+        statusText: response.statusText,
+        body: githubBody,
+      });
+      return NextResponse.json({
+        error: "Não foi possível iniciar o processamento no GitHub Actions.",
+        githubStatus: response.status,
+      }, { status: 502 });
     }
 
     return NextResponse.json({
