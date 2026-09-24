@@ -7,7 +7,13 @@ export const runtime = "nodejs";
 const GENERATION_ONLY_MODE = process.env.CLIP_FACTORY_GENERATION_ONLY === "true";
 
 export async function GET(request: Request) {
-  const user = GENERATION_ONLY_MODE ? null : (await createClient()).auth.getUser().then(({ data }) => data.user);
+  let user = null;
+
+  if (!GENERATION_ONLY_MODE) {
+    const supabase = await createClient();
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
+  }
 
   const params = new URL(request.url).searchParams;
   const id = params.get("id");
