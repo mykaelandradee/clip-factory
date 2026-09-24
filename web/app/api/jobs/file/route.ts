@@ -4,9 +4,10 @@ import { getR2PublicClipUrl } from "../../../../lib/r2";
 
 export const runtime = "nodejs";
 
+const GENERATION_ONLY_MODE = process.env.CLIP_FACTORY_GENERATION_ONLY === "true";
+
 export async function GET(request: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = GENERATION_ONLY_MODE ? null : (await createClient()).auth.getUser().then(({ data }) => data.user);
 
   const params = new URL(request.url).searchParams;
   const id = params.get("id");
