@@ -51,10 +51,12 @@ def main() -> None:
     clip_files = sorted(project_dir.glob("clip-*.mp4"))
     if not clip_files:
         raise RuntimeError("No rendered MP4 clips were found.")
-    if len(clip_files) != requested_count:
-        raise RuntimeError(
-            f"R2 upload blocked: rendered {len(clip_files)} clips, "
-            f"but the job requested {requested_count}."
+    if len(clip_files) > requested_count:
+        clip_files = clip_files[:requested_count]
+    if len(clip_files) < requested_count:
+        print(
+            f"Only {len(clip_files)} clips were generated for a request of "
+            f"{requested_count}; uploading the available clips."
         )
 
     current_storage = 0
@@ -119,6 +121,8 @@ def main() -> None:
                 "batchSizeBytes": batch_size,
                 "projectedStorageBytes": projected_storage,
                 "internalStorageLimitBytes": MAX_STORAGE_BYTES,
+                "requestedCount": requested_count,
+                "generatedCount": len(uploaded),
                 "files": uploaded,
                 "uploadSeconds": upload_seconds,
             },
