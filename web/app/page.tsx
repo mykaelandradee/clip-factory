@@ -582,7 +582,7 @@ export default function Home() {
                 return (
                   <article className="cf-result-card" key={file}>
                     <div className="cf-video-wrap">
-                      <video controls playsInline preload="metadata" src={source} />
+                      <video controls playsInline preload="metadata" crossOrigin="anonymous" src={source} />
                       <span className="cf-clip-number">0{index + 1}</span>
                     </div>
                     <div className="cf-result-info">
@@ -685,7 +685,7 @@ export default function Home() {
               <button type="button" className="cf-preview-close" onClick={() => setPreviewClip(null)} aria-label="Fechar preview">×</button>
             </div>
             <div className="cf-preview-modal-video">
-              <video controls autoPlay playsInline preload="metadata" src={previewClip.url} />
+              <video controls autoPlay playsInline preload="metadata" crossOrigin="anonymous" src={previewClip.url} />
             </div>
             <div className="cf-preview-modal-actions">
               <a href={previewClip.url} download={previewClip.file} className="cf-download">Baixar <span>↓</span></a>
