@@ -71,7 +71,7 @@ def main() -> None:
                 handle,
                 bucket,
                 key,
-                ExtraArgs={"ContentType": "video/mp4", "CacheControl": "public, max-age=3600"},
+                ExtraArgs={"ContentType": "video/mp4", "CacheControl": "public, max-age=31536000, immutable"},
             )
         uploaded.append(
             {
