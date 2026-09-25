@@ -78,6 +78,14 @@ def main() -> None:
             f"limit={MAX_STORAGE_BYTES} bytes."
         )
 
+    # Remove stale objects from a previous attempt for the same job so the
+    # result can never expose clips that belong to an older retry.
+    stale_response = client.list_objects_v2(Bucket=bucket, Prefix=f"jobs/{job_id}/")
+    stale_objects = [{"Key": obj["Key"]} for obj in stale_response.get("Contents", []) if obj.get("Key")]
+    if stale_objects:
+        client.delete_objects(Bucket=bucket, Delete={"Objects": stale_objects, "Quiet": True})
+        print(f"Removed {len(stale_objects)} stale R2 object(s) for job {job_id}")
+
     uploaded = []
     for path in clip_files:
         key = f"jobs/{job_id}/{path.name}"
