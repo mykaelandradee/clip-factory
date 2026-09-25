@@ -34,15 +34,15 @@ def _normalize_pt_br(text: str) -> str:
     # Keep the local translation model, but normalize a few common European
     # Portuguese forms that are undesirable in Brazilian short-form captions.
     replacements = {
-        r"\\bficheiro\\b": "arquivo",
-        r"\\btelemóvel\\b": "celular",
-        r"\\bautocarro\\b": "ônibus",
-        r"\\bcomboio\\b": "trem",
-        r"\\becrã\\b": "tela",
-        r"\\btu\\b": "você",
-        r"\\btuas\\b": "suas",
-        r"\\bteu\\b": "seu",
-        r"\\btua\\b": "sua",
+r"\bficheiro\b": "arquivo",
+        r"\btelemóvel\b": "celular",
+        r"\bautocarro\b": "ônibus",
+        r"\bcomboio\b": "trem",
+        r"\becrã\b": "tela",
+        r"\btu\b": "você",
+        r"\btuas\b": "suas",
+        r"\bteu\b": "seu",
+        r"\btua\b": "sua",
     }
     out = text.strip()
     for pattern, replacement in replacements.items():
@@ -51,31 +51,63 @@ def _normalize_pt_br(text: str) -> str:
 
 
 def _translate_to_pt(texts: list[str]) -> list[str]:
+    """Translate English captions to Brazilian Portuguese with a local model.
+
+    The model is loaded once per job. If a batch fails because of a tokenizer/model
+    edge case, retry that batch with the non-fast tokenizer instead of aborting the
+    whole generation.
+    """
     from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
     if not texts:
         return []
 
-    tokenizer = AutoTokenizer.from_pretrained("Helsinki-NLP/opus-mt-tc-big-en-pt")
-    model = AutoModelForSeq2SeqLM.from_pretrained("Helsinki-NLP/opus-mt-tc-big-en-pt")
+    model_name = "Helsinki-NLP/opus-mt-tc-big-en-pt"
+    tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False)
+    model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
 
     translated: list[str] = []
     try:
         for start in range(0, len(texts), 8):
             batch = texts[start : start + 8]
-            inputs = tokenizer(
-                batch,
-                return_tensors="pt",
-                padding=True,
-                truncation=True,
-                max_length=512,
-            )
-            output_ids = model.generate(
-                **inputs,
-                max_new_tokens=256,
-                num_beams=4,
-            )
-            decoded = tokenizer.batch_decode(output_ids, skip_special_tokens=True)
+            try:
+                inputs = tokenizer(
+                    batch,
+                    return_tensors="pt",
+                    padding=True,
+                    truncation=True,
+                    max_length=512,
+                )
+                output_ids = model.generate(
+                    **inputs,
+                    max_new_tokens=192,
+                    num_beams=4,
+                    early_stopping=True,
+                )
+                decoded = tokenizer.batch_decode(output_ids, skip_special_tokens=True)
+            except Exception as batch_error:
+                print(f"[translation] batch failed, retrying individually: {batch_error}")
+                decoded = []
+                for item in batch:
+                    retry_inputs = tokenizer(
+                        [item],
+                        return_tensors="pt",
+                        padding=True,
+                        truncation=True,
+                        max_length=512,
+                    )
+                    retry_ids = model.generate(
+                        **retry_inputs,
+                        max_new_tokens=192,
+                        num_beams=3,
+                        early_stopping=True,
+                    )
+                    decoded.extend(tokenizer.batch_decode(retry_ids, skip_special_tokens=True))
+
+            if len(decoded) != len(batch):
+                raise RuntimeError(
+                    f"Local translation returned {len(decoded)} results for {len(batch)} captions."
+                )
             translated.extend(str(text).strip() for text in decoded)
     finally:
         del model
@@ -164,9 +196,10 @@ def transcribe(
     is_translated_to_pt = subtitle_language == "pt-BR" and detected_language not in {"pt", "pt-br"}
 
     if is_translated_to_pt:
+        source_texts = [str(raw["text"]).strip() for raw in raw_segments]
         translated = [
             _normalize_pt_br(text)
-            for text in _translate_to_pt([str(raw["text"]).strip() for raw in raw_segments])
+            for text in _translate_to_pt(source_texts)
         ]
     else:
         translated = [str(raw["text"]).strip() for raw in raw_segments]
