@@ -178,16 +178,9 @@ def _write_ass(candidate: ClipCandidate, segments: list[TranscriptSegment], outp
             f"{p['spacing']},0,1,{p['outline']},{p['shadow']},{p['alignment']},"
             f"70,70,{p['margin']},1"
         ),
-        (
-            f"Style: BeastyBox,{p['font']},{p['size']},&H00000000,&H00000000,"
-            f"&H00FFFFFF,&H00000000,{p['bold']},0,0,0,100,100,{p['spacing']},0,3,2,0,2,"
-            f"70,70,{p['margin']},1"
-        ),
-        (
-            f"Style: BeastyActive,{p['font']},{p['size']},&H00000000,&H00000000,"
-            f"&H00FFFFFF,&H00000000,{p['bold']},0,0,0,100,100,{p['spacing']},0,3,3,0,2,"
-            f"70,70,{p['margin']},1"
-        ),
+        # Beasty uses the same base ASS style as the other presets. Its black-box
+        # look is applied inline per spoken word, avoiding custom-style resolution
+        # differences across libass versions.
         "",
         "[Events]",
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, Effect, Text",
@@ -196,17 +189,38 @@ def _write_ass(candidate: ClipCandidate, segments: list[TranscriptSegment], outp
     words = _word_events(candidate, segments)
     groups = _group_words(words, style)
 
+    # Defensive fallback: if translated word timing is malformed, still render
+    # the overlapping segment text instead of producing a caption-free MP4.
+    if not groups:
+        fallback_words = []
+        for segment in segments:
+            segment_start = max(float(segment.start), candidate.start)
+            segment_end = min(float(segment.end), candidate.end)
+            text = str(segment.text).strip()
+            if text and segment_end > segment_start:
+                fallback_words.append((
+                    segment_start - candidate.start,
+                    segment_end - candidate.start,
+                    text,
+                ))
+        groups = _group_words(fallback_words, style)
+
     for group in groups:
         start, end = group[0][0], group[-1][1]
 
         # Beasty uses a deliberately different personality: each spoken word
-        # becomes a solid inverted box, making the active timing unmistakable.
+        # becomes a solid inverted box. It intentionally uses the base Caption
+        # style so libass cannot drop the event because of a missing custom style.
         if style == "beasty":
             for word_start, word_end, raw_word in group:
                 word_text = _ass_escape(raw_word.upper())
+                text = (
+                    "{\\1c&H00000000&\\3c&H00FFFFFF&\\bord7\\shad0}"
+                    + word_text
+                )
                 lines.append(
-                    f"Dialogue: 1,{_ass_time(word_start)},{_ass_time(word_end)},"
-                    f"BeastyActive,,0,0,0,{word_text}"
+                    f"Dialogue: 0,{_ass_time(word_start)},{_ass_time(word_end)},"
+                    f"Caption,,0,0,0,{text}"
                 )
             continue
 
