@@ -12,7 +12,7 @@ const OWNER = "mykaelandradee";
 const REPO = "clip-factory";
 const WORKFLOW = "clip-factory-worker.yml";
 const GENERATION_ONLY_MODE = process.env.CLIP_FACTORY_GENERATION_ONLY === "true";
-const JOB_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const JOB_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nconst MAX_BODY_BYTES = 16 * 1024;
 
 function getAnonymousJobSecret() {
   return process.env.CLIP_FACTORY_TOKEN_ENCRYPTION_KEY || process.env.CLIP_FACTORY_WORKER_TOKEN || "";
@@ -98,10 +98,10 @@ export async function POST(request: Request) {
   const user = await getCurrentUser();
   const limit = rateLimit(getClientKey(request, user?.id), 5, 60 * 60 * 1000);
   if (!limit.allowed) {
-    return NextResponse.json({ error: "Limite de gerações atingido. Tente novamente mais tarde.", retryAfterSeconds: limit.retryAfterSeconds }, { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } });
+    return NextResponse.json({ error: "Limite de gerações atingido. Tente novamente mais tarde.", retryAfterSeconds: limit.retryAfterSeconds }, { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds), "Cache-Control": "no-store" } });
   }
 
-  const body = await request.json().catch(() => null);
+  const contentLength = Number(request.headers.get("content-length") || 0);\n  if (contentLength > MAX_BODY_BYTES) {\n    return NextResponse.json({ error: "Requisição muito grande." }, { status: 413, headers: { "Cache-Control": "no-store" } });\n  }\n  const body = await request.json().catch(() => null);
   const payload = body && typeof body === "object" ? body as Record<string, unknown> : null;
   if (!validateYoutubeUrl(payload?.url)) {
     return NextResponse.json({ error: "Informe uma URL válida do YouTube" }, { status: 400 });
@@ -178,7 +178,7 @@ export async function POST(request: Request) {
       progress: 5,
       stage: "queued",
       message: "Processamento iniciado no GitHub Actions.",
-    }, { status: 202 });
+    }, { status: 202, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     try {
       const cleanupAdmin = createAdminClient();
