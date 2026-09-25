@@ -82,7 +82,7 @@ export default function Home() {
   const [previewClip, setPreviewClip] = useState<{ file: string; url: string; index: number; currentTime: number } | null>(null);
   const [previewErrors, setPreviewErrors] = useState<Record<string, boolean>>({});
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
-  const emptyResultRetries = useRef(0);
+  const emptyResultRetries = useRef(0);\n  const pollStartedAt = useRef(0);\n  const CLIENT_JOB_TIMEOUT_MS = 50 * 60 * 1000;
 
   const selectedTemplate = CAPTION_TEMPLATES.find(([id]) => id === captionStyle) ?? CAPTION_TEMPLATES[0];
 
@@ -115,6 +115,7 @@ export default function Home() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Não foi possível tentar novamente.");
+      pollStartedAt.current = Date.now();
       setJob({
         status: "processing",
         progress: 5,
@@ -145,6 +146,7 @@ export default function Home() {
     setPublishMessage("");
     setPublishingTarget(null);
     emptyResultRetries.current = 0;
+    pollStartedAt.current = 0;
     setSubmitting(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -362,6 +364,14 @@ export default function Home() {
 
   async function poll(id: string) {
     try {
+      if (pollStartedAt.current && Date.now() - pollStartedAt.current > CLIENT_JOB_TIMEOUT_MS) {
+        if (timer.current) clearInterval(timer.current);
+        timer.current = null;
+        setSubmitting(false);
+        setJob((previous) => previous ? { ...previous, status: "failed", message: "O processamento demorou mais que o esperado. Você pode tentar novamente." } : previous);
+        setError("O processamento excedeu o tempo máximo de espera da interface. O worker pode ainda estar concluindo; aguarde alguns instantes antes de tentar novamente.");
+        return;
+      }
       const query = new URLSearchParams({ id });
       if (jobAccessToken) query.set("accessToken", jobAccessToken);
       const response = await fetch("/api/jobs?" + query.toString(), { cache: "no-store" });
@@ -443,6 +453,7 @@ export default function Home() {
       setWorkerOnline(true);
       setJobId(data.jobId);
       setJobAccessToken(data.accessToken || "");
+      pollStartedAt.current = Date.now();
       setJob(data);
       timer.current = setInterval(() => poll(data.jobId), 3000);
     } catch (err) {
