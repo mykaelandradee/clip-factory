@@ -582,7 +582,7 @@ export default function Home() {
                 return (
                   <article className="cf-result-card" key={file}>
                     <div className="cf-video-wrap">
-                      <video controls playsInline preload="metadata" crossOrigin="anonymous" src={source} />
+                      <video controls playsInline preload="metadata" src={source} />
                       <span className="cf-clip-number">0{index + 1}</span>
                     </div>
                     <div className="cf-result-info">
