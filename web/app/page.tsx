@@ -77,7 +77,7 @@ export default function Home() {
   const [publishStatuses, setPublishStatuses] = useState<Record<string, { platform: "youtube" | "instagram"; status: "queued" | "running" | "success" | "failed"; message: string }>>({});
   const publishTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const [publishDrafts, setPublishDrafts] = useState<Record<string, { title: string; description: string; publishAt: string }>>({});
-  const [previewClip, setPreviewClip] = useState<{ file: string; url: string; index: number } | null>(null);
+  const [previewClip, setPreviewClip] = useState<{ file: string; url: string; index: number; currentTime: number } | null>(null);
   const [previewErrors, setPreviewErrors] = useState<Record<string, boolean>>({});
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const emptyResultRetries = useRef(0);
@@ -597,7 +597,7 @@ export default function Home() {
                       <button
                         type="button"
                         className="cf-preview-button"
-                        onClick={() => setPreviewClip({ file, url: source, index })}
+                        onClick={(event) => {\n                  const cardVideo = event.currentTarget.parentElement?.querySelector("video") as HTMLVideoElement | null;\n                  setPreviewClip({ file, url: source, index, currentTime: cardVideo?.currentTime ?? 0 });\n                }}
                         aria-label={`Abrir preview do Clip ${index + 1}`}
                       >
                         ⛶
@@ -710,7 +710,7 @@ export default function Home() {
               <button type="button" className="cf-preview-close" onClick={() => setPreviewClip(null)} aria-label="Fechar preview">×</button>
             </div>
             <div className="cf-preview-modal-video">
-              <video controls autoPlay playsInline preload="metadata" src={previewClip.url} />
+              <video controls autoPlay playsInline preload="metadata" src={previewClip.url} onLoadedMetadata={(event) => { const video = event.currentTarget; if (previewClip.currentTime > 0 && Number.isFinite(video.duration)) video.currentTime = Math.min(previewClip.currentTime, Math.max(0, video.duration - 0.05)); void video.play().catch(() => {}); }} />
             </div>
             <div className="cf-preview-modal-actions">
               <a href={previewClip.url} download={previewClip.file} className="cf-download">Baixar <span>↓</span></a>
