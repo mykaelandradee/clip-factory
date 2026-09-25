@@ -190,6 +190,15 @@ export default function Home() {
     }
   }
 
+  async function pasteYouTubeUrl() {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) setUrl(text.trim());
+    } catch {
+      setError("Não foi possível acessar a área de transferência. Cole o link no campo.");
+    }
+  }
+
   function defaultPublishTitle(index: number) {
     return videoInfo?.title || "Clip Factory · Clip " + (index + 1);
   }
@@ -435,15 +444,25 @@ export default function Home() {
             <span className="cf-step-dot">01</span>
           </div>
           <div className="cf-grid">
-            <div className="cf-field">
-              <label htmlFor="url">URL do YouTube</label>
-              <input id="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="Cole o link do YouTube aqui..." disabled={submitting} />
-              {loadingInfo && <small>Buscando thumbnail e informações...</small>}
+            <div className="cf-field cf-source-field">
+              <div className="cf-source-label"><label htmlFor="url">URL do YouTube</label><span>FONTE DO VÍDEO</span></div>
+              <div className={`cf-url-box ${videoInfo ? "identified" : ""}`}>
+                <span className="cf-url-icon">▶</span>
+                <input id="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..." disabled={submitting} />
+                <button type="button" className="cf-paste-button" onClick={pasteYouTubeUrl} disabled={submitting}>COLAR</button>
+              </div>
+              <div className="cf-url-hint">
+                <span>{loadingInfo ? "Analisando vídeo..." : videoInfo ? "Vídeo identificado automaticamente" : "Cole um link de vídeo do YouTube"}</span>
+                <span>Sem login para gerar</span>
+              </div>
               {videoInfo && (
                 <div className="cf-video-info">
-                  <img src={videoInfo.thumbnail} alt="" />
+                  <div className="cf-video-thumb-wrap"><img src={videoInfo.thumbnail} alt="" /><span>9:16</span></div>
                   <div><strong>{videoInfo.title}</strong><span>{videoInfo.author}</span><small className="cf-video-ready">● VÍDEO IDENTIFICADO</small></div>
+                  <span className="cf-video-check">✓</span>
                 </div>
+              )}
+            </div>
               )}
             </div>
             <div className="cf-field">
@@ -493,10 +512,11 @@ export default function Home() {
           <div className="cf-template-grid">
             {CAPTION_TEMPLATES.map(([id, name, description]) => (
               <button type="button" key={id} className={`cf-template ${captionStyle === id ? "selected" : ""}`} onClick={() => setCaptionStyle(id)} disabled={submitting}>
-                <CaptionPreview id={id} />
-                <div className="cf-template-info"><strong>{name}</strong><span>{description}</span></div>
-                {captionStyle === id && <span className="cf-check">✓</span>}
-              </button>
+                 <div className="cf-template-number">0{CAPTION_TEMPLATES.findIndex(([templateId]) => templateId === id) + 1}</div>
+                 <CaptionPreview id={id} />
+                 <div className="cf-template-info"><div><strong>{name}</strong>{captionStyle === id && <span className="cf-selected-label">SELECIONADO</span>}</div><span>{description}</span></div>
+                 {captionStyle === id && <span className="cf-check">✓</span>}
+               </button>
             ))}
           </div>
           <div className={`cf-style-detail accent-${selectedTemplate[0]}`}>
