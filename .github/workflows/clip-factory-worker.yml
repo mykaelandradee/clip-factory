@@ -187,11 +187,32 @@ jobs:
           rm -f "${YOUTUBE_COOKIE_FILE:-}"
           rm -rf "$RUNNER_TEMP/clip-factory-secrets"
 
+      - name: Write job lifecycle status
+        if: always()
+        working-directory: worker
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          Path("data/job-status.json").write_text(
+              json.dumps({
+                  "job_id": os.environ["JOB_ID"],
+                  "run_id": os.environ["GITHUB_RUN_ID"],
+                  "run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
+              }, ensure_ascii=False),
+              encoding="utf-8",
+          )
+          PY
+
       - name: Upload results
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: clip-factory-${{ env.JOB_ID }}
-          path: worker/data/r2-urls.json
+          path: |
+            worker/data/r2-urls.json
+            worker/data/job-status.json
           if-no-files-found: warn
           retention-days: 3
