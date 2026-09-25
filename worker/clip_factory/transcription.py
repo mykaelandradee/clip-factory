@@ -117,10 +117,40 @@ def _translate_to_pt(texts: list[str]) -> list[str]:
     return translated
 
 
-def _retime_translated_words(text: str, start: float, end: float) -> list[dict]:
+def _retime_translated_words(text: str, start: float, end: float, source_words: list[dict] | None = None) -> list[dict]:
     tokens = text.split()
     if not tokens:
         return []
+
+    spoken = [
+        word for word in (source_words or [])
+        if str(word.get("word", "")).strip()
+        and float(word.get("end", end)) > start
+        and float(word.get("start", start)) < end
+    ]
+    if spoken:
+        spans = [
+            (
+                max(start, float(word.get("start", start))),
+                min(end, float(word.get("end", end))),
+            )
+            for word in spoken
+        ]
+        mapped = []
+        for index, token in enumerate(tokens):
+            source_index = min(len(spans) - 1, int(index * len(spans) / len(tokens)))
+            bucket_start = int(source_index * len(tokens) / len(spans))
+            bucket_end = max(bucket_start + 1, int((source_index + 1) * len(tokens) / len(spans)))
+            span_start, span_end = spans[source_index]
+            slot = index - bucket_start
+            count = max(1, bucket_end - bucket_start)
+            step = max(0.01, (span_end - span_start) / count)
+            mapped.append({
+                "start": span_start + slot * step,
+                "end": span_start + (slot + 1) * step,
+                "text": token,
+            })
+        return mapped
 
     duration = max(0.1, end - start)
     step = duration / len(tokens)
@@ -211,6 +241,7 @@ def transcribe(
                 text,
                 float(raw["start"]),
                 float(raw["end"]),
+                raw.get("words", []) or [],
             )
         else:
             words = []
