@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { createClient } from "../../../lib/supabase/server";
 import { createAdminClient } from "../../../lib/supabase/admin";
 import { listR2ClipUrls } from "../../../lib/r2";
+import { getClientKey, rateLimit } from "../../../lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -10,6 +12,39 @@ const OWNER = "mykaelandradee";
 const REPO = "clip-factory";
 const WORKFLOW = "clip-factory-worker.yml";
 const GENERATION_ONLY_MODE = process.env.CLIP_FACTORY_GENERATION_ONLY === "true";
+const JOB_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function getAnonymousJobSecret() {
+  return process.env.CLIP_FACTORY_TOKEN_ENCRYPTION_KEY || process.env.CLIP_FACTORY_WORKER_TOKEN || "";
+}
+
+function createAnonymousAccessToken(jobId: string) {
+  const secret = getAnonymousJobSecret();
+  if (!secret) throw new Error("Proteção de jobs anônimos não está configurada.");
+  return createHmac("sha256", secret).update(`clip-factory-anonymous-job:${jobId}`).digest("base64url");
+}
+
+function isValidAnonymousAccessToken(jobId: string, token: string | null) {
+  if (!token) return false;
+  try {
+    const expectedBuffer = Buffer.from(createAnonymousAccessToken(jobId));
+    const providedBuffer = Buffer.from(token);
+    return expectedBuffer.length === providedBuffer.length && timingSafeEqual(expectedBuffer, providedBuffer);
+  } catch {
+    return false;
+  }
+}
+
+async function findOwnedJob(admin: ReturnType<typeof createAdminClient>, id: string, userId: string | null, accessToken: string | null) {
+  const query = admin.from("clip_jobs").select("id").eq("id", id);
+  if (userId) {
+    const { data } = await query.eq("user_id", userId).maybeSingle();
+    return Boolean(data);
+  }
+  if (!isValidAnonymousAccessToken(id, accessToken)) return false;
+  const { data } = await query.is("user_id", null).maybeSingle();
+  return Boolean(data);
+}
 
 async function getCurrentUser() {
   if (GENERATION_ONLY_MODE) return null;
@@ -61,22 +96,35 @@ function parsePositiveInt(value: unknown, fallback: number, min: number, max: nu
 
 export async function POST(request: Request) {
   const user = await getCurrentUser();
+  const limit = rateLimit(getClientKey(request, user?.id), 5, 60 * 60 * 1000);
+  if (!limit.allowed) {
+    return NextResponse.json({ error: "Limite de gerações atingido. Tente novamente mais tarde.", retryAfterSeconds: limit.retryAfterSeconds }, { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } });
+  }
 
   const body = await request.json().catch(() => null);
-  if (!validateYoutubeUrl(body?.url)) {
+  const payload = body && typeof body === "object" ? body as Record<string, unknown> : null;
+  if (!validateYoutubeUrl(payload?.url)) {
     return NextResponse.json({ error: "Informe uma URL válida do YouTube" }, { status: 400 });
   }
 
-  const count = parsePositiveInt(body?.count ?? 5, 5, 1, 15);
-  const minDuration = parsePositiveInt(body?.min_duration ?? 20, 20, 5, 300);
-  const maxDuration = parsePositiveInt(body?.max_duration ?? 60, 60, minDuration, 300);
-  const subtitleLanguage = ["original", "pt-BR", "en"].includes(body.subtitle_language) ? body.subtitle_language : "original";
+  const count = parsePositiveInt(payload?.count ?? 5, 5, 1, 15);
+  const minDuration = parsePositiveInt(payload?.min_duration ?? 20, 20, 5, 300);
+  const maxDuration = parsePositiveInt(payload?.max_duration ?? 60, 60, minDuration, 300);
+  const subtitleLanguage = ["original", "pt-BR", "en"].includes(payload?.subtitle_language) ? body.subtitle_language : "original";
   const captionStyles = ["karaoke", "fire", "beasty", "youshaei", "harmozi", "cinematic"];
-  const captionStyle = captionStyles.includes(body.caption_style) ? body.caption_style : "karaoke";
+  const captionStyle = captionStyles.includes(payload?.caption_style) ? body.caption_style : "karaoke";
   const jobId = crypto.randomUUID();
+  const accessToken = user ? null : createAnonymousAccessToken(jobId);
 
   try {
     const admin = createAdminClient();
+    try {
+      const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const { error: cleanupError } = await admin.from("clip_jobs").delete().lt("created_at", cutoff);
+      if (cleanupError) console.warn("Old clip job cleanup skipped:", cleanupError.message);
+    } catch (cleanupError) {
+      console.warn("Old clip job cleanup failed:", cleanupError);
+    }
     const { error: jobError } = await admin.from("clip_jobs").insert({ id: jobId, user_id: user?.id ?? null });
     if (jobError) {
       console.error("Clip job storage failed:", jobError.message);
@@ -90,7 +138,7 @@ export async function POST(request: Request) {
         event_type: "clip-factory-job",
         client_payload: {
           job_id: jobId,
-          url: body.url.trim(),
+          url: String(payload?.url).trim(),
           count,
           min_duration: minDuration,
           max_duration: maxDuration,
@@ -121,6 +169,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       jobId,
+      accessToken,
       status: "processing",
       progress: 5,
       stage: "queued",
@@ -148,20 +197,21 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
   const user = await getCurrentUser();
+  const limit = rateLimit(getClientKey(request, user?.id), 60, 60 * 1000);
+  if (!limit.allowed) {
+    return NextResponse.json({ error: "Muitas consultas de status. Aguarde alguns segundos.", retryAfterSeconds: limit.retryAfterSeconds }, { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } });
+  }
 
   const params = new URL(request.url).searchParams;
   const id = params.get("id");
-  if (!id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
+  const accessToken = params.get("accessToken");
+  if (!id || !JOB_ID_PATTERN.test(id)) {
     return NextResponse.json({ error: "id inválido" }, { status: 400 });
   }
 
   try {
     const admin = createAdminClient();
-    const ownedJobQuery = admin.from("clip_jobs").select("id").eq("id", id);
-    const { data: ownedJob } = user
-      ? await ownedJobQuery.eq("user_id", user.id).maybeSingle()
-      : await ownedJobQuery.is("user_id", null).maybeSingle();
-    if (!ownedJob) return NextResponse.json({ error: "Processamento não encontrado." }, { status: 404 });
+    if (!await findOwnedJob(admin, id, user?.id ?? null, accessToken)) return NextResponse.json({ error: "Processamento não encontrado." }, { status: 404 });
 
     const response = await githubFetch(
       `/repos/${OWNER}/${REPO}/actions/workflows/${WORKFLOW}/runs?event=repository_dispatch&per_page=30`,
