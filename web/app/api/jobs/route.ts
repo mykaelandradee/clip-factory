@@ -290,10 +290,32 @@ export async function GET(request: Request) {
         ? 10
         : stepProgress;
 
+    const failureCategory = (() => {
+      const step = failedStep.toLowerCase();
+      if (step.includes("verify ytdlp") || step.includes("youtube") || step.includes("deno")) return "youtube_download";
+      if (step.includes("run clip factory") || step.includes("transcri") || step.includes("translat")) return "clip_processing";
+      if (step.includes("upload clips") || step.includes("r2")) return "r2_upload";
+      if (step.includes("cache") || step.includes("python")) return "worker_setup";
+      if (run.conclusion === "cancelled" || run.conclusion === "timed_out") return "worker_timeout";
+      return "worker_failed";
+    })();
+
+    const failureMessage = status === "failed"
+      ? failureCategory === "youtube_download"
+        ? "Não foi possível baixar ou analisar o vídeo do YouTube."
+        : failureCategory === "clip_processing"
+          ? "O processamento dos clips falhou durante análise, transcrição, tradução ou renderização."
+          : failureCategory === "r2_upload"
+            ? "Os clips foram gerados, mas não foi possível enviá-los ao armazenamento temporário."
+            : failureCategory === "worker_timeout"
+              ? "O processamento excedeu o tempo permitido ou foi cancelado."
+              : "O worker terminou com erro. Tente novamente."
+      : undefined;
+
     const message = status === "completed"
       ? "Processamento concluído."
       : status === "failed"
-        ? `O processamento falhou${failedStep ? ` na etapa "${failedStep}"` : ""}.`
+        ? failureMessage!
         : run.status === "queued"
           ? "Aguardando um runner do GitHub Actions."
           : currentStep
@@ -308,8 +330,9 @@ export async function GET(request: Request) {
       message,
       generatedCount: files.length,
       error: status === "failed"
-        ? `GitHub Actions: ${run.conclusion ?? "erro"}${failedStep ? ` — etapa: ${failedStep}` : ""}`
+        ? `${failureMessage} (${run.conclusion ?? "erro"}${failedStep ? ` · ${failedStep}` : ""})`
         : undefined,
+      errorCategory: status === "failed" ? failureCategory : undefined,
       result: status === "completed"
         ? {
             files,
