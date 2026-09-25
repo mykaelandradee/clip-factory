@@ -82,7 +82,9 @@ export default function Home() {
   const [previewClip, setPreviewClip] = useState<{ file: string; url: string; index: number; currentTime: number } | null>(null);
   const [previewErrors, setPreviewErrors] = useState<Record<string, boolean>>({});
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
-  const emptyResultRetries = useRef(0);\n  const pollStartedAt = useRef(0);\n  const CLIENT_JOB_TIMEOUT_MS = 50 * 60 * 1000;
+  const emptyResultRetries = useRef(0);
+  const pollStartedAt = useRef(0);
+  const CLIENT_JOB_TIMEOUT_MS = 50 * 60 * 1000;
 
   const selectedTemplate = CAPTION_TEMPLATES.find(([id]) => id === captionStyle) ?? CAPTION_TEMPLATES[0];
 
@@ -339,7 +341,9 @@ export default function Home() {
     setPublishingTarget(`instagram:${file}`);
     setPublishStatuses((previous) => ({ ...previous, [file]: { platform: "instagram", status: "running", message: "Enviando o Reel para o Instagram..." } }));
     const draft = getPublishDraft(file, index);
-    const caption = [draft.title.trim(), draft.description.trim()].filter(Boolean).join("\n\n");
+    const caption = [draft.title.trim(), draft.description.trim()].filter(Boolean).join("
+
+");
     try {
       const response = await fetch("/api/instagram/publish", {
         method: "POST",
