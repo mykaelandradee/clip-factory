@@ -27,37 +27,41 @@ export async function listR2ClipUrls(jobId: string) {
     credentials: { accessKeyId, secretAccessKey },
   });
 
-  const response = await client.send(new ListObjectsV2Command({
-    Bucket: bucket,
-    Prefix: `jobs/${jobId}/`,
-  }));
-
-  const files = (response.Contents ?? [])
-    .map((object) => object.Key ?? "")
-    .filter((key) => /^jobs\/[^/]+\/clip-\d{2}\.mp4$/i.test(key))
-    .sort()
-    .map((key) => ({
-      file: key.split("/").pop() as string,
-      url: `${publicUrl}/${key}`,
+  try {
+    const response = await client.send(new ListObjectsV2Command({
+      Bucket: bucket,
+      Prefix: `jobs/${jobId}/`,
     }));
 
-  if (files.length > 0) return files;
+    const files = (response.Contents ?? [])
+      .map((object) => object.Key ?? "")
+      .filter((key) => /^jobs\\/[^/]+\\/clip-\\d{2}\\.mp4$/i.test(key))
+      .sort()
+      .map((key) => ({
+        file: key.split("/").pop() as string,
+        url: `${publicUrl}/${key}`,
+      }));
 
-  // Fallback: the worker publishes deterministic clip URLs. If object
-  // listing is temporarily empty, verify the public objects directly.
+    if (files.length > 0) return files;
+  } catch (error) {
+    console.error("R2 object listing failed; using public URL fallback:", error);
+  }
+
+  // The worker uses deterministic keys. This fallback does not require
+  // ListObjects permission and works even if bucket listing is unavailable.
   const candidates = Array.from({ length: 15 }, (_, index) => {
     const file = `clip-${String(index + 1).padStart(2, "0")}.mp4`;
-    return { file, url: getR2PublicClipUrl(jobId, file) };
+    return { file, url: `${publicUrl}/jobs/${jobId}/${file}` };
   });
 
   const verified = await Promise.all(
     candidates.map(async (candidate) => {
       try {
-        const head = await fetch(candidate.url, {
+        const response = await fetch(candidate.url, {
           method: "HEAD",
           cache: "no-store",
         });
-        return head.ok ? candidate : null;
+        return response.ok ? candidate : null;
       } catch {
         return null;
       }
