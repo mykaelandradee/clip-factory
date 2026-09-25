@@ -36,6 +36,9 @@ def run_pipeline(
     caption_style: str = "dynamic",
 ) -> ProjectResult:
     settings.ensure_dirs()
+    count = max(1, min(int(count), 15))
+    min_duration = max(10, int(min_duration))
+    max_duration = max(min_duration, min(int(max_duration), 120))
 
     def report(stage: str, percent: int, message: str) -> None:
         if progress:
@@ -66,6 +69,10 @@ def run_pipeline(
 
     rendered: list[str] = []
     if render:
+        # Prevent stale clips from a previous run with the same project title
+        # from being uploaded together with the new generation.
+        for stale_clip in project_dir.glob("clip-*.mp4"):
+            stale_clip.unlink()
         total = len(candidates)
         for index, candidate in enumerate(candidates, start=1):
             percent = 70 + int((index - 1) / total * 25)
