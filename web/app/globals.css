@@ -85,7 +85,7 @@ button{appearance:none}
 .cf-template-preview .preview-progress span{display:block;width:42%;height:100%;background:#fff;border-radius:inherit}
 .cf-template-preview .preview-style-mark{position:absolute;right:9px;top:10px;color:#ffffff18;font-size:6px;text-transform:uppercase;letter-spacing:.12em}
 .cf-template-preview.accent-karaoke .preview-subtitle b{color:#ffe83b}.cf-template-preview.accent-karaoke .preview-progress span{background:#ffe83b}
-.cf-template-preview.accent-fire{background:radial-gradient(circle at 50% 70%,#63250b 0,#1b100c 32%,#09090c 72%)}.cf-template-preview.accent-fire .preview-subtitle{font-size:12px}.cf-template-preview.accent-fire .preview-subtitle b{display:inline-block;color:#ff4b22;text-shadow:0 0 12px #ff4b2270;transform:scale(1.12)}.cf-template-preview.accent-fire .preview-progress span{background:#ff4b22}
+.cf-template-preview.accent-fire{background:radial-gradient(circle at 50% 70%,#63250b 0,#1b100c 32%,#09090c 72%)}.cf-template-preview.accent-fire .preview-subtitle{font-size:12px}.cf-template-preview.accent-fire .preview-subtitle b{display:inline-block;color:#ff8c00;text-shadow:0 0 12px #ff8c0070;transform:scale(1.12)}.cf-template-preview.accent-fire .preview-progress span{background:#ff8c00}
 .cf-template-preview.accent-beasty{background:linear-gradient(150deg,#28282d,#08080a)}.cf-template-preview.accent-beasty .preview-subtitle{font-size:14px;letter-spacing:-.07em}.cf-template-preview.accent-beasty .preview-subtitle b{display:inline-block;padding:3px 5px;background:#fff;color:#09090c;text-shadow:none}.cf-template-preview.accent-beasty .preview-progress span{width:58%;height:3px}
 .cf-template-preview.accent-youshaei{background:linear-gradient(150deg,#102129,#080a0d)}.cf-template-preview.accent-youshaei .preview-subtitle{font-size:10px;font-weight:650}.cf-template-preview.accent-youshaei .preview-subtitle b{color:#8fe7ff}.cf-template-preview.accent-youshaei .preview-progress span{background:#8fe7ff}
 .cf-template-preview.accent-harmozi{background:linear-gradient(150deg,#20250f,#090a08)}.cf-template-preview.accent-harmozi .preview-subtitle{font-size:12px}.cf-template-preview.accent-harmozi .preview-subtitle b{color:#d8ff37;display:inline-block;transform:scale(1.1)}.cf-template-preview.accent-harmozi .preview-progress span{background:#d8ff37}
@@ -97,7 +97,7 @@ button{appearance:none}
 .cf-style-detail:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,#ffffff05,transparent);transform:translateX(-100%);animation:cf-shimmer 3.5s ease-in-out infinite}
 .cf-style-detail-icon{width:30px;height:30px;display:grid;place-items:center;border-radius:9px;background:#ffffff08;color:#fff;font-size:13px}
 .cf-style-detail>div:nth-child(2){min-width:0;display:flex;flex-direction:column;gap:2px}.cf-style-detail span{font-size:7px;letter-spacing:.15em;color:#5c5c66}.cf-style-detail strong{font-size:11px}.cf-style-detail p{margin:0;color:#666671;font-size:8px}.cf-style-wave{margin-left:auto;display:flex;align-items:center;gap:3px;height:24px}.cf-style-wave i{display:block;width:3px;height:8px;border-radius:5px;background:#777;animation:cf-wave .9s ease-in-out infinite}.cf-style-wave i:nth-child(2){height:15px;animation-delay:.1s}.cf-style-wave i:nth-child(3){height:21px;animation-delay:.2s}.cf-style-wave i:nth-child(4){height:12px;animation-delay:.3s}.cf-style-wave i:nth-child(5){height:18px;animation-delay:.4s}.cf-style-wave i:nth-child(6){height:9px;animation-delay:.5s}
-.cf-style-detail.accent-karaoke .cf-style-detail-icon{color:#ffe83b}.cf-style-detail.accent-fire .cf-style-detail-icon{color:#ff4b22}.cf-style-detail.accent-youshaei .cf-style-detail-icon{color:#8fe7ff}.cf-style-detail.accent-harmozi .cf-style-detail-icon{color:#d8ff37}
+.cf-style-detail.accent-karaoke .cf-style-detail-icon{color:#ffe83b}.cf-style-detail.accent-fire .cf-style-detail-icon{color:#ff8c00}.cf-style-detail.accent-youshaei .cf-style-detail-icon{color:#8fe7ff}.cf-style-detail.accent-harmozi .cf-style-detail-icon{color:#d8ff37}
 
 .cf-actions{display:flex;justify-content:flex-end;margin-top:18px}
 .cf-button{display:inline-flex;align-items:center;justify-content:center;gap:22px;min-height:48px;padding:0 20px;border:0;border-radius:13px;background:#f4f4f5;color:#08080b;text-decoration:none;font-size:11px;font-weight:900;letter-spacing:.04em;cursor:pointer;transition:.22s;box-shadow:0 12px 35px #00000040}
@@ -539,11 +539,11 @@ button{appearance:none}
 /* Caption personality refinement */
 .cf-template-preview.accent-karaoke .preview-subtitle b{color:#ffd400;text-shadow:0 2px 12px #ffd40044}
 .cf-template-preview.accent-fire .preview-subtitle{text-shadow:0 3px 0 #000,0 8px 20px #0008}
-.cf-template-preview.accent-fire .preview-subtitle b{color:#ff3b30;transform:scale(1.08);text-shadow:0 2px 0 #000,0 0 16px #ff3b3055}
+.cf-template-preview.accent-fire .preview-subtitle b{color:#ff8c00;transform:scale(1.08);text-shadow:0 2px 0 #000,0 0 16px #ff8c0055}
 .cf-template-preview.accent-beasty .preview-subtitle i,.cf-template-preview.accent-beasty .preview-subtitle b{border:2px solid #f3f3f5aa;padding:1px 4px;background:#050507;box-shadow:0 3px 0 #f3f3f544}
 .cf-template-preview.accent-beasty .preview-subtitle b{color:#050507;background:#f3f3f5;border-color:#f3f3f5}
 .cf-template-preview.accent-youshaei .preview-subtitle{font-weight:700}
-.cf-template-preview.accent-youshaei .preview-subtitle b{color:#ffe66d;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px}
+.cf-template-preview.accent-youshaei .preview-subtitle b{color:#8fe7ff;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px}
 .cf-template-preview.accent-harmozi .preview-subtitle b{color:#37ff8b;transform:scale(1.08);text-shadow:0 0 15px #37ff8b55}
 .cf-template-preview.accent-cinematic .preview-subtitle{color:#e9e4d8;letter-spacing:.035em;text-shadow:0 3px 18px #000b}
 
@@ -573,12 +573,12 @@ button{appearance:none}
 .cf-caption-preview-video.accent-karaoke .cf-caption-preview-copy{font-family:"DejaVu Sans",system-ui,sans-serif;font-weight:800}
 .cf-caption-preview-video.accent-karaoke .cf-caption-preview-copy span.active{color:#ffe83b}
 .cf-caption-preview-video.accent-fire .cf-caption-preview-copy{font-family:"DejaVu Sans Condensed",Impact,sans-serif;font-size:32px;font-weight:900}
-.cf-caption-preview-video.accent-fire .cf-caption-preview-copy span.active{color:#ff3b30;transform:scale(1.08);text-shadow:0 2px 0 #000,0 0 16px #ff3b3055}
+.cf-caption-preview-video.accent-fire .cf-caption-preview-copy span.active{color:#ff8c00;transform:scale(1.08);text-shadow:0 2px 0 #000,0 0 16px #ff8c0055}
 .cf-caption-preview-video.accent-beasty .cf-caption-preview-copy{font-family:"DejaVu Sans Mono","Courier New",monospace;font-size:26px;font-weight:900;letter-spacing:-.06em}
 .cf-caption-preview-video.accent-beasty .cf-caption-preview-copy span{padding:4px 5px;border:2px solid #f3f3f5aa;background:#050507}
 .cf-caption-preview-video.accent-beasty .cf-caption-preview-copy span.active{color:#050507;background:#f3f3f5;border-color:#f3f3f5;text-shadow:none}
 .cf-caption-preview-video.accent-youshaei .cf-caption-preview-copy{font-family:"DejaVu Sans",system-ui,sans-serif;font-size:24px;font-weight:700;letter-spacing:.02em}
-.cf-caption-preview-video.accent-youshaei .cf-caption-preview-copy span.active{color:#ffe66d;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:5px}
+.cf-caption-preview-video.accent-youshaei .cf-caption-preview-copy span.active{color:#8fe7ff;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:5px}
 .cf-caption-preview-video.accent-harmozi .cf-caption-preview-copy{font-family:"DejaVu Sans Condensed",Impact,sans-serif;font-size:31px;font-weight:900}
 .cf-caption-preview-video.accent-harmozi .cf-caption-preview-copy span.active{color:#37ff8b;transform:scale(1.08);text-shadow:0 0 15px #37ff8b55}
 .cf-caption-preview-video.accent-cinematic .cf-caption-preview-copy{font-family:"DejaVu Serif",Georgia,serif;font-size:21px;font-weight:500;letter-spacing:.09em;text-transform:none}
