@@ -141,7 +141,9 @@ def _event_text(group, style: str) -> str:
     return " ".join(pieces)
 
 
-CAPTION_MAX_PAUSE = 0.35\n\ndef _write_ass(candidate: ClipCandidate, segments: list[TranscriptSegment], output: Path, style: str) -> Path:
+CAPTION_MAX_PAUSE = 0.35
+
+def _write_ass(candidate: ClipCandidate, segments: list[TranscriptSegment], output: Path, style: str) -> Path:
     p = PRESETS.get(style, PRESETS["karaoke"])
 
     lines = [
