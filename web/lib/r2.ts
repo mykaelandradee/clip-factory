@@ -32,7 +32,7 @@ export async function listR2ClipUrls(jobId: string) {
     Prefix: `jobs/${jobId}/`,
   }));
 
-  return (response.Contents ?? [])
+  const files = (response.Contents ?? [])
     .map((object) => object.Key ?? "")
     .filter((key) => /^jobs\/[^/]+\/clip-\d{2}\.mp4$/i.test(key))
     .sort()
@@ -40,6 +40,31 @@ export async function listR2ClipUrls(jobId: string) {
       file: key.split("/").pop() as string,
       url: `${publicUrl}/${key}`,
     }));
+
+  if (files.length > 0) return files;
+
+  // Fallback: the worker publishes deterministic clip URLs. If object
+  // listing is temporarily empty, verify the public objects directly.
+  const candidates = Array.from({ length: 15 }, (_, index) => {
+    const file = `clip-${String(index + 1).padStart(2, "0")}.mp4`;
+    return { file, url: getR2PublicClipUrl(jobId, file) };
+  });
+
+  const verified = await Promise.all(
+    candidates.map(async (candidate) => {
+      try {
+        const head = await fetch(candidate.url, {
+          method: "HEAD",
+          cache: "no-store",
+        });
+        return head.ok ? candidate : null;
+      } catch {
+        return null;
+      }
+    }),
+  );
+
+  return verified.filter((item): item is { file: string; url: string } => item !== null);
 }
 
 export async function deleteR2Clip(jobId: string, file: string) {
