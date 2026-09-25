@@ -562,24 +562,27 @@ button{appearance:none}
 .cf-caption-preview-head span{color:#686873;font-size:7px;font-weight:850;letter-spacing:.16em}
 .cf-caption-preview-head strong{font-size:15px;letter-spacing:-.03em}
 .cf-caption-preview-close{width:30px;height:30px;border:1px solid #ffffff14;border-radius:50%;background:#ffffff05;color:#aaaab2;font-size:20px;line-height:1;cursor:pointer}
-.cf-caption-preview-video{position:relative;aspect-ratio:16/9;background:#000;overflow:hidden}
-.cf-caption-preview-video iframe{width:100%;height:100%;display:block;border:0}
-.cf-caption-preview-overlay{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;padding:0 7% 9%;pointer-events:none;background:linear-gradient(180deg,transparent 48%,#00000008 72%,#00000042)}
-.cf-caption-preview-context{margin-bottom:12px;color:#ffffffa0;font-size:9px;font-weight:750;letter-spacing:.15em;text-shadow:0 2px 8px #000}
-.cf-caption-preview-copy{display:flex;align-items:center;gap:10px;color:#fff;font-size:31px;line-height:.95;font-weight:850;letter-spacing:-.055em;text-align:center;text-shadow:0 4px 16px #000}
-.cf-caption-preview-copy strong{font-weight:950}
-.cf-caption-preview-note{margin-top:13px;color:#ffffff88;font-size:7px;letter-spacing:.12em;text-transform:uppercase;text-shadow:0 2px 8px #000}
-.cf-caption-preview-video.accent-karaoke .cf-caption-preview-copy strong{color:#ffe83b}
-.cf-caption-preview-video.accent-fire .cf-caption-preview-copy{font-family:"Arial Narrow",Impact,sans-serif;font-size:38px;text-transform:uppercase}
-.cf-caption-preview-video.accent-fire .cf-caption-preview-copy strong{color:#ff4b22;transform:scale(1.08)}
-.cf-caption-preview-video.accent-beasty .cf-caption-preview-copy{font-family:"Courier New",monospace;font-size:34px}
-.cf-caption-preview-video.accent-beasty .cf-caption-preview-copy strong{padding:7px 10px;background:#fff;color:#09090c;text-shadow:none}
-.cf-caption-preview-video.accent-youshaei .cf-caption-preview-copy{font-size:27px;font-weight:650;letter-spacing:.03em}
-.cf-caption-preview-video.accent-youshaei .cf-caption-preview-copy strong{color:#8fe7ff;text-decoration:underline;text-underline-offset:7px}
-.cf-caption-preview-video.accent-harmozi .cf-caption-preview-copy{font-family:"Arial Narrow",Impact,sans-serif;font-size:36px}
-.cf-caption-preview-video.accent-harmozi .cf-caption-preview-copy strong{color:#d8ff37;transform:scale(1.08)}
-.cf-caption-preview-video.accent-cinematic .cf-caption-preview-copy{font-family:Georgia,"Times New Roman",serif;font-size:25px;font-weight:500;letter-spacing:.12em;text-transform:none}
-.cf-caption-preview-video.accent-cinematic .cf-caption-preview-copy strong{font-weight:500;color:#fff}
+.cf-caption-preview-video{position:relative;display:flex;justify-content:center;aspect-ratio:9/16;background:#000;overflow:hidden;max-height:min(72vh,760px)}
+.cf-caption-preview-video video{width:100%;height:100%;display:block;object-fit:cover;background:#000}
+.cf-caption-preview-overlay{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;padding:0 7% 10%;pointer-events:none;background:linear-gradient(180deg,transparent 45%,#00000010 67%,#00000065 100%)}
+.cf-caption-preview-context{margin-bottom:12px;color:#ffffffa0;font-size:7px;font-weight:750;letter-spacing:.15em;text-shadow:0 2px 8px #000;text-align:center}
+.cf-caption-preview-copy{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:5px 8px;max-width:92%;color:#fff;font-size:28px;line-height:.98;font-weight:850;letter-spacing:-.055em;text-align:center;text-shadow:0 4px 16px #000;text-transform:uppercase}
+.cf-caption-preview-copy span{transition:color .08s ease,background .08s ease,transform .08s ease}
+.cf-caption-preview-copy span.active{color:#fff}
+.cf-caption-preview-note{margin-top:13px;color:#ffffff88;font-size:6px;letter-spacing:.12em;text-transform:uppercase;text-shadow:0 2px 8px #000;text-align:center}
+.cf-caption-preview-video.accent-karaoke .cf-caption-preview-copy{font-family:"DejaVu Sans",system-ui,sans-serif;font-weight:800}
+.cf-caption-preview-video.accent-karaoke .cf-caption-preview-copy span.active{color:#ffe83b}
+.cf-caption-preview-video.accent-fire .cf-caption-preview-copy{font-family:"DejaVu Sans Condensed",Impact,sans-serif;font-size:32px;font-weight:900}
+.cf-caption-preview-video.accent-fire .cf-caption-preview-copy span.active{color:#ff3b30;transform:scale(1.08);text-shadow:0 2px 0 #000,0 0 16px #ff3b3055}
+.cf-caption-preview-video.accent-beasty .cf-caption-preview-copy{font-family:"DejaVu Sans Mono","Courier New",monospace;font-size:26px;font-weight:900;letter-spacing:-.06em}
+.cf-caption-preview-video.accent-beasty .cf-caption-preview-copy span{padding:4px 5px;border:2px solid #f3f3f5aa;background:#050507}
+.cf-caption-preview-video.accent-beasty .cf-caption-preview-copy span.active{color:#050507;background:#f3f3f5;border-color:#f3f3f5;text-shadow:none}
+.cf-caption-preview-video.accent-youshaei .cf-caption-preview-copy{font-family:"DejaVu Sans",system-ui,sans-serif;font-size:24px;font-weight:700;letter-spacing:.02em}
+.cf-caption-preview-video.accent-youshaei .cf-caption-preview-copy span.active{color:#ffe66d;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:5px}
+.cf-caption-preview-video.accent-harmozi .cf-caption-preview-copy{font-family:"DejaVu Sans Condensed",Impact,sans-serif;font-size:31px;font-weight:900}
+.cf-caption-preview-video.accent-harmozi .cf-caption-preview-copy span.active{color:#37ff8b;transform:scale(1.08);text-shadow:0 0 15px #37ff8b55}
+.cf-caption-preview-video.accent-cinematic .cf-caption-preview-copy{font-family:"DejaVu Serif",Georgia,serif;font-size:21px;font-weight:500;letter-spacing:.09em;text-transform:none}
+.cf-caption-preview-video.accent-cinematic .cf-caption-preview-copy span.active{color:#fff;font-style:italic}
 .cf-caption-preview-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;color:#62626d;font-size:9px}
 .cf-caption-preview-footer button{border:1px solid #ffffff14;border-radius:999px;background:#ffffff05;color:#dddde2;padding:7px 11px;font-size:8px;font-weight:800;cursor:pointer}
 @media(max-width:600px){
