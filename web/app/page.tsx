@@ -447,18 +447,28 @@ export default function Home() {
               )}
             </div>
             <div className="cf-field">
-              <label htmlFor="clips">Quantidade</label>
-              <select id="clips" value={clips} onChange={(e) => setClips(e.target.value)} disabled={submitting}>
-                <option>3</option><option>5</option><option>10</option><option>15</option>
-              </select>
+              <label>Quantidade de clips</label>
+              <div className="cf-choice-row" role="group" aria-label="Quantidade de clips">
+                {["3", "5", "10", "15"].map((value) => (
+                  <button type="button" key={value} className={`cf-choice ${clips === value ? "selected" : ""}`} onClick={() => setClips(value)} disabled={submitting}>
+                    <strong>{value}</strong><span>clips</span>
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="cf-field">
-              <label htmlFor="subtitle-language">Idioma</label>
-              <select id="subtitle-language" value={subtitleLanguage} onChange={(e) => setSubtitleLanguage(e.target.value)} disabled={submitting}>
-                <option value="original">Idioma original</option>
-                <option value="pt-BR">Português (Brasil)</option>
-                <option value="en">English</option>
-              </select>
+              <label>Idioma das legendas</label>
+              <div className="cf-choice-row cf-language-row" role="group" aria-label="Idioma das legendas">
+                {[
+                  ["original", "Original"],
+                  ["pt-BR", "PT-BR"],
+                  ["en", "English"],
+                ].map(([value, label]) => (
+                  <button type="button" key={value} className={`cf-choice ${subtitleLanguage === value ? "selected" : ""}`} onClick={() => setSubtitleLanguage(value)} disabled={submitting}>
+                    <strong>{label}</strong>
+                  </button>
+                ))}
+              </div>
               <small>Tradução local para PT-BR, sem API paga.</small>
             </div>
           </div>
