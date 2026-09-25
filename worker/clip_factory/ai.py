@@ -93,7 +93,9 @@ def _hook(text: str) -> str:
 
 def _candidate(start: float, end: float, text: str, target: float) -> ClipCandidate:
     duration = end - start
-    duration_bonus = max(0.0, 12.0 - abs(duration - target) * 0.25)
+    # Keep the quality score useful without making the longest allowed clips
+    # systematically win just because they contain more words.
+    duration_bonus = max(0.0, 10.0 - abs(duration - target) * 0.35)
     score = _score_window(text, start, end) + duration_bonus
     return ClipCandidate(
         start,
@@ -132,7 +134,27 @@ def select_clips(
 
     selected: list[ClipCandidate] = []
     if not candidates:
-        return selected
+        # Hard safety: the worker must never render more clips than requested.
+    return selected[:count]
+
+    # Rotate through short, medium and long targets instead of letting the
+    # highest-density windows all converge on max_duration.
+    span = max(0, max_duration - min_duration)
+    duration_ratios = {
+        1: [0.50],
+        2: [0.00, 1.00],
+        3: [0.00, 0.50, 1.00],
+        4: [0.00, 0.33, 0.67, 1.00],
+        5: [0.00, 0.33, 0.67, 1.00, 0.33],
+        6: [0.00, 0.33, 0.67, 1.00, 0.33, 0.67],
+        7: [0.00, 0.33, 0.67, 1.00, 0.00, 0.50, 1.00],
+        8: [0.00, 0.33, 0.67, 1.00, 0.00, 0.50, 1.00, 0.33],
+        9: [0.00, 0.33, 0.67, 1.00, 0.00, 0.50, 1.00, 0.33, 0.67],
+        10: [0.00, 0.33, 0.67, 1.00, 0.00, 0.50, 1.00, 0.33, 0.67, 0.00],
+        15: [0.00, 0.33, 0.67, 1.00, 0.00, 0.50, 1.00, 0.33, 0.67, 0.00, 0.50, 1.00, 0.33, 0.67, 0.00],
+    }
+    ratios = duration_ratios.get(count, [0.00, 0.50, 1.00])
+    duration_targets = [min_duration + span * ratio for ratio in ratios]
 
     # First pass: maximize quality while keeping clips meaningfully separate.
     # A timeline spread bonus prevents all clips from coming from one hot spot.
@@ -144,8 +166,13 @@ def select_clips(
     while remaining and len(selected) < count:
         best = None
         best_score = float("-inf")
+        preferred_duration = duration_targets[min(len(selected), len(duration_targets) - 1)]
         for candidate in remaining:
             spread_bonus = 0.0
+            duration_diversity_bonus = max(
+                0.0,
+                16.0 - abs(candidate.duration - preferred_duration) * 0.55,
+            )
             if selected:
                 nearest = min(
                     abs(candidate.start - chosen.start) for chosen in selected
@@ -156,7 +183,12 @@ def select_clips(
                 overlap_penalty = max(
                     _overlap_ratio(candidate, chosen) for chosen in selected
                 ) * 24.0
-            adjusted = candidate.score + spread_bonus - overlap_penalty
+            adjusted = (
+                candidate.score
+                + spread_bonus
+                + duration_diversity_bonus
+                - overlap_penalty
+            )
             if adjusted > best_score:
                 best = candidate
                 best_score = adjusted
