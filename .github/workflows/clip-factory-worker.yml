@@ -52,6 +52,10 @@ jobs:
     env:
       CLIP_FACTORY_DATA_DIR: ${{ github.workspace }}/worker/data
       WHISPER_MODEL: small
+      OMP_NUM_THREADS: "4"
+      MKL_NUM_THREADS: "4"
+      OPENBLAS_NUM_THREADS: "4"
+      NUMEXPR_NUM_THREADS: "4"
       RENDER: "false"
       JOB_ID: ${{ github.event.client_payload.job_id || github.run_id }}
       VIDEO_URL: ${{ github.event.client_payload.url || inputs.url }}
