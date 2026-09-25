@@ -597,3 +597,41 @@ button{appearance:none}
   .cf-caption-preview-note{font-size:5px}
   .cf-caption-preview-footer{font-size:8px}
 }
+
+
+/* Job recovery + output clarity */
+.cf-job-failure {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  margin:11px 2px 0;
+  padding:12px 13px;
+  border:1px solid #f0a3a326;
+  border-radius:12px;
+  background:#f0a3a308;
+}
+.cf-job-failure > div { min-width:0; display:flex; flex-direction:column; gap:4px; }
+.cf-job-failure strong { color:#f0b1b1; font-size:10px; }
+.cf-job-failure span { color:#9b7373; font-size:8px; line-height:1.45; }
+.cf-retry-button {
+  flex:0 0 auto;
+  min-height:34px;
+  padding:0 11px;
+  border:1px solid #ffffff18;
+  border-radius:9px;
+  background:#ffffff08;
+  color:#eeeef2;
+  font-size:8px;
+  font-weight:900;
+  letter-spacing:.06em;
+  cursor:pointer;
+  transition:.2s ease;
+}
+.cf-retry-button:hover:not(:disabled) { background:#ffffff12; border-color:#ffffff30; transform:translateY(-1px); }
+.cf-retry-button:disabled { opacity:.55; cursor:wait; }
+.cf-results-title p strong { color:#e9e9ed; }
+@media(max-width:600px){
+  .cf-job-failure { align-items:stretch; flex-direction:column; }
+  .cf-retry-button { width:100%; }
+}
