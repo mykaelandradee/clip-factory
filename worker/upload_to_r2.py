@@ -61,10 +61,28 @@ def main() -> None:
 
     # Remove stale objects from a previous attempt for the same job before
     # calculating projected storage.
-    stale_response = client.list_objects_v2(Bucket=bucket, Prefix=f"jobs/{job_id}/")
-    stale_objects = [{"Key": obj["Key"]} for obj in stale_response.get("Contents", []) if obj.get("Key")]
+    stale_objects = []
+    continuation_token = None
+    while True:
+        kwargs = {"Bucket": bucket, "Prefix": f"jobs/{job_id}/"}
+        if continuation_token:
+            kwargs["ContinuationToken"] = continuation_token
+        stale_response = client.list_objects_v2(**kwargs)
+        stale_objects.extend(
+            {"Key": obj["Key"]}
+            for obj in stale_response.get("Contents", [])
+            if obj.get("Key")
+        )
+        if not stale_response.get("IsTruncated"):
+            break
+        continuation_token = stale_response.get("NextContinuationToken")
+
     if stale_objects:
-        client.delete_objects(Bucket=bucket, Delete={"Objects": stale_objects, "Quiet": True})
+        for start in range(0, len(stale_objects), 1000):
+            client.delete_objects(
+                Bucket=bucket,
+                Delete={"Objects": stale_objects[start:start + 1000], "Quiet": True},
+            )
         print(f"Removed {len(stale_objects)} stale R2 object(s) for job {job_id}")
 
     current_storage = 0
