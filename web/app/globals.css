@@ -534,3 +534,15 @@ button{appearance:none}
   font-weight:800;
 }
 .cf-video-fallback a:hover { background:#ffffff10; border-color:#ffffff28; }
+
+
+/* Caption personality refinement */
+.cf-template-preview.accent-karaoke .preview-subtitle b{color:#ffd400;text-shadow:0 2px 12px #ffd40044}
+.cf-template-preview.accent-fire .preview-subtitle{text-shadow:0 3px 0 #000,0 8px 20px #0008}
+.cf-template-preview.accent-fire .preview-subtitle b{color:#ff3b30;transform:scale(1.08);text-shadow:0 2px 0 #000,0 0 16px #ff3b3055}
+.cf-template-preview.accent-beasty .preview-subtitle i,.cf-template-preview.accent-beasty .preview-subtitle b{border:2px solid #f3f3f5aa;padding:1px 4px;background:#050507;box-shadow:0 3px 0 #f3f3f544}
+.cf-template-preview.accent-beasty .preview-subtitle b{color:#050507;background:#f3f3f5;border-color:#f3f3f5}
+.cf-template-preview.accent-youshaei .preview-subtitle{font-weight:700}
+.cf-template-preview.accent-youshaei .preview-subtitle b{color:#ffe66d;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px}
+.cf-template-preview.accent-harmozi .preview-subtitle b{color:#37ff8b;transform:scale(1.08);text-shadow:0 0 15px #37ff8b55}
+.cf-template-preview.accent-cinematic .preview-subtitle{color:#e9e4d8;letter-spacing:.035em;text-shadow:0 3px 18px #000b}
