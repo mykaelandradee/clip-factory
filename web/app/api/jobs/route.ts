@@ -107,6 +107,7 @@ export async function POST(request: Request) {
         statusText: response.statusText,
         body: githubBody,
       });
+      await admin.from("clip_jobs").delete().eq("id", jobId).eq("user_id", user?.id ?? null);
       return NextResponse.json({
         error: "Não foi possível iniciar o processamento no GitHub Actions.",
         githubStatus: response.status,
@@ -121,6 +122,12 @@ export async function POST(request: Request) {
       message: "Processamento iniciado no GitHub Actions.",
     }, { status: 202 });
   } catch (error) {
+    try {
+      const cleanupAdmin = createAdminClient();
+      await cleanupAdmin.from("clip_jobs").delete().eq("id", jobId).eq("user_id", user?.id ?? null);
+    } catch (cleanupError) {
+      console.error("Failed to clean up orphan clip job:", cleanupError);
+    }
     console.error("GitHub dispatch error:", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Erro ao iniciar processamento." },
@@ -134,7 +141,9 @@ export async function GET(request: Request) {
 
   const params = new URL(request.url).searchParams;
   const id = params.get("id");
-  if (!id) return NextResponse.json({ error: "id é obrigatório" }, { status: 400 });
+  if (!id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
+    return NextResponse.json({ error: "id inválido" }, { status: 400 });
+  }
 
   try {
     const admin = createAdminClient();
