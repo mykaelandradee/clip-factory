@@ -65,6 +65,9 @@ def _translate_to_pt(texts: list[str]) -> list[str]:
     model_name = "Helsinki-NLP/opus-mt-tc-big-en-pt"
     tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False)
     model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+    # This is inference-only. A single beam is enough for short social captions
+    # and is substantially cheaper on GitHub Actions CPU than the model default.
+    num_beams = 1
 
     translated: list[str] = []
     try:
@@ -76,12 +79,12 @@ def _translate_to_pt(texts: list[str]) -> list[str]:
                     return_tensors="pt",
                     padding=True,
                     truncation=True,
-                    max_length=512,
+                    max_length=256,
                 )
                 output_ids = model.generate(
                     **inputs,
-                    max_new_tokens=192,
-                    num_beams=4,
+                    max_new_tokens=96,
+                    num_beams=num_beams,
                     early_stopping=True,
                 )
                 decoded = tokenizer.batch_decode(output_ids, skip_special_tokens=True)
@@ -94,12 +97,12 @@ def _translate_to_pt(texts: list[str]) -> list[str]:
                         return_tensors="pt",
                         padding=True,
                         truncation=True,
-                        max_length=512,
+                        max_length=256,
                     )
                     retry_ids = model.generate(
                         **retry_inputs,
-                        max_new_tokens=192,
-                        num_beams=3,
+                        max_new_tokens=96,
+                        num_beams=num_beams,
                         early_stopping=True,
                     )
                     decoded.extend(tokenizer.batch_decode(retry_ids, skip_special_tokens=True))
@@ -119,6 +122,32 @@ def _translate_to_pt(texts: list[str]) -> list[str]:
         gc.collect()
 
     return translated
+
+
+def translate_segments_to_pt(segments: list[TranscriptSegment], candidates) -> None:
+    """Translate only segments that will actually appear in rendered clips."""
+    if not segments or not candidates:
+        return
+
+    indexes = []
+    for index, segment in enumerate(segments):
+        if any(segment.end > candidate.start and segment.start < candidate.end for candidate in candidates):
+            indexes.append(index)
+
+    if not indexes:
+        return
+
+    source_texts = [segments[index].text for index in indexes]
+    translated = [_normalize_pt_br(text) for text in _translate_to_pt(source_texts)]
+    for index, text in zip(indexes, translated):
+        segment = segments[index]
+        segment.text = text
+        segment.words = _retime_translated_words(
+            text,
+            segment.start,
+            segment.end,
+            segment.words,
+        )
 
 
 def _retime_translated_words(text: str, start: float, end: float, source_words: list[dict] | None = None) -> list[dict]:
@@ -199,23 +228,26 @@ def transcribe(
     try:
         task = "translate" if subtitle_language == "en" else "transcribe"
 
-        def _run(path: Path):
-            return model.transcribe(
-                str(path),
-                verbose=False,
-                fp16=False,
-                temperature=0.0,
-                beam_size=1,
-                condition_on_previous_text=False,
-                word_timestamps=True,
-                hallucination_silence_threshold=1.0,
-                task=task,
-            )
+        def _run(path: Path, language: str | None = None):
+            kwargs = {
+                "verbose": False,
+                "fp16": False,
+                "temperature": 0.0,
+                "beam_size": 1,
+                "condition_on_previous_text": False,
+                "word_timestamps": True,
+                "hallucination_silence_threshold": 1.0,
+                "task": task,
+            }
+            if language:
+                kwargs["language"] = language
+            return model.transcribe(str(path), **kwargs)
 
-        # Use the original soundtrack first. For clean interviews, the source
-        # audio generally contains the most reliable speech signal; the
-        # filtered track is a fallback rather than the primary transcription.
-        result = _run(video_path)
+        # Keep the 16 kHz mono speech track as the primary input. It was the
+        # faster and more stable path for interview audio; using the full MP4
+        # soundtrack here caused a major CPU regression on GitHub Actions.
+        speech_audio = _speech_only_audio(video_path)
+        result = _run(speech_audio)
 
         def _keep(raw):
             return (
@@ -270,37 +302,36 @@ def transcribe(
         del model
         gc.collect()
     detected_language = str(result.get("language", "")).lower()
-    is_translated_to_pt = subtitle_language == "pt-BR" and detected_language not in {"pt", "pt-br"}
 
-    if is_translated_to_pt:
-        source_texts = [str(raw["text"]).strip() for raw in raw_segments]
-        translated = [
-            _normalize_pt_br(text)
-            for text in _translate_to_pt(source_texts)
+    # The local PT-BR translator is English -> Portuguese. Whisper can
+    # occasionally misclassify a noisy English interview as Welsh or another
+    # language. Do one explicit English retry instead of producing nonsense
+    # Portuguese captions from the wrong transcript.
+    if subtitle_language == "pt-BR" and detected_language not in {"en", "pt", "pt-br"}:
+        print(
+            "[transcription] unsupported detected source language "
+            f"'{detected_language}', retrying Whisper with language=en"
+        )
+        result = _run(speech_audio, language="en")
+        raw_segments = [
+            raw for raw in result.get("segments", [])
+            if raw.get("text", "").strip()
         ]
-    else:
-        translated = [str(raw["text"]).strip() for raw in raw_segments]
+        detected_language = str(result.get("language", "en")).lower()
 
     segments: list[TranscriptSegment] = []
-    for raw, text in zip(raw_segments, translated):
-        if is_translated_to_pt:
-            words = _retime_translated_words(
-                text,
-                float(raw["start"]),
-                float(raw["end"]),
-                raw.get("words", []) or [],
-            )
-        else:
-            words = []
-            for word in raw.get("words", []) or []:
-                word_text = str(word.get("word", "")).strip()
-                if not word_text:
-                    continue
-                words.append({
-                    "start": float(word.get("start", raw["start"])),
-                    "end": float(word.get("end", raw["end"])),
-                    "text": word_text,
-                })
+    for raw in raw_segments:
+        text = str(raw["text"]).strip()
+        words = []
+        for word in raw.get("words", []) or []:
+            word_text = str(word.get("word", "")).strip()
+            if not word_text:
+                continue
+            words.append({
+                "start": float(word.get("start", raw["start"])),
+                "end": float(word.get("end", raw["end"])),
+                "text": word_text,
+            })
 
         segments.append(
             TranscriptSegment(
