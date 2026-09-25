@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "../../../../lib/supabase/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
+import { createHmac, timingSafeEqual } from "node:crypto";
+import { getClientKey, rateLimit } from "../../../../lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -9,6 +11,13 @@ const OWNER = "mykaelandradee";
 const REPO = "clip-factory";
 const WORKFLOW = "clip-factory-worker.yml";
 const GENERATION_ONLY_MODE = process.env.CLIP_FACTORY_GENERATION_ONLY === "true";
+function isValidAnonymousAccessToken(jobId: string, token: string | null) {
+  const secret = process.env.CLIP_FACTORY_TOKEN_ENCRYPTION_KEY || process.env.CLIP_FACTORY_WORKER_TOKEN || "";
+  if (!secret || !token) return false;
+  const expected = createHmac("sha256", secret).update(`clip-factory-anonymous-job:${jobId}`).digest("base64url");
+  const a = Buffer.from(expected); const b = Buffer.from(token);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
 
 async function getCurrentUser() {
   if (GENERATION_ONLY_MODE) return null;
@@ -38,8 +47,11 @@ async function githubFetch(path: string, init: RequestInit = {}) {
 
 export async function POST(request: Request) {
   const user = await getCurrentUser();
+  const limit = rateLimit(getClientKey(request, user?.id), 5, 30 * 60 * 1000);
+  if (!limit.allowed) return NextResponse.json({ error: "Limite de novas tentativas atingido. Aguarde antes de tentar novamente." }, { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } });
   const body = await request.json().catch(() => null);
   const id = typeof body?.jobId === "string" ? body.jobId.trim() : "";
+  const accessToken = typeof body?.accessToken === "string" ? body.accessToken : null;
 
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
     return NextResponse.json({ error: "Job inválido." }, { status: 400 });
@@ -50,7 +62,7 @@ export async function POST(request: Request) {
     const ownedJobQuery = admin.from("clip_jobs").select("id").eq("id", id);
     const { data: ownedJob } = user
       ? await ownedJobQuery.eq("user_id", user.id).maybeSingle()
-      : await ownedJobQuery.is("user_id", null).maybeSingle();
+      : isValidAnonymousAccessToken(id, accessToken) ? await ownedJobQuery.is("user_id", null).maybeSingle() : { data: null };
 
     if (!ownedJob) {
       return NextResponse.json({ error: "Processamento não encontrado." }, { status: 404 });
