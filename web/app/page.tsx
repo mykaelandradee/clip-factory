@@ -463,8 +463,6 @@ export default function Home() {
                 </div>
               )}
             </div>
-              )}
-            </div>
             <div className="cf-field">
               <label>Quantidade de clips</label>
               <div className="cf-choice-row" role="group" aria-label="Quantidade de clips">
