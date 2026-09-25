@@ -96,7 +96,17 @@ function parsePositiveInt(value: unknown, fallback: number, min: number, max: nu
 }
 
 export async function POST(request: Request) {
-  const user = await getCurrentUser();
+  let user: Awaited<ReturnType<typeof getCurrentUser>>;
+  try {
+    user = await getCurrentUser();
+  } catch (error) {
+    console.error("Clip job auth configuration error:", error);
+    return NextResponse.json(
+      { error: "O backend do Clip Factory não está configurado para iniciar novos jobs." },
+      { status: 503, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
   const limit = rateLimit(getClientKey(request, user?.id), 5, 60 * 60 * 1000);
   if (!limit.allowed) {
     return NextResponse.json({ error: "Limite de gerações atingido. Tente novamente mais tarde.", retryAfterSeconds: limit.retryAfterSeconds }, { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds), "Cache-Control": "no-store" } });
@@ -123,9 +133,9 @@ export async function POST(request: Request) {
     ? payload.caption_style
     : "karaoke";
   const jobId = crypto.randomUUID();
-  const accessToken = user ? null : createAnonymousAccessToken(jobId);
-
+  let accessToken: string | null = null;
   try {
+    if (!user) accessToken = createAnonymousAccessToken(jobId);
     const admin = createAdminClient();
     try {
       const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -205,7 +215,17 @@ export async function POST(request: Request) {
 }
 
 export async function GET(request: Request) {
-  const user = await getCurrentUser();
+  let user: Awaited<ReturnType<typeof getCurrentUser>>;
+  try {
+    user = await getCurrentUser();
+  } catch (error) {
+    console.error("Clip job status auth configuration error:", error);
+    return NextResponse.json(
+      { error: "O backend do Clip Factory não está configurado para consultar jobs." },
+      { status: 503, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
   const limit = rateLimit(getClientKey(request, user?.id), 60, 60 * 1000);
   if (!limit.allowed) {
     return NextResponse.json({ error: "Muitas consultas de status. Aguarde alguns segundos.", retryAfterSeconds: limit.retryAfterSeconds }, { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } });
