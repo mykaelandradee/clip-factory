@@ -5,6 +5,8 @@ import { getClientKey, rateLimit } from "../../../../lib/rate-limit";
 
 export const runtime = "nodejs";
 
+const MAX_BODY_BYTES = 16 * 1024;
+
 function configured() {
   return Boolean(
     process.env.YOUTUBE_CLIENT_ID &&
