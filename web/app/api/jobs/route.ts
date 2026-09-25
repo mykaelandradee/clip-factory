@@ -208,7 +208,7 @@ export async function GET(request: Request) {
 
   const params = new URL(request.url).searchParams;
   const id = params.get("id");
-  const accessToken = params.get("accessToken");
+  const headerToken = request.headers.get("authorization");\n  const accessToken = headerToken?.startsWith("Bearer ")\n    ? headerToken.slice(7).trim()\n    : params.get("accessToken");
   if (!id || !JOB_ID_PATTERN.test(id)) {
     return NextResponse.json({ error: "id inválido" }, { status: 400 });
   }
