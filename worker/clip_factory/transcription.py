@@ -108,7 +108,11 @@ def _translate_to_pt(texts: list[str]) -> list[str]:
                 raise RuntimeError(
                     f"Local translation returned {len(decoded)} results for {len(batch)} captions."
                 )
-            translated.extend(str(text).strip() for text in decoded)
+            for original, translated_text in zip(batch, decoded):
+                value = str(translated_text).strip()
+                # Never let an empty local translation erase an otherwise valid
+                # caption segment. Keep the original text as a visible fallback.
+                translated.append(value or str(original).strip())
     finally:
         del model
         del tokenizer
