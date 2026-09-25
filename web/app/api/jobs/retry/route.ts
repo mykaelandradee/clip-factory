@@ -24,11 +24,11 @@ function githubToken() {
 }
 
 async function githubFetch(path: string, init: RequestInit = {}) {
-  return fetch("${GITHUB_API}${path}", {
+  return fetch(GITHUB_API + path, {
     ...init,
     headers: {
       Accept: "application/vnd.github+json",
-      Authorization: `Bearer ${githubToken()}`,
+      Authorization: "Bearer " + githubToken(),
       "X-GitHub-Api-Version": "2022-11-28",
       ...(init.headers ?? {}),
     },
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
     }
 
     const runsResponse = await githubFetch(
-      "/repos/${OWNER}/${REPO}/actions/workflows/${WORKFLOW}/runs?event=repository_dispatch&per_page=30",
+      "/repos/" + OWNER + "/" + REPO + "/actions/workflows/" + WORKFLOW + "/runs?event=repository_dispatch&per_page=30",
     );
     if (!runsResponse.ok) {
       return NextResponse.json({ error: "Não foi possível consultar o GitHub Actions." }, { status: 502 });
@@ -66,7 +66,7 @@ export async function POST(request: Request) {
     const data = await runsResponse.json();
     const run = data.workflow_runs?.find(
       (item: { display_title?: string; run_name?: string }) =>
-        item.display_title === "Clip Factory ${id}" || item.run_name === "Clip Factory __ID__",
+        item.display_title === "Clip Factory " + id || item.run_name === "Clip Factory " + id,
     );
 
     if (!run?.id) {
@@ -82,7 +82,7 @@ export async function POST(request: Request) {
     }
 
     const retryResponse = await githubFetch(
-      "/repos/__OWNER__/__REPO__/actions/runs/${run.id}/rerun-failed-jobs",
+      "/repos/" + OWNER + "/" + REPO + "/actions/runs/" + run.id + "/rerun-failed-jobs",
       { method: "POST" },
     );
 
