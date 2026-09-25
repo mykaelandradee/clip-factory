@@ -134,8 +134,7 @@ def select_clips(
 
     selected: list[ClipCandidate] = []
     if not candidates:
-        # Hard safety: the worker must never render more clips than requested.
-    return selected[:count]
+        return selected[:count]
 
     # Rotate through short, medium and long targets instead of letting the
     # highest-density windows all converge on max_duration.
