@@ -27,11 +27,13 @@ def _score_window(text: str, start: float, end: float) -> float:
     if not words:
         return 0.0
 
+    duration = max(1.0, end - start)
+    words_per_second = len(words) / duration
     score = min(len(words), 180) * 0.18
     score += min(text.count("?") * 7, 21)
     score += min(text.count("!") * 5, 15)
     score += min(sum(1 for w in words if w in HOOK_WORDS) * 3.5, 28)
-    score += min(text.count(".") * 0.8, 12)
+    score += min(text.count(".") * 1.5, 15)
 
     lower = text.lower()
     if any(lower.startswith(word) for word in INTRO_WORDS):
@@ -42,6 +44,10 @@ def _score_window(text: str, start: float, end: float) -> float:
         score -= 8
     if text.rstrip().endswith((",", ":", ";", "-")):
         score -= 10
+    if text.rstrip().endswith((".", "!", "?")):
+        score += 10
+    if 1.6 <= words_per_second <= 3.6:
+        score += 5
 
     return score
 
@@ -125,28 +131,58 @@ def select_clips(
     candidates.sort(key=lambda c: c.score, reverse=True)
 
     selected: list[ClipCandidate] = []
+    if not candidates:
+        return selected
 
-    # Prefer distinct clips first.
+    # First pass: maximize quality while keeping clips meaningfully separate.
+    # A timeline spread bonus prevents all clips from coming from one hot spot.
+    timeline_end = max(c.end for c in candidates)
+    timeline_start = min(c.start for c in candidates)
+    timeline_span = max(1.0, timeline_end - timeline_start)
+
+    remaining = candidates[:]
+    while remaining and len(selected) < count:
+        best = None
+        best_score = float("-inf")
+        for candidate in remaining:
+            spread_bonus = 0.0
+            if selected:
+                nearest = min(
+                    abs(candidate.start - chosen.start) for chosen in selected
+                )
+                spread_bonus = min(nearest / timeline_span * 24.0, 12.0)
+            overlap_penalty = 0.0
+            if selected:
+                overlap_penalty = max(
+                    _overlap_ratio(candidate, chosen) for chosen in selected
+                ) * 24.0
+            adjusted = candidate.score + spread_bonus - overlap_penalty
+            if adjusted > best_score:
+                best = candidate
+                best_score = adjusted
+
+        if best is None:
+            break
+        selected.append(best)
+        remaining.remove(best)
+
+        if all(_overlap_ratio(best, other) >= 0.30 for other in remaining):
+            break
+
+    # Short videos may not have enough non-overlapping material. Relax overlap,
+    # but still avoid near-duplicates and keep the requested count when possible.
     for candidate in candidates:
-        if any(_overlap_ratio(candidate, chosen) >= 0.30 for chosen in selected):
-            continue
-        selected.append(candidate)
         if len(selected) >= count:
-            return selected
-
-    # Short videos may not have enough non-overlapping material. Relax overlap.
-    for candidate in candidates:
+            break
         if candidate in selected:
             continue
         if any(_overlap_ratio(candidate, chosen) >= 0.70 for chosen in selected):
             continue
         selected.append(candidate)
-        if len(selected) >= count:
-            return selected
 
     # Last resort: satisfy the requested count with different candidate windows.
     # This can create intentionally overlapping clips, but avoids silently returning
-    # fewer clips from a short source when enough distinct windows exist.
+    # fewer clips when the source has enough transcript material for additional windows.
     for candidate in candidates:
         if candidate in selected:
             continue
