@@ -50,7 +50,7 @@ PRESETS = {
     # Position is intentionally in the lower-middle safe zone, never vertically centered.
     # Colors use ASS AABBGGRR notation so they match the UI previews.
     "karaoke": dict(font="DejaVu Sans", size=76, bold=1, primary="&H00FFFFFF",
-                   active="&H0000D7FF", outline=5, shadow=2, margin=440, spacing=0,
+                   active="&H0000D4FF", outline=5, shadow=2, margin=440, spacing=0,
                    alignment=2, scale_x=100, scale_y=100),
     "fire": dict(font="DejaVu Sans Condensed", size=84, bold=1, primary="&H00FFFFFF",
                  active="&H00303BFF", outline=6, shadow=3, margin=410, spacing=-1,
