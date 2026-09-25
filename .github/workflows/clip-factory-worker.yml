@@ -167,6 +167,11 @@ jobs:
             "$VIDEO_URL" 2>&1 | tee "$RUNNER_TEMP/ytdlp-provider-check.log"
           grep -q "bgutil:http-2.0.0" "$RUNNER_TEMP/ytdlp-provider-check.log"
 
+      - name: Clean expired R2 clips
+        working-directory: worker
+        run: |
+          python cleanup_r2.py
+
       - name: Run Clip Factory
         timeout-minutes: 35
         working-directory: worker
