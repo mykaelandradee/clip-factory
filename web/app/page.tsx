@@ -140,6 +140,10 @@ export default function Home() {
     setError("");
     setPreviewErrors({});
     setPreviewClip(null);
+    setPublishDrafts({});
+    setPublishStatuses({});
+    setPublishMessage("");
+    setPublishingTarget(null);
     emptyResultRetries.current = 0;
     setSubmitting(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -410,6 +414,10 @@ export default function Home() {
     setJob(null);
     setJobId("");
     setJobAccessToken("");
+    setPublishDrafts({});
+    setPublishStatuses({});
+    setPublishMessage("");
+    setPublishingTarget(null);
     if (timer.current) clearInterval(timer.current);
     if (!url.trim()) return setError("Informe a URL do YouTube.");
 
