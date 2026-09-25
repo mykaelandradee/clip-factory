@@ -159,6 +159,33 @@ def select_clips(
         _candidate(start, end, text, target)
         for start, end, text in _make_windows(segments, min_duration, max_duration)
     ]
+
+    # Whisper can return short speech segments separated by silence. In that
+    # case a strict segment-boundary window may produce no 30–60s candidate
+    # even though the source contains enough spoken material. Build fallback
+    # windows from the timeline while keeping the actual caption gaps intact.
+    if not candidates and segments:
+        timeline_start = segments[0].start
+        timeline_end = segments[-1].end
+        cursor = timeline_start
+        step = max(4.0, target * 0.55)
+        while cursor + min_duration <= timeline_end + 0.05:
+            desired_end = min(cursor + target, timeline_end)
+            max_end = min(cursor + max_duration, timeline_end)
+            if desired_end - cursor < min_duration:
+                desired_end = min_end = cursor + min_duration
+            else:
+                min_end = desired_end
+            end = min(max_end, max(desired_end, min_end))
+            window_segments = [
+                s for s in segments
+                if s.end > cursor and s.start < end
+            ]
+            text = " ".join(s.text.strip() for s in window_segments).strip()
+            if text and end - cursor >= min_duration:
+                candidates.append(_candidate(cursor, end, text, target))
+            cursor += step
+
     candidates.sort(key=lambda c: c.score, reverse=True)
 
     selected: list[ClipCandidate] = []
