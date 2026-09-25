@@ -177,8 +177,6 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: clip-factory-${{ env.JOB_ID }}
-          path: |
-            worker/data/projects/**/clip-*.mp4
-            worker/data/r2-urls.json
+          path: worker/data/r2-urls.json
           if-no-files-found: warn
           retention-days: 3
