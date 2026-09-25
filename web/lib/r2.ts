@@ -35,7 +35,7 @@ export async function listR2ClipUrls(jobId: string) {
 
     const files = (response.Contents ?? [])
       .map((object) => object.Key ?? "")
-      .filter((key) => /^jobs\\/[^/]+\\/clip-\\d{2}\\.mp4$/i.test(key))
+      .filter((key) => /^jobs\/[^/]+\/clip-\d{2}\.mp4$/i.test(key))
       .sort()
       .map((key) => ({
         file: key.split("/").pop() as string,
