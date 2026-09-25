@@ -65,14 +65,21 @@ def _translate_to_pt(texts: list[str]) -> list[str]:
     model_name = "Helsinki-NLP/opus-mt-tc-big-en-pt"
     tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False)
     model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+    model.eval()
     # This is inference-only. A single beam is enough for short social captions
     # and is substantially cheaper on GitHub Actions CPU than the model default.
     num_beams = 1
 
     translated: list[str] = []
+    cache: dict[str, str] = {}
     try:
         for start in range(0, len(texts), 8):
             batch = texts[start : start + 8]
+            missing = [text for text in batch if text not in cache]
+            if not missing:
+                translated.extend(cache[text] for text in batch)
+                continue
+            batch = missing
             try:
                 inputs = tokenizer(
                     batch,
@@ -81,12 +88,14 @@ def _translate_to_pt(texts: list[str]) -> list[str]:
                     truncation=True,
                     max_length=256,
                 )
-                output_ids = model.generate(
-                    **inputs,
-                    max_new_tokens=96,
-                    num_beams=num_beams,
-                    early_stopping=True,
-                )
+                import torch
+                with torch.inference_mode():
+                    output_ids = model.generate(
+                        **inputs,
+                        max_new_tokens=96,
+                        num_beams=num_beams,
+                        early_stopping=True,
+                    )
                 decoded = tokenizer.batch_decode(output_ids, skip_special_tokens=True)
             except Exception as batch_error:
                 print(f"[translation] batch failed, retrying individually: {batch_error}")
@@ -99,12 +108,14 @@ def _translate_to_pt(texts: list[str]) -> list[str]:
                         truncation=True,
                         max_length=256,
                     )
-                    retry_ids = model.generate(
-                        **retry_inputs,
-                        max_new_tokens=96,
-                        num_beams=num_beams,
-                        early_stopping=True,
-                    )
+                    import torch
+                    with torch.inference_mode():
+                        retry_ids = model.generate(
+                            **retry_inputs,
+                            max_new_tokens=96,
+                            num_beams=num_beams,
+                            early_stopping=True,
+                        )
                     decoded.extend(tokenizer.batch_decode(retry_ids, skip_special_tokens=True))
 
             if len(decoded) != len(batch):
@@ -112,10 +123,9 @@ def _translate_to_pt(texts: list[str]) -> list[str]:
                     f"Local translation returned {len(decoded)} results for {len(batch)} captions."
                 )
             for original, translated_text in zip(batch, decoded):
-                value = str(translated_text).strip()
-                # Never let an empty local translation erase an otherwise valid
-                # caption segment. Keep the original text as a visible fallback.
-                translated.append(value or str(original).strip())
+                value = str(translated_text).strip() or str(original).strip()
+                cache[original] = value
+            translated.extend(cache[text] for text in batch)
     finally:
         del model
         del tokenizer
