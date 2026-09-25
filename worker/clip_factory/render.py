@@ -30,6 +30,21 @@ def _word_events(candidate: ClipCandidate, segments: list[TranscriptSegment]) ->
                 continue
             raw_words.append((start, end, text))
 
+        # If Whisper did not return word-level timestamps for this segment,
+        # keep the segment captioned as one event instead of silently losing
+        # the subtitle.
+        if not raw_words:
+            segment_start = max(float(segment.start), candidate.start)
+            segment_end = min(float(segment.end), candidate.end)
+            segment_text = str(segment.text).strip()
+            if segment_text and segment_end > segment_start:
+                events.append((
+                    segment_start - candidate.start,
+                    segment_end - candidate.start,
+                    segment_text,
+                ))
+            continue
+
         # Whisper word timestamps can occasionally overlap into the following
         # word. Clamp each word to the next word's start so only the word that
         # is actually being spoken can be highlighted.
