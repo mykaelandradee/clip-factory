@@ -201,7 +201,10 @@ def transcribe(
                 task=task,
             )
 
-        result = _run(speech_audio)
+        # Use the original soundtrack first. For clean interviews, the source
+        # audio generally contains the most reliable speech signal; the
+        # filtered track is a fallback rather than the primary transcription.
+        result = _run(video_path)
 
         def _keep(raw):
             return (
@@ -212,13 +215,45 @@ def transcribe(
             )
 
         raw_segments = [raw for raw in result.get("segments", []) if _keep(raw)]
+        all_raw_segments = [
+            raw for raw in result.get("segments", [])
+            if raw.get("text", "").strip()
+        ]
 
-        # Music-only videos are intentionally supported: when the speech-focused
-        # pass finds no credible speech, fall back to the original soundtrack so
-        # lyrics can still be captioned.
+        # Avoid letting the confidence filter erase valid parts of a clean
+        # interview. If it removes a substantial portion of the transcript,
+        # retain Whisper's non-empty segments and let clip selection score them.
+        filtered_span = (
+            max((float(raw["end"]) for raw in raw_segments), default=0.0)
+            - min((float(raw["start"]) for raw in raw_segments), default=0.0)
+        )
+        all_span = (
+            max((float(raw["end"]) for raw in all_raw_segments), default=0.0)
+            - min((float(raw["start"]) for raw in all_raw_segments), default=0.0)
+        )
+        if (
+            not raw_segments
+            or (
+                len(all_raw_segments) >= 3
+                and len(raw_segments) < max(2, int(len(all_raw_segments) * 0.60))
+            )
+            or (all_span >= 30.0 and filtered_span < all_span * 0.60)
+        ):
+            print(
+                "[transcription] confidence filter removed too much speech; "
+                f"using all non-empty Whisper segments "
+                f"(filtered={len(raw_segments)}, all={len(all_raw_segments)})"
+            )
+            raw_segments = all_raw_segments
+
+        # If the original soundtrack produced no text at all, retry on the
+        # speech-focused track before failing the job.
         if not raw_segments:
-            result = _run(video_path)
-            raw_segments = [raw for raw in result.get("segments", []) if raw.get("text", "").strip()]
+            result = _run(speech_audio)
+            raw_segments = [
+                raw for raw in result.get("segments", [])
+                if raw.get("text", "").strip()
+            ]
     finally:
         del model
         gc.collect()
