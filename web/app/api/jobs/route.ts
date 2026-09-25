@@ -12,7 +12,8 @@ const OWNER = "mykaelandradee";
 const REPO = "clip-factory";
 const WORKFLOW = "clip-factory-worker.yml";
 const GENERATION_ONLY_MODE = process.env.CLIP_FACTORY_GENERATION_ONLY === "true";
-const JOB_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nconst MAX_BODY_BYTES = 16 * 1024;
+const JOB_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const MAX_BODY_BYTES = 16 * 1024;
 
 function getAnonymousJobSecret() {
   return process.env.CLIP_FACTORY_TOKEN_ENCRYPTION_KEY || process.env.CLIP_FACTORY_WORKER_TOKEN || "";
@@ -101,7 +102,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Limite de gerações atingido. Tente novamente mais tarde.", retryAfterSeconds: limit.retryAfterSeconds }, { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds), "Cache-Control": "no-store" } });
   }
 
-  const contentLength = Number(request.headers.get("content-length") || 0);\n  if (contentLength > MAX_BODY_BYTES) {\n    return NextResponse.json({ error: "Requisição muito grande." }, { status: 413, headers: { "Cache-Control": "no-store" } });\n  }\n  const body = await request.json().catch(() => null);
+  const contentLength = Number(request.headers.get("content-length") || 0);
+  if (contentLength > MAX_BODY_BYTES) {
+    return NextResponse.json({ error: "Requisição muito grande." }, { status: 413, headers: { "Cache-Control": "no-store" } });
+  }
+  const body = await request.json().catch(() => null);
   const payload = body && typeof body === "object" ? body as Record<string, unknown> : null;
   if (!validateYoutubeUrl(payload?.url)) {
     return NextResponse.json({ error: "Informe uma URL válida do YouTube" }, { status: 400 });
@@ -208,7 +213,10 @@ export async function GET(request: Request) {
 
   const params = new URL(request.url).searchParams;
   const id = params.get("id");
-  const headerToken = request.headers.get("authorization");\n  const accessToken = headerToken?.startsWith("Bearer ")\n    ? headerToken.slice(7).trim()\n    : params.get("accessToken");
+  const headerToken = request.headers.get("authorization");
+  const accessToken = headerToken?.startsWith("Bearer ")
+    ? headerToken.slice(7).trim()
+    : params.get("accessToken");
   if (!id || !JOB_ID_PATTERN.test(id)) {
     return NextResponse.json({ error: "id inválido" }, { status: 400 });
   }
