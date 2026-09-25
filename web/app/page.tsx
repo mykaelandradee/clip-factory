@@ -77,6 +77,7 @@ export default function Home() {
   const [publishStatuses, setPublishStatuses] = useState<Record<string, { platform: "youtube" | "instagram"; status: "queued" | "running" | "success" | "failed"; message: string }>>({});
   const publishTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const [publishDrafts, setPublishDrafts] = useState<Record<string, { title: string; description: string; publishAt: string }>>({});
+  const [previewClip, setPreviewClip] = useState<{ file: string; url: string; index: number } | null>(null);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const emptyResultRetries = useRef(0);
 
@@ -664,6 +665,35 @@ export default function Home() {
           </section>
         )}
       </div>
+
+      {previewClip && (
+        <div
+          className="cf-preview-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Preview do Clip ${previewClip.index + 1}`}
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setPreviewClip(null);
+          }}
+        >
+          <div className="cf-preview-modal-card">
+            <div className="cf-preview-modal-head">
+              <div>
+                <span>PREVIEW</span>
+                <strong>Clip {String(previewClip.index + 1).padStart(2, "0")}</strong>
+              </div>
+              <button type="button" className="cf-preview-close" onClick={() => setPreviewClip(null)} aria-label="Fechar preview">×</button>
+            </div>
+            <div className="cf-preview-modal-video">
+              <video controls autoPlay playsInline preload="metadata" src={previewClip.url} />
+            </div>
+            <div className="cf-preview-modal-actions">
+              <a href={previewClip.url} download={previewClip.file} className="cf-download">Baixar <span>↓</span></a>
+              <button type="button" className="cf-preview-close-action" onClick={() => setPreviewClip(null)}>Fechar preview</button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
