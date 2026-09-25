@@ -10,7 +10,7 @@ const GITHUB_API = "https://api.github.com";
 const OWNER = "mykaelandradee";
 const REPO = "clip-factory";
 const WORKFLOW = "clip-factory-worker.yml";
-const GENERATION_ONLY_MODE = process.env.CLIP_FACTORY_GENERATION_ONLY === "true";
+const GENERATION_ONLY_MODE = process.env.CLIP_FACTORY_GENERATION_ONLY === "true";\nconst MAX_BODY_BYTES = 16 * 1024;
 function isValidAnonymousAccessToken(jobId: string, token: string | null) {
   const secret = process.env.CLIP_FACTORY_TOKEN_ENCRYPTION_KEY || process.env.CLIP_FACTORY_WORKER_TOKEN || "";
   if (!secret || !token) return false;
@@ -48,8 +48,8 @@ async function githubFetch(path: string, init: RequestInit = {}) {
 export async function POST(request: Request) {
   const user = await getCurrentUser();
   const limit = rateLimit(getClientKey(request, user?.id), 5, 30 * 60 * 1000);
-  if (!limit.allowed) return NextResponse.json({ error: "Limite de novas tentativas atingido. Aguarde antes de tentar novamente." }, { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } });
-  const body = await request.json().catch(() => null);
+  if (!limit.allowed) return NextResponse.json({ error: "Limite de novas tentativas atingido. Aguarde antes de tentar novamente." }, { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds), "Cache-Control": "no-store" } });
+  const contentLength = Number(request.headers.get("content-length") || 0);\n  if (contentLength > MAX_BODY_BYTES) {\n    return NextResponse.json({ error: "Requisição muito grande." }, { status: 413, headers: { "Cache-Control": "no-store" } });\n  }\n  const body = await request.json().catch(() => null);
   const id = typeof body?.jobId === "string" ? body.jobId.trim() : "";
   const accessToken = typeof body?.accessToken === "string" ? body.accessToken : null;
 
@@ -114,7 +114,7 @@ export async function POST(request: Request) {
       status: "processing",
       progress: 5,
       message: "Nova tentativa iniciada no GitHub Actions.",
-    }, { status: 202 });
+    }, { status: 202, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("Job retry error:", error);
     return NextResponse.json(
