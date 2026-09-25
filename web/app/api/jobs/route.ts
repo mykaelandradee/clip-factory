@@ -107,11 +107,6 @@ export async function POST(request: Request) {
     );
   }
 
-  const limit = rateLimit(getClientKey(request, user?.id), 5, 60 * 60 * 1000);
-  if (!limit.allowed) {
-    return NextResponse.json({ error: "Limite de gerações atingido. Tente novamente mais tarde.", retryAfterSeconds: limit.retryAfterSeconds }, { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds), "Cache-Control": "no-store" } });
-  }
-
   const contentLength = Number(request.headers.get("content-length") || 0);
   if (contentLength > MAX_BODY_BYTES) {
     return NextResponse.json({ error: "Requisição muito grande." }, { status: 413, headers: { "Cache-Control": "no-store" } });
