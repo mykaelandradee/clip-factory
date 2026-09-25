@@ -7,10 +7,10 @@ import re
 import subprocess
 from pathlib import Path
 
-os.environ.setdefault("OMP_NUM_THREADS", "1")
-os.environ.setdefault("MKL_NUM_THREADS", "1")
-os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
-os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
+os.environ.setdefault("OMP_NUM_THREADS", "4")
+os.environ.setdefault("MKL_NUM_THREADS", "4")
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "4")
+os.environ.setdefault("NUMEXPR_NUM_THREADS", "4")
 
 from .models import TranscriptSegment
 
@@ -185,9 +185,16 @@ def transcribe(
     if subtitle_language not in {"original", "pt-BR", "en"}:
         raise ValueError("Idioma de legenda não suportado.")
 
-    # First pass on a speech-focused track. The original video remains the
-    # source for final timestamps; this pass is only used to reduce music bleed.
-    speech_audio = _speech_only_audio(video_path)
+    # GitHub-hosted runners have multiple CPU cores. The previous hard limit of
+    # one BLAS/OpenMP thread made Whisper small dramatically slower than necessary.
+    # Match the runner's practical CPU budget and use greedy decoding for speed.
+    try:
+        import torch
+        torch.set_num_threads(max(1, min(4, os.cpu_count() or 1)))
+        torch.set_num_interop_threads(1)
+    except Exception:
+        pass
+
     model = whisper.load_model(model_name, device="cpu")
     try:
         task = "translate" if subtitle_language == "en" else "transcribe"
@@ -197,8 +204,8 @@ def transcribe(
                 str(path),
                 verbose=False,
                 fp16=False,
-                temperature=(0.0, 0.2, 0.4, 0.6),
-                beam_size=5,
+                temperature=0.0,
+                beam_size=1,
                 condition_on_previous_text=False,
                 word_timestamps=True,
                 hallucination_silence_threshold=1.0,
@@ -253,6 +260,7 @@ def transcribe(
         # If the original soundtrack produced no text at all, retry on the
         # speech-focused track before failing the job.
         if not raw_segments:
+            speech_audio = _speech_only_audio(video_path)
             result = _run(speech_audio)
             raw_segments = [
                 raw for raw in result.get("segments", [])
