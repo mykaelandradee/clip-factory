@@ -224,13 +224,21 @@ export async function GET(request: Request) {
       }
     }
 
+    const stepProgress = (() => {
+      const step = currentStep.toLowerCase();
+      if (step.includes("upload")) return 95;
+      if (step.includes("render")) return 78;
+      if (step.includes("run clip factory")) return 65;
+      if (step.includes("cache") || step.includes("python")) return 35;
+      if (step.includes("youtube") || step.includes("deno") || step.includes("yt-dlp")) return 25;
+      return currentStep ? 20 : 15;
+    })();
+
     const progress = status === "completed"
       ? 100
       : run.status === "queued"
         ? 10
-        : currentStep
-          ? 50
-          : 25;
+        : stepProgress;
 
     const message = status === "completed"
       ? "Processamento concluído."
