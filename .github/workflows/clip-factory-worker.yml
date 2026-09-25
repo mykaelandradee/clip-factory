@@ -65,6 +65,7 @@ jobs:
       SUBTITLE_LANGUAGE: ${{ github.event.client_payload.subtitle_language || inputs.subtitle_language || 'original' }}
       CAPTION_STYLE: ${{ github.event.client_payload.caption_style || inputs.caption_style || 'karaoke' }}
       BGUTIL_POT_URL: http://127.0.0.1:4416
+      JOB_STATUS: ${{ job.status }}
       R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
       R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
       R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
@@ -201,6 +202,7 @@ jobs:
                   "job_id": os.environ["JOB_ID"],
                   "run_id": os.environ["GITHUB_RUN_ID"],
                   "run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
+                  "job_status": os.environ["JOB_STATUS"],
               }, ensure_ascii=False),
               encoding="utf-8",
           )
