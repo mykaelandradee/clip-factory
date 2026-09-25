@@ -40,6 +40,7 @@ class ProjectResult:
     transcript_file: str
     candidates: list[ClipCandidate] = field(default_factory=list)
     rendered_files: list[str] = field(default_factory=list)
+    timings: dict[str, float] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -49,4 +50,5 @@ class ProjectResult:
             "transcript_file": self.transcript_file,
             "candidates": [c.to_dict() for c in self.candidates],
             "rendered_files": self.rendered_files,
+            "timings": self.timings,
         }
