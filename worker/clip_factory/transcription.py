@@ -235,6 +235,7 @@ def transcribe(
         pass
 
     model = whisper.load_model(model_name, device="cpu")
+    speech_audio: Path | None = None
     try:
         task = "translate" if subtitle_language == "en" else "transcribe"
 
@@ -306,32 +307,34 @@ def transcribe(
         # If the original soundtrack produced no text at all, retry on the
         # speech-focused track before failing the job.
         if not raw_segments:
-            speech_audio = _speech_only_audio(video_path)
-            result = _run(speech_audio)
+            result = _run(video_path, language=source_language)
             raw_segments = [
                 raw for raw in result.get("segments", [])
                 if raw.get("text", "").strip()
             ]
+
+        detected_language = str(result.get("language", "")).lower()
+
+        # Keep the Whisper model alive while performing the explicit English retry.
+        if subtitle_language == "pt-BR" and detected_language not in {"en", "pt", "pt-br"}:
+            print(
+                "[transcription] unsupported detected source language "
+                f"'{detected_language}', retrying Whisper with language=en"
+            )
+            result = _run(speech_audio, language="en")
+            raw_segments = [
+                raw for raw in result.get("segments", [])
+                if raw.get("text", "").strip()
+            ]
+            detected_language = str(result.get("language", "en")).lower()
     finally:
         del model
         gc.collect()
-    detected_language = str(result.get("language", "")).lower()
-
-    # The local PT-BR translator is English -> Portuguese. Whisper can
-    # occasionally misclassify a noisy English interview as Welsh or another
-    # language. Do one explicit English retry instead of producing nonsense
-    # Portuguese captions from the wrong transcript.
-    if subtitle_language == "pt-BR" and detected_language not in {"en", "pt", "pt-br"}:
-        print(
-            "[transcription] unsupported detected source language "
-            f"'{detected_language}', retrying Whisper with language=en"
-        )
-        result = _run(speech_audio, language="en")
-        raw_segments = [
-            raw for raw in result.get("segments", [])
-            if raw.get("text", "").strip()
-        ]
-        detected_language = str(result.get("language", "en")).lower()
+        if speech_audio and speech_audio.exists():
+            try:
+                speech_audio.unlink()
+            except OSError:
+                pass
 
     segments: list[TranscriptSegment] = []
     for raw in raw_segments:

@@ -86,6 +86,7 @@ def run_pipeline(
     # segments that appear in the chosen clips avoids translating the whole
     # source video unnecessarily.
     if subtitle_language == "pt-BR":
+        report("translating", 60, "Traduzindo somente as legendas dos clips selecionados...")
         translation_started = time.perf_counter()
         translate_segments_to_pt(segments, candidates)
         timings["translation"] = round(time.perf_counter() - translation_started, 2)
@@ -128,6 +129,19 @@ def run_pipeline(
                 results[index] = output
 
         rendered = [results[index] for index in sorted(results)]
+        if len(rendered) != total:
+            raise RuntimeError(
+                f"Renderização incompleta: esperados {total} clips, "
+                f"mas foram gerados {len(rendered)}."
+            )
+        missing_outputs = [
+            path for path in rendered
+            if not Path(path).is_file() or Path(path).stat().st_size < 1024
+        ]
+        if missing_outputs:
+            raise RuntimeError(
+                "Renderização concluída, mas um ou mais MP4s estão ausentes ou inválidos."
+            )
         timings["render"] = round(time.perf_counter() - render_started, 2)
         timings.update({f"render_{name}": value for name, value in clip_timings.items()})
         print(f"[timing] render_total={timings['render']:.2f}s")
