@@ -183,6 +183,11 @@ def _write_ass(candidate: ClipCandidate, segments: list[TranscriptSegment], outp
             f"&H00FFFFFF,&H00000000,{p['bold']},0,0,0,100,100,{p['spacing']},0,3,2,0,2,"
             f"70,70,{p['margin']},1"
         ),
+        (
+            f"Style: BeastyActive,{p['font']},{p['size']},&H00000000,&H00000000,"
+            f"&H00FFFFFF,&H00000000,{p['bold']},0,0,0,100,100,{p['spacing']},0,3,3,0,2,"
+            f"70,70,{p['margin']},1"
+        ),
         "",
         "[Events]",
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, Effect, Text",
