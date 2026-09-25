@@ -63,6 +63,7 @@ export default function Home() {
   const [captionStyle, setCaptionStyle] = useState("karaoke");
   const [workerOnline, setWorkerOnline] = useState(false);
   const [jobId, setJobId] = useState("");
+  const [jobAccessToken, setJobAccessToken] = useState("");
   const [job, setJob] = useState<Job | null>(null);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -110,7 +111,7 @@ export default function Home() {
       const response = await fetch("/api/jobs/retry", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jobId }),
+        body: JSON.stringify({ jobId, accessToken: jobAccessToken || undefined }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Não foi possível tentar novamente.");
@@ -135,6 +136,7 @@ export default function Home() {
     timer.current = null;
     setJob(null);
     setJobId("");
+    setJobAccessToken("");
     setError("");
     setPreviewErrors({});
     setPreviewClip(null);
@@ -356,7 +358,9 @@ export default function Home() {
 
   async function poll(id: string) {
     try {
-      const response = await fetch("/api/jobs?id=" + encodeURIComponent(id), { cache: "no-store" });
+      const query = new URLSearchParams({ id });
+      if (jobAccessToken) query.set("accessToken", jobAccessToken);
+      const response = await fetch("/api/jobs?" + query.toString(), { cache: "no-store" });
       if (!response.ok) throw new Error("Não foi possível consultar o processamento.");
       const data = await response.json() as Job;
       setError("");
@@ -405,6 +409,7 @@ export default function Home() {
     setError("");
     setJob(null);
     setJobId("");
+    setJobAccessToken("");
     if (timer.current) clearInterval(timer.current);
     if (!url.trim()) return setError("Informe a URL do YouTube.");
 
@@ -429,6 +434,7 @@ export default function Home() {
       }
       setWorkerOnline(true);
       setJobId(data.jobId);
+      setJobAccessToken(data.accessToken || "");
       setJob(data);
       timer.current = setInterval(() => poll(data.jobId), 3000);
     } catch (err) {
