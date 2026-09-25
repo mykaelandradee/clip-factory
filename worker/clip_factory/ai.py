@@ -252,4 +252,6 @@ def select_clips(
                 selected.append(candidate)
                 if len(selected) >= count:
                     break
-    return selected
+
+    # Hard safety: never return more clips than the job requested.
+    return selected[:count]
