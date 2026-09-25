@@ -81,6 +81,25 @@ export default function Home() {
 
   const selectedTemplate = CAPTION_TEMPLATES.find(([id]) => id === captionStyle) ?? CAPTION_TEMPLATES[0];
 
+  function getProgressStage(progress: number) {
+    if (progress >= 100) return "Concluído";
+    if (progress >= 90) return "Finalizando";
+    if (progress >= 70) return "Renderizando clips";
+    if (progress >= 45) return "Encontrando melhores momentos";
+    if (progress >= 20) return "Transcrevendo áudio";
+    return "Baixando e analisando vídeo";
+  }
+
+  function startNewGeneration() {
+    if (timer.current) clearInterval(timer.current);
+    timer.current = null;
+    setJob(null);
+    setJobId("");
+    setError("");
+    setSubmitting(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   useEffect(() => {
     if (!GENERATION_ONLY_MODE) initAuth();
     checkWorker();
@@ -484,10 +503,12 @@ export default function Home() {
 
           {jobId && job && (
             <div className="cf-job">
-              <div className="cf-job-top"><strong>{job.message}</strong><span>{job.progress}%</span></div>
-              <div className="cf-progress"><div style={{ width: `${job.progress}%` }} /></div>
-              <div className="cf-job-steps"><span className={job.progress >= 20 ? "done" : ""}>DOWNLOAD</span><span className={job.progress >= 45 ? "done" : ""}>TRANSCRIÇÃO</span><span className={job.progress >= 70 ? "done" : ""}>CLIPS</span><span className={job.progress >= 90 ? "done" : ""}>RENDER</span></div>
-              <small>Job {jobId}{job.stage ? ` · ${job.stage}` : ""}</small>
+              <div className="cf-job-top"><div><span className="cf-job-live">PROCESSAMENTO AO VIVO</span><strong>{job.progress >= 100 ? "Concluído" : getProgressStage(job.progress)}</strong></div><span className="cf-job-percent">{job.progress}%</span></div>
+              <div className="cf-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={job.progress} aria-label="Progresso da geração"><div style={{ width: `${job.progress}%` }} /></div>
+              <div className="cf-job-steps">
+                {[[20, "ANÁLISE"], [45, "TRANSCRIÇÃO"], [70, "MOMENTOS"], [90, "RENDER"], [100, "PRONTO"]].map(([threshold, label]) => <span key={label} className={job.progress >= threshold ? "done" : ""}>{label}</span>)}
+              </div>
+              <small>{job.stage || job.message}{jobId ? ` · Job ${jobId.slice(0, 8)}` : ""}</small>
             </div>
           )}
 
@@ -499,15 +520,17 @@ export default function Home() {
         {job?.status === "completed" && job.result && (
           <section className="cf-results">
             <div className="cf-results-head">
-              <div><div className="cf-section-kicker">04 / OUTPUT</div><h2>Seus clips estão prontos.</h2><p>Formato vertical, legendas queimadas e prontos para publicar.</p></div>
-              <button type="button" className="cf-button cf-button-secondary" onClick={downloadAllClips} disabled={!job.result.files?.length}>Baixar tudo <b>↓</b></button>
+              <div><div className="cf-section-kicker">04 / OUTPUT</div><h2>Seus clips estão prontos.</h2><p>{job.result.files?.length ?? 0} clips em 9:16, com legendas e prontos para publicar.</p></div>
+              <div className="cf-results-head-actions">
+                <button type="button" className="cf-button cf-button-secondary" onClick={downloadAllClips} disabled={!job.result.files?.length}>Baixar tudo <b>↓</b></button>
+                <button type="button" className="cf-results-new" onClick={startNewGeneration}>+ Novo vídeo</button>
+              </div>
             </div>
             <div className="cf-results-grid">
-              {Array.from({ length: Number(clips) }, (_, index) => {
-                const file = `clip-${String(index + 1).padStart(2, "0")}.mp4`;
-                const r2File = job.result?.files?.find((item) => item.file.toLowerCase() === file.toLowerCase());
-                const source = r2File?.url ?? `/api/jobs/file?id=${encodeURIComponent(jobId)}&file=${encodeURIComponent(file)}&preview=1`;
-                const download = r2File?.url ?? `/api/jobs/file?id=${encodeURIComponent(jobId)}&file=${encodeURIComponent(file)}`;
+              {(job.result.files ?? []).map((r2File, index) => {
+                const file = r2File.file;
+                const source = r2File.url;
+                const download = r2File.url;
                 return (
                   <article className="cf-result-card" key={file}>
                     <div className="cf-video-wrap">
