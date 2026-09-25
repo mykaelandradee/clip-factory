@@ -78,6 +78,7 @@ export default function Home() {
   const publishTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const [publishDrafts, setPublishDrafts] = useState<Record<string, { title: string; description: string; publishAt: string }>>({});
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const emptyResultRetries = useRef(0);
 
   const selectedTemplate = CAPTION_TEMPLATES.find(([id]) => id === captionStyle) ?? CAPTION_TEMPLATES[0];
 
@@ -96,6 +97,7 @@ export default function Home() {
     setJob(null);
     setJobId("");
     setError("");
+    emptyResultRetries.current = 0;
     setSubmitting(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -319,10 +321,22 @@ export default function Home() {
       setError("");
       setJob(data);
       setWorkerOnline(true);
-      if (data.status === "completed" || data.status === "failed") {
+      if (data.status === "completed") {
+        const files = data.result?.files ?? [];
+        if (files.length === 0 && emptyResultRetries.current < 5) {
+          emptyResultRetries.current += 1;
+          setSubmitting(true);
+          return;
+        }
         if (timer.current) clearInterval(timer.current);
         timer.current = null;
         setSubmitting(false);
+        emptyResultRetries.current = 0;
+      } else if (data.status === "failed") {
+        if (timer.current) clearInterval(timer.current);
+        timer.current = null;
+        setSubmitting(false);
+        emptyResultRetries.current = 0;
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao consultar o processamento.");
