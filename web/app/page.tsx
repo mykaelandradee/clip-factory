@@ -562,8 +562,13 @@ export default function Home() {
         {job?.status === "completed" && job.result && (
           <section className="cf-results">
             <div className="cf-results-head">
-              <div><div className="cf-section-kicker">04 / OUTPUT</div><h2>Seus clips estão prontos.</h2><p>{job.result.files?.length ?? 0} clips em 9:16, com legendas e prontos para publicar.</p></div>
+              <div className="cf-results-title">
+                <div className="cf-section-kicker">04 / OUTPUT</div>
+                <h2>Seus clips estão prontos.</h2>
+                <p>{job.result.files?.length ?? 0} clips renderizados em 9:16, hospedados no R2 e prontos para publicar.</p>
+              </div>
               <div className="cf-results-head-actions">
+                <div className="cf-output-badge"><span /> R2 DIRECT · SEM PROXY VERCEL</div>
                 <button type="button" className="cf-button cf-button-secondary" onClick={downloadAllClips} disabled={!job.result.files?.length}>Baixar tudo <b>↓</b></button>
                 <button type="button" className="cf-results-new" onClick={startNewGeneration}>+ Novo vídeo</button>
               </div>
@@ -576,11 +581,14 @@ export default function Home() {
                 return (
                   <article className="cf-result-card" key={file}>
                     <div className="cf-video-wrap">
-                      <video controls preload="metadata" src={source} />
+                      <video controls playsInline preload="metadata" src={source} />
                       <span className="cf-clip-number">0{index + 1}</span>
                     </div>
                     <div className="cf-result-info">
-                      <div className="cf-result-heading"><strong>Clip {index + 1}</strong><span>{duration === "15-30" ? "15–30s" : duration === "45-90" ? "45–90s" : "30–60s"} · 9:16 · SHORT</span></div>
+                      <div className="cf-result-heading">
+                        <div className="cf-result-title-row"><strong>Clip {String(index + 1).padStart(2, "0")}</strong><span className="cf-ready-dot">PRONTO</span></div>
+                        <span>{duration === "15-30" ? "15–30s" : duration === "45-90" ? "45–90s" : "30–60s"} · 9:16 · SHORT</span>
+                      </div>
                       {!GENERATION_ONLY_MODE && (youtubeConnected || instagramConnected) && (
                         <div className="cf-publish-fields">
                           <label>
