@@ -341,9 +341,7 @@ export default function Home() {
     setPublishingTarget(`instagram:${file}`);
     setPublishStatuses((previous) => ({ ...previous, [file]: { platform: "instagram", status: "running", message: "Enviando o Reel para o Instagram..." } }));
     const draft = getPublishDraft(file, index);
-    const caption = [draft.title.trim(), draft.description.trim()].filter(Boolean).join("
-
-");
+    const caption = [draft.title.trim(), draft.description.trim()].filter(Boolean).join("\n");
     try {
       const response = await fetch("/api/instagram/publish", {
         method: "POST",
