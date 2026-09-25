@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "../../../../lib/supabase/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
+import { getClientKey, rateLimit } from "../../../../lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -19,9 +20,23 @@ function headers() {
 }
 
 export async function GET(request: Request) {
+  const rate = rateLimit(getClientKey(request), 30, 60 * 1000);
+  const noStore = { "Cache-Control": "no-store" };
+  if (!rate.allowed) {
+    return NextResponse.json(
+      { error: "Muitas consultas de publicação. Aguarde alguns segundos." },
+      { status: 429, headers: { ...noStore, "Retry-After": String(rate.retryAfterSeconds) } },
+    );
+  }
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Entre no Clip Factory antes de consultar a publicação." }, { status: 401 });
+  if (!user) {
+    return NextResponse.json(
+      { error: "Entre no Clip Factory antes de consultar a publicação." },
+      { status: 401, headers: noStore },
+    );
+  }
 
   const params = new URL(request.url).searchParams;
   const platform = params.get("platform");
@@ -30,26 +45,33 @@ export async function GET(request: Request) {
   const runId = params.get("runId") || "";
   const startedAt = params.get("startedAt") || "";
 
-  if (platform !== "youtube" || !jobId || !/^clip-\d{2}\.mp4$/.test(file)) {
-    return NextResponse.json({ error: "platform, jobId e file são obrigatórios." }, { status: 400 });
+  if (platform !== "youtube" || !jobId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(jobId) || !/^clip-\d{2}\.mp4$/.test(file)) {
+    return NextResponse.json({ error: "platform, jobId e file são obrigatórios." }, { status: 400, headers: noStore });
   }
 
   const admin = createAdminClient();
-  const { data: ownedJob } = await admin.from("clip_jobs").select("id").eq("id", jobId).eq("user_id", user.id).maybeSingle();
-  if (!ownedJob) return NextResponse.json({ error: "Este processamento não pertence ao usuário autenticado." }, { status: 403 });
+  const { data: ownedJob } = await admin
+    .from("clip_jobs")
+    .select("id")
+    .eq("id", jobId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!ownedJob) {
+    return NextResponse.json({ error: "Este processamento não pertence ao usuário autenticado." }, { status: 403, headers: noStore });
+  }
 
   try {
-    const expectedRunTitle = `YouTube Publisher ${jobId}`;
     let run: { id?: number; status?: string; conclusion?: string; name?: string; display_title?: string } | undefined;
 
-    if (runId) {
+    if (runId && /^\d+$/.test(runId)) {
       const response = await fetch(
         `${GITHUB_API}/repos/${OWNER}/${REPO}/actions/runs/${encodeURIComponent(runId)}`,
         { headers: headers(), cache: "no-store" },
       );
       if (response.ok) {
         const candidate = await response.json();
-        if (candidate?.name === "YouTube Publisher") run = candidate;
+        if (candidate?.name === "YouTube Publisher" && candidate?.id === Number(runId)) run = candidate;
       }
     }
 
@@ -58,11 +80,11 @@ export async function GET(request: Request) {
         `${GITHUB_API}/repos/${OWNER}/${REPO}/actions/workflows/youtube-publisher.yml/runs?event=repository_dispatch&per_page=20`,
         { headers: headers(), cache: "no-store" },
       );
-      if (!response.ok) return NextResponse.json({ error: "Não foi possível consultar o GitHub Actions." }, { status: 502 });
+      if (!response.ok) return NextResponse.json({ error: "Não foi possível consultar o GitHub Actions." }, { status: 502, headers: noStore });
 
       const data = await response.json();
-      const createdAfter = startedAt ? Date.parse(startedAt) - 5000 : Date.now() - 120000;
-      run = data.workflow_runs?.find((item: { id?: number; created_at?: string; name?: string; display_title?: string }) =>
+      const createdAfter = startedAt && !Number.isNaN(Date.parse(startedAt)) ? Date.parse(startedAt) - 5000 : Date.now() - 120000;
+      run = data.workflow_runs?.find((item: { id?: number; created_at?: string; name?: string }) =>
         typeof item.id === "number" &&
         item.name === "YouTube Publisher" &&
         typeof item.created_at === "string" &&
@@ -70,7 +92,7 @@ export async function GET(request: Request) {
       );
     }
 
-    if (!run) return NextResponse.json({ status: "queued", message: "Aguardando o GitHub Actions iniciar a publicação." });
+    if (!run) return NextResponse.json({ status: "queued", message: "Aguardando o GitHub Actions iniciar a publicação." }, { headers: noStore });
 
     if (run.status !== "completed") {
       return NextResponse.json({
@@ -78,19 +100,19 @@ export async function GET(request: Request) {
         message: run.status === "in_progress"
           ? "O GitHub Actions está enviando o vídeo para o YouTube."
           : "Publicação na fila do GitHub Actions.",
-      });
+      }, { headers: noStore });
     }
 
     if (run.conclusion === "success") {
-      return NextResponse.json({ status: "success", message: "Vídeo publicado com sucesso no YouTube." });
+      return NextResponse.json({ status: "success", message: "Vídeo publicado com sucesso no YouTube." }, { headers: noStore });
     }
 
     return NextResponse.json({
       status: "failed",
       message: `A publicação no YouTube terminou com erro (${run.conclusion || "falha"}).`,
-    });
+    }, { headers: noStore });
   } catch (error) {
     console.error("YouTube publish status error:", error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Erro ao consultar a publicação." }, { status: 502 });
+    return NextResponse.json({ error: "Não foi possível consultar o status da publicação." }, { status: 502, headers: noStore });
   }
 }
