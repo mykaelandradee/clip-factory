@@ -10,18 +10,27 @@ export function getClientKey(request: Request, userId?: string | null) {
   return `ip:${forwarded || realIp || "unknown"}`;
 }
 
+function pruneExpired(now: number) {
+  if (buckets.size < MAX_BUCKETS) return;
+  for (const [key, bucket] of buckets) {
+    if (bucket.resetAt <= now) buckets.delete(key);
+    if (buckets.size < MAX_BUCKETS) break;
+  }
+}
+
 export function rateLimit(key: string, limit: number, windowMs: number) {
   const now = Date.now();
   const current = buckets.get(key);
 
   if (!current || current.resetAt <= now) {
-    if (buckets.size >= MAX_BUCKETS) {
-      const oldestKey = buckets.keys().next().value;
-      if (oldestKey) buckets.delete(oldestKey);
-    }
+    pruneExpired(now);
     const bucket = { count: 1, resetAt: now + windowMs };
     buckets.set(key, bucket);
-    return { allowed: true, remaining: Math.max(0, limit - 1), retryAfterSeconds: Math.ceil(windowMs / 1000) };
+    return {
+      allowed: true,
+      remaining: Math.max(0, limit - 1),
+      retryAfterSeconds: Math.ceil(windowMs / 1000),
+    };
   }
 
   current.count += 1;
