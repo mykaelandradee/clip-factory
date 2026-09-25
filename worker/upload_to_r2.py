@@ -26,6 +26,7 @@ def main() -> None:
     access_key = env("R2_ACCESS_KEY_ID")
     secret_key = env("R2_SECRET_ACCESS_KEY")
     job_id = env("JOB_ID")
+    requested_count = max(1, min(int(os.environ.get("COUNT", "5")), MAX_CLIPS_PER_JOB))
 
     client = boto3.client(
         "s3",
@@ -36,11 +37,23 @@ def main() -> None:
         config=Config(signature_version="s3v4"),
     )
 
-    clip_files = sorted(Path("data/projects").glob("*/clip-*.mp4"))
+    result_files = sorted(
+        Path("data/projects").glob("*/result.json"),
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )
+    if not result_files:
+        raise RuntimeError("No completed project result was found.")
+
+    project_dir = result_files[0].parent
+    clip_files = sorted(project_dir.glob("clip-*.mp4"))
     if not clip_files:
         raise RuntimeError("No rendered MP4 clips were found.")
-    if len(clip_files) > MAX_CLIPS_PER_JOB:
-        raise RuntimeError(f"R2 upload blocked: job contains more than {MAX_CLIPS_PER_JOB} clips.")
+    if len(clip_files) != requested_count:
+        raise RuntimeError(
+            f"R2 upload blocked: rendered {len(clip_files)} clips, "
+            f"but the job requested {requested_count}."
+        )
 
     current_storage = 0
     continuation_token = None
