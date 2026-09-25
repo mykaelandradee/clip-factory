@@ -107,7 +107,12 @@ export async function POST(request: Request) {
         statusText: response.statusText,
         body: githubBody,
       });
-      await admin.from("clip_jobs").delete().eq("id", jobId).eq("user_id", user?.id ?? null);
+      const cleanupQuery = admin.from("clip_jobs").delete().eq("id", jobId);
+      if (user) {
+        await cleanupQuery.eq("user_id", user.id);
+      } else {
+        await cleanupQuery.is("user_id", null);
+      }
       return NextResponse.json({
         error: "Não foi possível iniciar o processamento no GitHub Actions.",
         githubStatus: response.status,
@@ -124,7 +129,12 @@ export async function POST(request: Request) {
   } catch (error) {
     try {
       const cleanupAdmin = createAdminClient();
-      await cleanupAdmin.from("clip_jobs").delete().eq("id", jobId).eq("user_id", user?.id ?? null);
+      const cleanupQuery = cleanupAdmin.from("clip_jobs").delete().eq("id", jobId);
+      if (user) {
+        await cleanupQuery.eq("user_id", user.id);
+      } else {
+        await cleanupQuery.is("user_id", null);
+      }
     } catch (cleanupError) {
       console.error("Failed to clean up orphan clip job:", cleanupError);
     }
