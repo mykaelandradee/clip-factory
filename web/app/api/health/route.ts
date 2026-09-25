@@ -19,7 +19,8 @@ export async function GET() {
     ),
   };
 
-  const generationOnly = process.env.CLIP_FACTORY_GENERATION_ONLY === "true";\n  const online = checks.github && checks.r2 && (generationOnly || checks.supabase);
+  const generationOnly = process.env.CLIP_FACTORY_GENERATION_ONLY === "true";
+  const online = checks.github && checks.r2 && (generationOnly || checks.supabase);
 
   return NextResponse.json(
     {
