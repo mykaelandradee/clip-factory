@@ -17,9 +17,9 @@ type Job = {
 
 const CAPTION_TEMPLATES = [
   ["karaoke", "Karaoke", "Word-sync limpo com destaque amarelo"],
-  ["fire", "Fire", "Condensada, quente e de alto impacto"],
+  ["fire", "Fire", "Condensada, laranja e de alto impacto"],
   ["beasty", "Beasty", "Monoespaçada, pesada e agressiva"],
-  ["youshaei", "Youshaei", "Editorial, espaçada e clean"],
+  ["youshaei", "Youshaei", "Editorial, espaçada com destaque cyan"],
   ["harmozi", "Harmozi", "Bold condensada com ênfase verde"],
   ["cinematic", "Cinematic", "Serifada, discreta e elegante"],
 ] as const;
