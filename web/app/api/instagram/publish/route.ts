@@ -3,6 +3,7 @@ import { createClient } from "../../../../lib/supabase/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
 import { decryptInstagramAccessToken, encryptInstagramAccessToken, refreshInstagramLongLivedToken } from "../../../../lib/instagram-auth";
 import { deleteR2Clip, getR2PublicClipUrl } from "../../../../lib/r2";
+import { getClientKey, rateLimit } from "../../../../lib/rate-limit";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -31,6 +32,8 @@ export async function POST(request: Request) {
   }
 
   const supabase = await createClient();
+  const rate = rateLimit(getClientKey(request), 5, 60 * 60 * 1000);
+  if (!rate.allowed) return NextResponse.json({ error: "Limite de publicações do Instagram atingido. Aguarde antes de publicar novamente." }, { status: 429, headers: { "Retry-After": String(rate.retryAfterSeconds) } });
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: "Entre no Clip Factory antes de publicar." }, { status: 401 });
