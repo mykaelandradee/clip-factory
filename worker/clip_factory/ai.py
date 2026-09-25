@@ -17,6 +17,22 @@ INTRO_WORDS = {
     "bem vindos", "vamos começar", "começando", "começamos",
 }
 
+FILLER_WORDS = {
+    "tipo", "assim", "basicamente", "né", "então", "bom", "enfim",
+    "uh", "um", "ah", "you know", "like",
+}
+
+WEAK_STARTS = {
+    "e", "mas", "aí", "daí", "porque", "que", "então", "só que",
+}
+
+STRONG_STARTS = {
+    "como", "por que", "o problema", "a verdade", "o segredo",
+    "ninguém", "você", "vocês", "se", "quando", "antes", "depois",
+    "descobri", "aprendi", "existem", "existe",
+}
+
+
 
 def _words(text: str) -> list[str]:
     return re.findall(r"[\wÀ-ÿ]+", text.lower())
@@ -38,6 +54,19 @@ def _score_window(text: str, start: float, end: float) -> float:
     lower = text.lower()
     if any(lower.startswith(word) for word in INTRO_WORDS):
         score -= 18
+
+    filler_count = sum(1 for word in words if word in FILLER_WORDS)
+    score -= min(filler_count * 1.8, 12)
+
+    first_words = " ".join(words[:4])
+    if any(first_words.startswith(word) for word in STRONG_STARTS):
+        score += 7
+    if any(first_words.startswith(word) for word in WEAK_STARTS):
+        score -= 5
+
+    # Prefer windows that open and close on a complete thought.
+    if text[:1].islower():
+        score -= 4
     if len(words) < 35:
         score -= 12
     if len(words) > 240:
@@ -133,6 +162,14 @@ def select_clips(
     candidates.sort(key=lambda c: c.score, reverse=True)
 
     selected: list[ClipCandidate] = []
+
+    def lexical_similarity(a: ClipCandidate, b: ClipCandidate) -> float:
+        left = set(_words(a.transcript))
+        right = set(_words(b.transcript))
+        if not left or not right:
+            return 0.0
+        return len(left & right) / max(1, len(left | right))
+
     if not candidates:
         return selected[:count]
 
@@ -178,15 +215,20 @@ def select_clips(
                 )
                 spread_bonus = min(nearest / timeline_span * 24.0, 12.0)
             overlap_penalty = 0.0
+            similarity_penalty = 0.0
             if selected:
                 overlap_penalty = max(
                     _overlap_ratio(candidate, chosen) for chosen in selected
                 ) * 24.0
+                similarity_penalty = max(
+                    lexical_similarity(candidate, chosen) for chosen in selected
+                ) * 18.0
             adjusted = (
                 candidate.score
                 + spread_bonus
                 + duration_diversity_bonus
                 - overlap_penalty
+                - similarity_penalty
             )
             if adjusted > best_score:
                 best = candidate
