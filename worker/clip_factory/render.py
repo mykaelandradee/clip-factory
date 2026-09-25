@@ -82,8 +82,9 @@ def _group_words(words, style: str):
     max_words, max_chars = limits.get(style, limits["karaoke"])
     groups, current, chars = [], [], 0
     for word in words:
+        speech_gap = word[0] - current[-1][1] if current else 0.0
         projected = chars + len(word[2]) + (1 if current else 0)
-        if current and (len(current) >= max_words or projected > max_chars):
+        if current and (speech_gap > CAPTION_MAX_PAUSE or len(current) >= max_words or projected > max_chars):
             groups.append(current)
             current, chars = [], 0
         current.append(word)
@@ -213,7 +214,7 @@ def _write_ass(candidate: ClipCandidate, segments: list[TranscriptSegment], outp
         for index in range(len(group) - 1):
             gap_start = group[index][1]
             gap_end = group[index + 1][0]
-            if gap_end > gap_start:
+            if 0 < gap_end - gap_start <= CAPTION_MAX_PAUSE:
                 phrase = _base_phrase(group)
                 lines.append(
                     f"Dialogue: 0,{_ass_time(gap_start)},{_ass_time(gap_end)},"
