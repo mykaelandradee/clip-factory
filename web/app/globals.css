@@ -284,3 +284,25 @@ button{appearance:none}
   .cf-account-label { display:none; }
   .cf-auth-info-popover { width:240px; right:-4px; }
 }
+
+/* UX refinements */
+.cf-job-top > div { display:flex; flex-direction:column; gap:3px; }
+.cf-job-live { color:#777783; font-size:7px; font-weight:850; letter-spacing:.16em; }
+.cf-job-percent { min-width:42px; text-align:right; font-size:18px!important; font-weight:850; letter-spacing:-.05em; color:#f3f3f5!important; }
+.cf-job-steps span { position:relative; transition:color .25s ease; }
+.cf-job-steps span.done:after { content:""; display:inline-block; width:4px; height:4px; margin-left:5px; vertical-align:middle; border-radius:50%; background:#9c99ff; box-shadow:0 0 8px #9c99ff; }
+.cf-results-head-actions { display:flex; align-items:center; gap:8px; }
+.cf-results-new { min-height:48px; padding:0 15px; border:1px solid #ffffff12; border-radius:13px; background:#ffffff05; color:#cfcfd5; font:inherit; font-size:10px; font-weight:800; cursor:pointer; transition:.2s ease; }
+.cf-results-new:hover { background:#ffffff0a; border-color:#ffffff25; transform:translateY(-2px); }
+.cf-results .cf-button-secondary { min-height:48px; }
+.cf-result-card { min-width:0; }
+.cf-video-wrap video { background:#050507; }
+.cf-result-heading { min-width:0; }
+.cf-result-heading span { white-space:nowrap; }
+@media(max-width:600px){
+  .cf-results-head-actions { width:100%; display:grid; grid-template-columns:1fr 1fr; }
+  .cf-results-head-actions .cf-button-secondary,
+  .cf-results-new { width:100%; min-height:44px; }
+  .cf-job-top { align-items:flex-end; }
+  .cf-job-percent { font-size:16px!important; }
+}
