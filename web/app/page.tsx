@@ -35,119 +35,20 @@ const idMap = {
 
 function CaptionPreview({ id }: { id: string }) {
   const content = {
-    karaoke: <><i>THIS</i> <b>CHANGES</b> <i>EVERYTHING</i></>,
-    fire: <><i>THIS</i> <b>CHANGES</b> <i>EVERYTHING</i></>,
-    beasty: <><i>THIS</i> <b>CHANGES</b> <i>EVERYTHING</i></>,
-    youshaei: <><i>THIS</i> <b>CHANGES</b> <i>EVERYTHING</i></>,
-    harmozi: <><i>THIS</i> <b>CHANGES</b> <i>EVERYTHING</i></>,
-    cinematic: <><i>this</i> <b>changes</b> <i>everything</i></>,
+    karaoke: <><i>ISSO</i> <b>MUDA</b> <i>TUDO</i></>,
+    fire: <><i>ISSO</i> <b>MUDA</b> <i>TUDO</i></>,
+    beasty: <><i>ISSO</i> <b>MUDA</b> <i>TUDO</i></>,
+    youshaei: <><i>ISSO</i> <b>MUDA</b> <i>TUDO</i></>,
+    harmozi: <><i>ISSO</i> <b>MUDA</b> <i>TUDO</i></>,
+    cinematic: <><i>isso</i> <b>muda</b> <i>tudo</i></>,
   }[id as keyof typeof idMap];
   return (
     <div className={`cf-template-preview accent-${id}`}>
       <span className="preview-top">9:16 • LIVE PREVIEW</span>
-      <span className="preview-context">SINCRONIZADO COM A FALA</span>
+      <span className="preview-context">VOCÊ PRECISA VER ISSO</span>
       <span className="preview-subtitle">{content}</span>
       <span className="preview-progress"><span /></span>
       <span className="preview-style-mark">{id}</span>
-    </div>
-  );
-}
-
-const CAPTION_DEMO_VIDEO = "https://commons.wikimedia.org/wiki/Special:Redirect/file/Sintel_movie_4K.webm?width=640";
-
-const CAPTION_DEMO_CUES = [
-  { start: 106.85, end: 109.10, text: "THIS BLADE HAS A DARK PAST." },
-  { start: 109.10, end: 112.80, text: "IT HAS SHED MUCH INNOCENT BLOOD." },
-  { start: 115.85, end: 119.55, text: "YOU'RE A FOOL FOR TRAVELING ALONE," },
-  { start: 119.55, end: 122.55, text: "SO COMPLETELY UNPREPARED." },
-];
-
-function CaptionPresetVideoPreview({
-  style,
-  onClose,
-}: {
-  style: string;
-  onClose: () => void;
-}) {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const [currentTime, setCurrentTime] = useState(106.85);
-  const cue = CAPTION_DEMO_CUES.find((item) => currentTime >= item.start && currentTime < item.end) ?? CAPTION_DEMO_CUES[0];
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-    const start = CAPTION_DEMO_CUES[0].start;
-    const onLoaded = () => {
-      video.currentTime = start;
-      void video.play().catch(() => {});
-    };
-    const onTimeUpdate = () => setCurrentTime(video.currentTime);
-    video.addEventListener("loadedmetadata", onLoaded);
-    video.addEventListener("timeupdate", onTimeUpdate);
-    return () => {
-      video.removeEventListener("loadedmetadata", onLoaded);
-      video.removeEventListener("timeupdate", onTimeUpdate);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (currentTime < CAPTION_DEMO_CUES[0].start || currentTime > CAPTION_DEMO_CUES.at(-1)!.end) {
-      const video = videoRef.current;
-      if (video) {
-        video.currentTime = CAPTION_DEMO_CUES[0].start;
-        void video.play().catch(() => {});
-      }
-    }
-  }, [currentTime]);
-
-  const words = cue.text.split(/\\s+/);
-  const progress = Math.max(0, Math.min(0.999, (currentTime - cue.start) / Math.max(0.05, cue.end - cue.start)));
-  const activeIndex = Math.min(
-    words.length - 1,
-    Math.floor(progress * words.length),
-  );
-
-  return (
-    <div className="cf-caption-preview-modal" role="dialog" aria-modal="true" aria-label={`Preview da legenda ${style}`}>
-      <button type="button" className="cf-caption-preview-backdrop" onClick={onClose} aria-label="Fechar preview" />
-      <div className={`cf-caption-preview-dialog accent-${style}`}>
-        <div className="cf-caption-preview-head">
-          <div>
-            <span>LIVE PREVIEW · VÍDEO 9:16 · WORD SYNC</span>
-            <strong>{CAPTION_TEMPLATES.find(([id]) => id === style)?.[1] ?? "Legenda"}</strong>
-          </div>
-          <button type="button" className="cf-caption-preview-close" onClick={onClose} aria-label="Fechar preview">×</button>
-        </div>
-        <div className={`cf-caption-preview-video accent-${style}`}>
-          <video
-            ref={videoRef}
-            controls
-            playsInline
-            muted={false}
-            preload="metadata"
-            src={CAPTION_DEMO_VIDEO}
-            onError={() => {
-              const video = videoRef.current;
-              if (video) video.controls = true;
-            }}
-          />
-          <div className="cf-caption-preview-overlay">
-            <span className="cf-caption-preview-context">SINTEL · OPEN MOVIE · DEMO</span>
-            <div className="cf-caption-preview-copy" aria-live="polite">
-              {words.map((word, index) => (
-                <span key={`${cue.start}-${index}`} className={index === activeIndex ? "active" : ""}>
-                  {word}
-                </span>
-              ))}
-            </div>
-            <span className="cf-caption-preview-note">A legenda muda conforme a fala do vídeo</span>
-          </div>
-        </div>
-        <div className="cf-caption-preview-footer">
-          <span>Trecho com fala real e legendas sincronizadas para demonstrar o preset.</span>
-          <button type="button" onClick={onClose}>FECHAR</button>
-        </div>
-      </div>
     </div>
   );
 }
@@ -806,10 +707,39 @@ export default function Home() {
       </div>
 
       {captionPreviewStyle && (
-        <CaptionPresetVideoPreview
-          style={captionPreviewStyle}
-          onClose={() => setCaptionPreviewStyle(null)}
-        />
+        <div className="cf-caption-preview-modal" role="dialog" aria-modal="true" aria-label={`Preview da legenda ${captionPreviewStyle}`}>
+          <button type="button" className="cf-caption-preview-backdrop" onClick={() => setCaptionPreviewStyle(null)} aria-label="Fechar preview" />
+          <div className={`cf-caption-preview-dialog accent-${captionPreviewStyle}`}>
+            <div className="cf-caption-preview-head">
+              <div>
+                <span>PREVIEW FIXO · 30 SEGUNDOS</span>
+                <strong>{CAPTION_TEMPLATES.find(([id]) => id === captionPreviewStyle)?.[1] ?? "Legenda"}</strong>
+              </div>
+              <button type="button" className="cf-caption-preview-close" onClick={() => setCaptionPreviewStyle(null)} aria-label="Fechar preview">×</button>
+            </div>
+            <div className={`cf-caption-preview-video accent-${captionPreviewStyle}`}>
+              <iframe
+                src="https://www.youtube.com/embed/y_woFP79F0Q?autoplay=1&mute=1&start=0&end=30&controls=1&rel=0&modestbranding=1"
+                title="Preview de 30 segundos do podcast"
+                allow="autoplay; encrypted-media; picture-in-picture"
+                allowFullScreen
+              />
+              <div className="cf-caption-preview-overlay">
+                <span className="cf-caption-preview-context">MODERN WISDOM · EP. 1000</span>
+                <div className="cf-caption-preview-copy">
+                  <span>THE BIGGER</span>
+                  <strong>QUESTION</strong>
+                  <span>IS WHAT MATTERS</span>
+                </div>
+                <span className="cf-caption-preview-note">Demonstração visual do preset</span>
+              </div>
+            </div>
+            <div className="cf-caption-preview-footer">
+              <span>Trecho fixo do vídeo para comparar os presets.</span>
+              <button type="button" onClick={() => setCaptionPreviewStyle(null)}>FECHAR</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {previewClip && (
