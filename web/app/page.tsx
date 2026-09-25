@@ -66,6 +66,7 @@ export default function Home() {
   const [job, setJob] = useState<Job | null>(null);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [retrying, setRetrying] = useState(false);
   const [youtubeConnected, setYoutubeConnected] = useState(false);
   const [instagramConnected, setInstagramConnected] = useState(false);
   const [showAuthInfo, setShowAuthInfo] = useState(false);
@@ -84,13 +85,49 @@ export default function Home() {
 
   const selectedTemplate = CAPTION_TEMPLATES.find(([id]) => id === captionStyle) ?? CAPTION_TEMPLATES[0];
 
-  function getProgressStage(progress: number) {
+  function getProgressStage(progress: number, stage?: string) {
     if (progress >= 100) return "Concluído";
+    const normalized = (stage || "").toLowerCase();
+    if (normalized.includes("render")) return "Renderizando clips";
+    if (normalized.includes("transcrib")) return "Transcrevendo áudio";
+    if (normalized.includes("translat")) return "Traduzindo legendas";
+    if (normalized.includes("analy") || normalized.includes("select")) return "Encontrando melhores momentos";
+    if (normalized.includes("download")) return "Baixando e analisando vídeo";
+    if (normalized.includes("upload")) return "Enviando clips para o R2";
     if (progress >= 90) return "Finalizando";
     if (progress >= 70) return "Renderizando clips";
     if (progress >= 45) return "Encontrando melhores momentos";
     if (progress >= 20) return "Transcrevendo áudio";
     return "Baixando e analisando vídeo";
+  }
+
+  async function retryJob() {
+    if (!jobId || retrying) return;
+    setRetrying(true);
+    setSubmitting(true);
+    setError("");
+    try {
+      const response = await fetch("/api/jobs/retry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobId }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Não foi possível tentar novamente.");
+      setJob({
+        status: "processing",
+        progress: 5,
+        stage: "queued",
+        message: data.message || "Nova tentativa iniciada.",
+      });
+      if (timer.current) clearInterval(timer.current);
+      timer.current = setInterval(() => poll(jobId), 3000);
+    } catch (err) {
+      setSubmitting(false);
+      setError(err instanceof Error ? err.message : "Não foi possível tentar novamente.");
+    } finally {
+      setRetrying(false);
+    }
   }
 
   function startNewGeneration() {
@@ -551,17 +588,27 @@ export default function Home() {
 
           {jobId && job && (
             <div className="cf-job">
-              <div className="cf-job-top"><div><span className="cf-job-live">PROCESSAMENTO AO VIVO</span><strong>{job.progress >= 100 ? "Concluído" : getProgressStage(job.progress)}</strong></div><span className="cf-job-percent">{job.progress}%</span></div>
+              <div className="cf-job-top"><div><span className="cf-job-live">PROCESSAMENTO AO VIVO</span><strong>{job.progress >= 100 ? "Concluído" : getProgressStage(job.progress, job.stage)}</strong></div><span className="cf-job-percent">{job.progress}%</span></div>
               <div className="cf-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={job.progress} aria-label="Progresso da geração"><div style={{ width: `${job.progress}%` }} /></div>
               <div className="cf-job-steps">
                 {[[20, "ANÁLISE"], [45, "TRANSCRIÇÃO"], [70, "MOMENTOS"], [90, "RENDER"], [100, "PRONTO"]].map(([threshold, label]) => <span key={label} className={job.progress >= Number(threshold) ? "done" : ""}>{label}</span>)}
               </div>
-              <small>{job.stage || job.message}{jobId ? ` · Job ${jobId.slice(0, 8)}` : ""}</small>
+              <small>{getProgressStage(job.progress, job.stage)} · {job.message}{jobId ? ` · Job ${jobId.slice(0, 8)}` : ""}</small>
             </div>
           )}
 
           {error && <p className="cf-error">{error}</p>}
-          {job?.status === "failed" && <p className="cf-error">{job.error || job.message}</p>}
+          {job?.status === "failed" && (
+            <div className="cf-job-failure">
+              <div>
+                <strong>O processamento não foi concluído.</strong>
+                <span>{job.error || job.message}</span>
+              </div>
+              <button type="button" className="cf-retry-button" onClick={retryJob} disabled={retrying || submitting}>
+                {retrying ? "TENTANDO..." : "TENTAR NOVAMENTE ↻"}
+              </button>
+            </div>
+          )}
           
         </form>
 
@@ -571,10 +618,10 @@ export default function Home() {
               <div className="cf-results-title">
                 <div className="cf-section-kicker">04 / OUTPUT</div>
                 <h2>Seus clips estão prontos.</h2>
-                <p>{job.result.files?.length ?? 0} clips renderizados em 9:16, hospedados no R2 e prontos para publicar.</p>
+                <p><strong>{job.result.files?.length ?? 0} de {clips} clips gerados</strong> · 9:16 · hospedados no R2 e prontos para publicar.</p>
               </div>
               <div className="cf-results-head-actions">
-                <div className="cf-output-badge"><span /> R2 DIRECT · SEM PROXY VERCEL</div>
+                <div className="cf-output-badge"><span /> {job.result.files?.length ?? 0}/{clips} GERADOS</div>
                 <button type="button" className="cf-button cf-button-secondary" onClick={downloadAllClips} disabled={!job.result.files?.length}>Baixar tudo <b>↓</b></button>
                 <button type="button" className="cf-results-new" onClick={startNewGeneration}>+ Novo vídeo</button>
               </div>
@@ -619,7 +666,7 @@ export default function Home() {
                     </div>
                     <div className="cf-result-info">
                       <div className="cf-result-heading">
-                        <div className="cf-result-title-row"><strong>Clip {String(index + 1).padStart(2, "0")}</strong><span className="cf-ready-dot">PRONTO</span></div>
+                        <div className="cf-result-title-row"><strong>Clip {String(index + 1).padStart(2, "0")}</strong><span className="cf-ready-dot">PRONTO · PREVIEW</span></div>
                         <span>{duration === "15-30" ? "15–30s" : duration === "45-90" ? "45–90s" : "30–60s"} · 9:16 · SHORT</span>
                       </div>
                       {!GENERATION_ONLY_MODE && (youtubeConnected || instagramConnected) && (
