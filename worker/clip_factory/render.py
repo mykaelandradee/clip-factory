@@ -53,16 +53,16 @@ PRESETS = {
                    active="&H0000D7FF", outline=5, shadow=2, margin=440, spacing=0,
                    alignment=2, scale_x=100, scale_y=100),
     "fire": dict(font="DejaVu Sans Condensed", size=84, bold=1, primary="&H00FFFFFF",
-                 active="&H00004DFF", outline=6, shadow=3, margin=410, spacing=-1,
+                 active="&H00303BFF", outline=6, shadow=3, margin=410, spacing=-1,
                  alignment=2, scale_x=104, scale_y=100),
     "beasty": dict(font="DejaVu Sans Mono", size=82, bold=1, primary="&H00FFFFFF",
                    active="&H00000000", outline=7, shadow=0, margin=455, spacing=-1,
                    alignment=2, scale_x=100, scale_y=100),
     "youshaei": dict(font="DejaVu Sans", size=70, bold=1, primary="&H00FFFFFF",
-                    active="&H00FFE78F", outline=3, shadow=1, margin=485, spacing=1,
+                    active="&H006DE6FF", outline=3, shadow=1, margin=485, spacing=1,
                     alignment=2, scale_x=100, scale_y=100),
     "harmozi": dict(font="DejaVu Sans Condensed", size=82, bold=1, primary="&H00FFFFFF",
-                    active="&H0037FFD8", outline=5, shadow=2, margin=425, spacing=-1,
+                    active="&H008BFF37", outline=5, shadow=2, margin=425, spacing=-1,
                     alignment=2, scale_x=102, scale_y=100),
     "cinematic": dict(font="DejaVu Serif", size=62, bold=0, primary="&H00FFFFFF",
                       active="&H00FFFFFF", outline=2, shadow=2, margin=500, spacing=2,
@@ -112,10 +112,16 @@ def _active_phrase(group, active_index: int, style: str) -> str:
             pieces.append(f"{{\\1c{p['primary']}}}{text}")
             continue
 
-        # Explicit primary-channel color only. No karaoke tags, transforms,
-        # alpha animation, or secondary-color fallback: the word changes color
-        # by a hard cut at the Whisper word boundary.
-        pieces.append(f"{{\\1c{p['active']}}}{text}")
+        # Each preset gets a deliberate visual signature while preserving
+        # the same hard-cut word timing.
+        if style == "fire":
+            pieces.append(f"{{\\1c{p['active']}\\3c&H00000000&\\bord8\\fs92}}{text}")
+        elif style == "youshaei":
+            pieces.append(f"{{\\1c{p['active']}\\u1\\bord3}}{text}")
+        elif style == "harmozi":
+            pieces.append(f"{{\\1c{p['active']}\\3c&H00181818&\\bord6\\fs88}}{text}")
+        else:
+            pieces.append(f"{{\\1c{p['active']}}}{text}")
     return " ".join(pieces)
 
 
@@ -156,7 +162,7 @@ def _write_ass(candidate: ClipCandidate, segments: list[TranscriptSegment], outp
         ),
         (
             f"Style: BeastyBox,{p['font']},{p['size']},&H00000000,&H00000000,"
-            f"&H00FFFFFF,&H00FFFFFF,{p['bold']},0,0,0,100,100,{p['spacing']},0,3,2,0,2,"
+            f"&H00FFFFFF,&H00000000,{p['bold']},0,0,0,100,100,{p['spacing']},0,3,2,0,2,"
             f"70,70,{p['margin']},1"
         ),
         "",
@@ -170,13 +176,14 @@ def _write_ass(candidate: ClipCandidate, segments: list[TranscriptSegment], outp
     for group in groups:
         start, end = group[0][0], group[-1][1]
 
-        # Beasty remains exactly on its existing dedicated rendering path.
+        # Beasty uses a deliberately different personality: each spoken word
+        # becomes a solid inverted box, making the active timing unmistakable.
         if style == "beasty":
             for word_start, word_end, raw_word in group:
                 word_text = _ass_escape(raw_word.upper())
                 lines.append(
                     f"Dialogue: 1,{_ass_time(word_start)},{_ass_time(word_end)},"
-                    f"BeastyBox,,0,0,0,{word_text}"
+                    f"BeastyActive,,0,0,0,{word_text}"
                 )
             continue
 
