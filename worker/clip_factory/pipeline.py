@@ -12,7 +12,7 @@ from .ai import select_clips
 from .config import settings
 from .models import ProjectResult
 from .render import render_vertical
-from .transcription import transcribe
+from .transcription import transcribe, translate_segments_to_pt
 from .youtube import download_video
 
 Progress = Callable[[str, int, str], None]
@@ -80,6 +80,16 @@ def run_pipeline(
     print(f"[timing] selection={timings['selection']:.2f}s")
     if not candidates:
         raise RuntimeError("Não foram encontrados trechos dentro da duração solicitada.")
+
+    # PT-BR translation is intentionally deferred until after clip selection.
+    # Selection works from the original transcript, and translating only the
+    # segments that appear in the chosen clips avoids translating the whole
+    # source video unnecessarily.
+    if subtitle_language == "pt-BR":
+        translation_started = time.perf_counter()
+        translate_segments_to_pt(segments, candidates)
+        timings["translation"] = round(time.perf_counter() - translation_started, 2)
+        print(f"[timing] translation={timings['translation']:.2f}s")
 
     rendered: list[str] = []
     if render:
