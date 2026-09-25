@@ -373,8 +373,10 @@ export default function Home() {
         return;
       }
       const query = new URLSearchParams({ id });
-      if (jobAccessToken) query.set("accessToken", jobAccessToken);
-      const response = await fetch("/api/jobs?" + query.toString(), { cache: "no-store" });
+      const response = await fetch("/api/jobs?" + query.toString(), {
+        cache: "no-store",
+        headers: jobAccessToken ? { Authorization: `Bearer ${jobAccessToken}` } : undefined,
+      });
       if (!response.ok) throw new Error("Não foi possível consultar o processamento.");
       const data = await response.json() as Job;
       setError("");
