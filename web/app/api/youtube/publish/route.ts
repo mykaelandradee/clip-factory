@@ -18,11 +18,16 @@ function configured() {
 }
 
 export async function POST(request: Request) {
+  const noStore = { "Cache-Control": "no-store" };
+  const contentLength = Number(request.headers.get("content-length") || 0);
+  if (contentLength > MAX_BODY_BYTES) {
+    return NextResponse.json({ error: "Requisição muito grande." }, { status: 413, headers: noStore });
+  }
   if (!configured()) return NextResponse.json({ error: "A integração do YouTube ainda não está configurada." }, { status: 503 });
 
   const supabase = await createClient();
   const rate = rateLimit(getClientKey(request), 5, 60 * 60 * 1000);
-  if (!rate.allowed) return NextResponse.json({ error: "Limite de publicações do YouTube atingido. Aguarde antes de publicar novamente." }, { status: 429, headers: { "Retry-After": String(rate.retryAfterSeconds) } });
+  if (!rate.allowed) return NextResponse.json({ error: "Limite de publicações do YouTube atingido. Aguarde antes de publicar novamente." }, { status: 429, headers: { ...noStore, "Retry-After": String(rate.retryAfterSeconds) } });
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Entre no Clip Factory antes de publicar." }, { status: 401 });
 
