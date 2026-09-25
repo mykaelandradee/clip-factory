@@ -4,6 +4,7 @@ import json
 import re
 import uuid
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Callable
 
 from .ai import select_clips
@@ -74,12 +75,31 @@ def run_pipeline(
         for stale_clip in project_dir.glob("clip-*.mp4"):
             stale_clip.unlink()
         total = len(candidates)
-        for index, candidate in enumerate(candidates, start=1):
-            percent = 70 + int((index - 1) / total * 25)
-            report("rendering", percent, f"Renderizando clip {index} de {total}...")
+
+        def render_one(index: int, candidate) -> tuple[int, str]:
             output = project_dir / f"clip-{index:02d}.mp4"
             render_vertical(source, candidate, output, segments, caption_style)
-            rendered.append(str(output))
+            return index, str(output)
+
+        # Stage 3: render two clips concurrently. FFmpeg is already capped at
+        # two threads per process, which keeps the GitHub runner from being
+        # oversubscribed while reducing wall-clock time.
+        max_workers = min(2, total)
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {
+                executor.submit(render_one, index, candidate): index
+                for index, candidate in enumerate(candidates, start=1)
+            }
+            completed = 0
+            results: dict[int, str] = {}
+            for future in as_completed(futures):
+                index, output = future.result()
+                completed += 1
+                percent = 70 + int(completed / total * 25)
+                report("rendering", percent, f"Renderizando clip {completed} de {total}...")
+                results[index] = output
+
+        rendered = [results[index] for index in sorted(results)]
 
     report("completed", 100, "Processamento concluído.")
     result = ProjectResult(project_name, url, str(source), str(transcript_file), candidates, rendered)
