@@ -86,6 +86,26 @@ export default function Home() {
   const pollStartedAt = useRef(0);
   const CLIENT_JOB_TIMEOUT_MS = 50 * 60 * 1000;
 
+  async function readJsonResponse<T = Record<string, unknown>>(response: Response): Promise<T> {
+    const raw = await response.text();
+    if (!raw.trim()) {
+      throw new Error(
+        response.ok
+          ? "O servidor respondeu sem dados. Tente novamente."
+          : `O servidor respondeu com HTTP ${response.status}, mas sem uma mensagem de erro.`,
+      );
+    }
+    try {
+      return JSON.parse(raw) as T;
+    } catch {
+      throw new Error(
+        response.ok
+          ? "O servidor retornou uma resposta inválida."
+          : `O servidor respondeu com HTTP ${response.status} em um formato inesperado.`,
+      );
+    }
+  }
+
   const selectedTemplate = CAPTION_TEMPLATES.find(([id]) => id === captionStyle) ?? CAPTION_TEMPLATES[0];
 
   function getProgressStage(progress: number, stage?: string) {
