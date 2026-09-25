@@ -79,10 +79,15 @@ export default function Home() {
   const [publishDrafts, setPublishDrafts] = useState<Record<string, { title: string; description: string; publishAt: string }>>({});
   const [previewClip, setPreviewClip] = useState<{ file: string; url: string; index: number; currentTime: number } | null>(null);
   const [previewErrors, setPreviewErrors] = useState<Record<string, boolean>>({});
+  const [captionPreviewStyle, setCaptionPreviewStyle] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const emptyResultRetries = useRef(0);
 
   const selectedTemplate = CAPTION_TEMPLATES.find(([id]) => id === captionStyle) ?? CAPTION_TEMPLATES[0];
+
+  function openCaptionPreview(style: string) {
+    setCaptionPreviewStyle(style);
+  }
 
   function getProgressStage(progress: number) {
     if (progress >= 100) return "Concluído";
@@ -527,12 +532,17 @@ export default function Home() {
           </div>
           <div className="cf-template-grid">
             {CAPTION_TEMPLATES.map(([id, name, description]) => (
-              <button type="button" key={id} className={`cf-template ${captionStyle === id ? "selected" : ""}`} onClick={() => setCaptionStyle(id)} disabled={submitting}>
-                 <div className="cf-template-number">0{CAPTION_TEMPLATES.findIndex(([templateId]) => templateId === id) + 1}</div>
-                 <CaptionPreview id={id} />
-                 <div className="cf-template-info"><div><strong>{name}</strong>{captionStyle === id && <span className="cf-selected-label">SELECIONADO</span>}</div><span>{description}</span></div>
-                 {captionStyle === id && <span className="cf-check">✓</span>}
-               </button>
+              <div key={id} className={`cf-template ${captionStyle === id ? "selected" : ""}`}>
+                 <button type="button" className="cf-template-main" onClick={() => setCaptionStyle(id)} disabled={submitting} aria-label={`Selecionar legenda ${name}`}>
+                   <div className="cf-template-number">0{CAPTION_TEMPLATES.findIndex(([templateId]) => templateId === id) + 1}</div>
+                   <CaptionPreview id={id} />
+                   <div className="cf-template-info"><div><strong>{name}</strong>{captionStyle === id && <span className="cf-selected-label">SELECIONADO</span>}</div><span>{description}</span></div>
+                   {captionStyle === id && <span className="cf-check">✓</span>}
+                 </button>
+                 <button type="button" className="cf-template-preview-button" onClick={() => openCaptionPreview(id)} disabled={submitting}>
+                   <span>▶</span> VER PREVIEW
+                 </button>
+               </div>
             ))}
           </div>
           <div className={`cf-style-detail accent-${selectedTemplate[0]}`}>
@@ -695,6 +705,42 @@ export default function Home() {
           </section>
         )}
       </div>
+
+      {captionPreviewStyle && (
+        <div className="cf-caption-preview-modal" role="dialog" aria-modal="true" aria-label={`Preview da legenda ${captionPreviewStyle}`}>
+          <button type="button" className="cf-caption-preview-backdrop" onClick={() => setCaptionPreviewStyle(null)} aria-label="Fechar preview" />
+          <div className={`cf-caption-preview-dialog accent-${captionPreviewStyle}`}>
+            <div className="cf-caption-preview-head">
+              <div>
+                <span>PREVIEW FIXO · 30 SEGUNDOS</span>
+                <strong>{CAPTION_TEMPLATES.find(([id]) => id === captionPreviewStyle)?.[1] ?? "Legenda"}</strong>
+              </div>
+              <button type="button" className="cf-caption-preview-close" onClick={() => setCaptionPreviewStyle(null)} aria-label="Fechar preview">×</button>
+            </div>
+            <div className={`cf-caption-preview-video accent-${captionPreviewStyle}`}>
+              <iframe
+                src="https://www.youtube.com/embed/y_woFP79F0Q?autoplay=1&mute=1&start=0&end=30&controls=1&rel=0&modestbranding=1"
+                title="Preview de 30 segundos do podcast"
+                allow="autoplay; encrypted-media; picture-in-picture"
+                allowFullScreen
+              />
+              <div className="cf-caption-preview-overlay">
+                <span className="cf-caption-preview-context">MODERN WISDOM · EP. 1000</span>
+                <div className="cf-caption-preview-copy">
+                  <span>THE BIGGER</span>
+                  <strong>QUESTION</strong>
+                  <span>IS WHAT MATTERS</span>
+                </div>
+                <span className="cf-caption-preview-note">Demonstração visual do preset</span>
+              </div>
+            </div>
+            <div className="cf-caption-preview-footer">
+              <span>Trecho fixo do vídeo para comparar os presets.</span>
+              <button type="button" onClick={() => setCaptionPreviewStyle(null)}>FECHAR</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {previewClip && (
         <div
