@@ -157,7 +157,7 @@ def _retime_translated_words(text: str, start: float, end: float, source_words: 
 
     spoken = [
         word for word in (source_words or [])
-        if str(word.get("word", "")).strip()
+        if str(word.get("text", word.get("word", ""))).strip()
         and float(word.get("end", end)) > start
         and float(word.get("start", start)) < end
     ]
@@ -247,7 +247,11 @@ def transcribe(
         # faster and more stable path for interview audio; using the full MP4
         # soundtrack here caused a major CPU regression on GitHub Actions.
         speech_audio = _speech_only_audio(video_path)
-        result = _run(speech_audio)
+        # PT-BR translation is English -> Portuguese. Pin Whisper to English
+        # in this mode so short interview audio is not misclassified as Welsh,
+        # Spanish, etc., which can produce nonsensical translated captions.
+        source_language = "en" if subtitle_language == "pt-BR" else None
+        result = _run(speech_audio, language=source_language)
 
         def _keep(raw):
             return (
