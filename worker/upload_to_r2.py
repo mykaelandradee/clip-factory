@@ -59,6 +59,14 @@ def main() -> None:
             f"{requested_count}; uploading the available clips."
         )
 
+    # Remove stale objects from a previous attempt for the same job before
+    # calculating projected storage.
+    stale_response = client.list_objects_v2(Bucket=bucket, Prefix=f"jobs/{job_id}/")
+    stale_objects = [{"Key": obj["Key"]} for obj in stale_response.get("Contents", []) if obj.get("Key")]
+    if stale_objects:
+        client.delete_objects(Bucket=bucket, Delete={"Objects": stale_objects, "Quiet": True})
+        print(f"Removed {len(stale_objects)} stale R2 object(s) for job {job_id}")
+
     current_storage = 0
     continuation_token = None
     while True:
@@ -79,14 +87,6 @@ def main() -> None:
             f"current={current_storage} bytes, batch={batch_size} bytes, "
             f"limit={MAX_STORAGE_BYTES} bytes."
         )
-
-    # Remove stale objects from a previous attempt for the same job so the
-    # result can never expose clips that belong to an older retry.
-    stale_response = client.list_objects_v2(Bucket=bucket, Prefix=f"jobs/{job_id}/")
-    stale_objects = [{"Key": obj["Key"]} for obj in stale_response.get("Contents", []) if obj.get("Key")]
-    if stale_objects:
-        client.delete_objects(Bucket=bucket, Delete={"Objects": stale_objects, "Quiet": True})
-        print(f"Removed {len(stale_objects)} stale R2 object(s) for job {job_id}")
 
     uploaded = []
     for path in clip_files:
