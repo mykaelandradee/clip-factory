@@ -8,6 +8,8 @@ import { getClientKey, rateLimit } from "../../../../lib/rate-limit";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
+const MAX_BODY_BYTES = 16 * 1024;
+
 const INSTAGRAM_API_VERSION = "v25.0";
 const INSTAGRAM_GRAPH = `https://graph.instagram.com/${INSTAGRAM_API_VERSION}`;
 
@@ -27,13 +29,18 @@ async function readJson(response: Response) {
 }
 
 export async function POST(request: Request) {
+  const noStore = { "Cache-Control": "no-store" };
+  const contentLength = Number(request.headers.get("content-length") || 0);
+  if (contentLength > MAX_BODY_BYTES) {
+    return NextResponse.json({ error: "Requisição muito grande." }, { status: 413, headers: noStore });
+  }
   if (!configured()) {
     return NextResponse.json({ error: "A publicação do Instagram ainda não está configurada." }, { status: 503 });
   }
 
   const supabase = await createClient();
   const rate = rateLimit(getClientKey(request), 5, 60 * 60 * 1000);
-  if (!rate.allowed) return NextResponse.json({ error: "Limite de publicações do Instagram atingido. Aguarde antes de publicar novamente." }, { status: 429, headers: { "Retry-After": String(rate.retryAfterSeconds) } });
+  if (!rate.allowed) return NextResponse.json({ error: "Limite de publicações do Instagram atingido. Aguarde antes de publicar novamente." }, { status: 429, headers: { ...noStore, "Retry-After": String(rate.retryAfterSeconds) } });
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: "Entre no Clip Factory antes de publicar." }, { status: 401 });
