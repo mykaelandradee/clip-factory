@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from pathlib import Path
 
 import boto3
@@ -20,6 +21,7 @@ def env(name: str) -> str:
 
 
 def main() -> None:
+    upload_started = time.perf_counter()
     account_id = env("R2_ACCOUNT_ID")
     bucket = env("R2_BUCKET_NAME")
     public_url = env("R2_PUBLIC_URL").rstrip("/")
@@ -96,6 +98,9 @@ def main() -> None:
         )
         print(f"Uploaded {path.name} -> {public_url}/{key}")
 
+    upload_seconds = round(time.perf_counter() - upload_started, 2)
+    print(f"[timing] r2_upload_total={upload_seconds:.2f}s")
+
     output = Path("data/r2-urls.json")
     output.write_text(
         json.dumps(
@@ -107,6 +112,7 @@ def main() -> None:
                 "projectedStorageBytes": projected_storage,
                 "internalStorageLimitBytes": MAX_STORAGE_BYTES,
                 "files": uploaded,
+                "uploadSeconds": upload_seconds,
             },
             ensure_ascii=False,
             indent=2,
