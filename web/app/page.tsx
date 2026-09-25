@@ -506,7 +506,7 @@ export default function Home() {
               <div className="cf-job-top"><div><span className="cf-job-live">PROCESSAMENTO AO VIVO</span><strong>{job.progress >= 100 ? "Concluído" : getProgressStage(job.progress)}</strong></div><span className="cf-job-percent">{job.progress}%</span></div>
               <div className="cf-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={job.progress} aria-label="Progresso da geração"><div style={{ width: `${job.progress}%` }} /></div>
               <div className="cf-job-steps">
-                {[[20, "ANÁLISE"], [45, "TRANSCRIÇÃO"], [70, "MOMENTOS"], [90, "RENDER"], [100, "PRONTO"]].map(([threshold, label]) => <span key={label} className={job.progress >= threshold ? "done" : ""}>{label}</span>)}
+                {([20, "ANÁLISE"], [45, "TRANSCRIÇÃO"], [70, "MOMENTOS"], [90, "RENDER"], [100, "PRONTO"]].map(([threshold, label]) => <span key={label} className={job.progress >= Number(threshold) ? "done" : ""}>{label}</span>)}
               </div>
               <small>{job.stage || job.message}{jobId ? ` · Job ${jobId.slice(0, 8)}` : ""}</small>
             </div>
