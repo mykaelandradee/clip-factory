@@ -110,9 +110,13 @@ export async function POST(request: Request) {
   const count = parsePositiveInt(payload?.count ?? 5, 5, 1, 15);
   const minDuration = parsePositiveInt(payload?.min_duration ?? 20, 20, 5, 300);
   const maxDuration = parsePositiveInt(payload?.max_duration ?? 60, 60, minDuration, 300);
-  const subtitleLanguage = ["original", "pt-BR", "en"].includes(payload?.subtitle_language) ? body.subtitle_language : "original";
+  const subtitleLanguage = typeof payload?.subtitle_language === "string" && ["original", "pt-BR", "en"].includes(payload.subtitle_language)
+    ? payload.subtitle_language
+    : "original";
   const captionStyles = ["karaoke", "fire", "beasty", "youshaei", "harmozi", "cinematic"];
-  const captionStyle = captionStyles.includes(payload?.caption_style) ? body.caption_style : "karaoke";
+  const captionStyle = typeof payload?.caption_style === "string" && captionStyles.includes(payload.caption_style)
+    ? payload.caption_style
+    : "karaoke";
   const jobId = crypto.randomUUID();
   const accessToken = user ? null : createAnonymousAccessToken(jobId);
 
