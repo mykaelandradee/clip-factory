@@ -78,6 +78,7 @@ export default function Home() {
   const publishTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const [publishDrafts, setPublishDrafts] = useState<Record<string, { title: string; description: string; publishAt: string }>>({});
   const [previewClip, setPreviewClip] = useState<{ file: string; url: string; index: number } | null>(null);
+  const [previewErrors, setPreviewErrors] = useState<Record<string, boolean>>({});
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const emptyResultRetries = useRef(0);
 
@@ -98,6 +99,8 @@ export default function Home() {
     setJob(null);
     setJobId("");
     setError("");
+    setPreviewErrors({});
+    setPreviewClip(null);
     emptyResultRetries.current = 0;
     setSubmitting(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -579,11 +582,33 @@ export default function Home() {
                 const file = r2File.file;
                 const source = r2File.url;
                 const download = r2File.url;
+                const previewFailed = Boolean(previewErrors[file]);
                 return (
                   <article className="cf-result-card" key={file}>
                     <div className="cf-video-wrap">
-                      <video controls playsInline preload="metadata" src={source} />
+                      <video
+                        controls
+                        playsInline
+                        preload="metadata"
+                        src={source}
+                        onError={() => setPreviewErrors((current) => ({ ...current, [file]: true }))}
+                      />
                       <span className="cf-clip-number">0{index + 1}</span>
+                      <button
+                        type="button"
+                        className="cf-preview-button"
+                        onClick={() => setPreviewClip({ file, url: source, index })}
+                        aria-label={`Abrir preview do Clip ${index + 1}`}
+                      >
+                        ⛶
+                      </button>
+                      {previewFailed && (
+                        <div className="cf-video-fallback">
+                          <strong>Preview indisponível</strong>
+                          <span>O arquivo foi gerado e está disponível no R2.</span>
+                          <a href={source} target="_blank" rel="noreferrer">Abrir vídeo</a>
+                        </div>
+                      )}
                     </div>
                     <div className="cf-result-info">
                       <div className="cf-result-heading">
@@ -685,7 +710,7 @@ export default function Home() {
               <button type="button" className="cf-preview-close" onClick={() => setPreviewClip(null)} aria-label="Fechar preview">×</button>
             </div>
             <div className="cf-preview-modal-video">
-              <video controls autoPlay playsInline preload="metadata" crossOrigin="anonymous" src={previewClip.url} />
+              <video controls autoPlay playsInline preload="metadata" src={previewClip.url} />
             </div>
             <div className="cf-preview-modal-actions">
               <a href={previewClip.url} download={previewClip.file} className="cf-download">Baixar <span>↓</span></a>
