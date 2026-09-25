@@ -41,15 +41,22 @@ async function githubFetch(path: string, init: RequestInit = {}) {
 }
 
 function validateYoutubeUrl(value: unknown) {
-  if (typeof value !== "string" || !value.trim()) return false;
+  if (typeof value !== "string" || !value.trim() || value.length > 2048) return false;
   try {
     const parsed = new URL(value);
-    return parsed.hostname === "youtube.com" ||
-      parsed.hostname.endsWith(".youtube.com") ||
-      parsed.hostname === "youtu.be";
+    return parsed.protocol === "https:" &&
+      (parsed.hostname === "youtube.com" ||
+        parsed.hostname.endsWith(".youtube.com") ||
+        parsed.hostname === "youtu.be");
   } catch {
     return false;
   }
+}
+
+function parsePositiveInt(value: unknown, fallback: number, min: number, max: number) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, Math.trunc(parsed)));
 }
 
 export async function POST(request: Request) {
@@ -60,9 +67,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Informe uma URL válida do YouTube" }, { status: 400 });
   }
 
-  const count = Math.min(15, Math.max(1, Number(body.count ?? 5)));
-  const minDuration = Math.max(5, Number(body.min_duration ?? 20));
-  const maxDuration = Math.max(minDuration, Number(body.max_duration ?? 60));
+  const count = parsePositiveInt(body?.count ?? 5, 5, 1, 15);
+  const minDuration = parsePositiveInt(body?.min_duration ?? 20, 20, 5, 300);
+  const maxDuration = parsePositiveInt(body?.max_duration ?? 60, 60, minDuration, 300);
   const subtitleLanguage = ["original", "pt-BR", "en"].includes(body.subtitle_language) ? body.subtitle_language : "original";
   const captionStyles = ["karaoke", "fire", "beasty", "youshaei", "harmozi", "cinematic"];
   const captionStyle = captionStyles.includes(body.caption_style) ? body.caption_style : "karaoke";
@@ -157,7 +164,32 @@ export async function GET(request: Request) {
         progress: 5,
         stage: "queued",
         message: "Aguardando o GitHub Actions iniciar o worker.",
+        generatedCount: 0,
       });
+    }
+
+    let currentStep = "";
+    let failedStep = "";
+    try {
+      const jobsResponse = await githubFetch(
+        `/repos/${OWNER}/${REPO}/actions/runs/${run.id}/jobs?per_page=10`,
+      );
+      if (jobsResponse.ok) {
+        const jobsData = await jobsResponse.json();
+        const jobs = Array.isArray(jobsData.jobs) ? jobsData.jobs : [];
+        const job = jobs.find((item: { status?: string; conclusion?: string }) =>
+          item.status !== "completed" || item.conclusion !== "success",
+        ) ?? jobs[0];
+        const steps = Array.isArray(job?.steps) ? job.steps : [];
+        const active = steps.find((step: { status?: string }) => step.status === "in_progress");
+        const failed = steps.find((step: { conclusion?: string }) =>
+          ["failure", "cancelled", "timed_out"].includes(String(step.conclusion)),
+        );
+        currentStep = String(active?.name ?? "");
+        failedStep = String(failed?.name ?? "");
+      }
+    } catch (jobsError) {
+      console.error("GitHub job details lookup failed:", jobsError);
     }
 
     const status = run.status === "completed"
@@ -173,22 +205,34 @@ export async function GET(request: Request) {
       }
     }
 
-    const progress = status === "completed" ? 100 : run.status === "queued" ? 10 : 50;
+    const progress = status === "completed"
+      ? 100
+      : run.status === "queued"
+        ? 10
+        : currentStep
+          ? 50
+          : 25;
+
     const message = status === "completed"
       ? "Processamento concluído."
       : status === "failed"
-        ? "O processamento falhou."
+        ? `O processamento falhou${failedStep ? ` na etapa "${failedStep}"` : ""}.`
         : run.status === "queued"
           ? "Aguardando um runner do GitHub Actions."
-          : "Processando vídeo, transcrição e seleção dos clips.";
+          : currentStep
+            ? `Processando: ${currentStep}.`
+            : "Processando vídeo, transcrição e seleção dos clips.";
 
     return NextResponse.json({
       jobId: id,
       status,
       progress,
-      stage: run.status,
+      stage: currentStep || run.status,
       message,
-      error: status === "failed" ? `GitHub Actions: ${run.conclusion ?? "erro"}` : undefined,
+      generatedCount: files.length,
+      error: status === "failed"
+        ? `GitHub Actions: ${run.conclusion ?? "erro"}${failedStep ? ` — etapa: ${failedStep}` : ""}`
+        : undefined,
       result: status === "completed"
         ? {
             files,
