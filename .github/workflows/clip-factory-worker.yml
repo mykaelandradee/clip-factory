@@ -65,7 +65,6 @@ jobs:
       SUBTITLE_LANGUAGE: ${{ github.event.client_payload.subtitle_language || inputs.subtitle_language || 'original' }}
       CAPTION_STYLE: ${{ github.event.client_payload.caption_style || inputs.caption_style || 'karaoke' }}
       BGUTIL_POT_URL: http://127.0.0.1:4416
-      JOB_STATUS: ${{ job.status }}
       R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
       R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
       R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
@@ -191,6 +190,8 @@ jobs:
       - name: Write job lifecycle status
         if: always()
         working-directory: worker
+        env:
+          JOB_STATUS: ${{ job.status }}
         run: |
           python - <<'PY'
           import json
