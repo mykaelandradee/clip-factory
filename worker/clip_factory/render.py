@@ -239,7 +239,11 @@ def render_vertical(source: Path, candidate: ClipCandidate, output: Path,
     cmd = [
         "ffmpeg", "-y", "-ss", f"{candidate.start:.3f}", "-i", str(source),
         "-t", f"{candidate.duration:.3f}", "-vf", vf,
-        "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-maxrate", "20M", "-bufsize", "40M",
+        # Stage 3: favor wall-clock time on the GitHub-hosted CPU runner. CRF 20
+        # keeps the visual quality stable while veryfast avoids spending most of
+        # the job on x264 motion estimation. Two FFmpeg workers run in parallel
+        # from the pipeline, so cap each encoder to two threads.
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-threads", "2", "-maxrate", "20M", "-bufsize", "40M",
         "-c:a", "aac", "-b:a", "128k", "-ar", "48000", "-movflags", "+faststart", str(output),
     ]
     subprocess.run(cmd, check=True)
