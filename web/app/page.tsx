@@ -599,7 +599,9 @@ export default function Home() {
                         className="cf-preview-button"
                         onClick={(event) => {
                           const cardVideo = event.currentTarget.parentElement?.querySelector("video") as HTMLVideoElement | null;
-                          setPreviewClip({ file, url: source, index, currentTime: cardVideo?.currentTime ?? 0 });
+                          const currentTime = cardVideo?.currentTime ?? 0;
+                          if (cardVideo) cardVideo.pause();
+                          setPreviewClip({ file, url: source, index, currentTime });
                         }}
                         aria-label={`Abrir preview do Clip ${index + 1}`}
                       >
