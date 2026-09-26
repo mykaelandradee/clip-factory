@@ -875,3 +875,40 @@ button{appearance:none}
   text-shadow:none !important;
   box-shadow:none !important;
 }
+
+
+/* Canceled job state */
+.cf-progress.canceled { background:#3a1518; }
+.cf-progress.canceled > div { background:#ef4444 !important; }
+.cf-job-canceled {
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+  margin:11px 2px 0;
+  padding:12px 13px;
+  border:1px solid #ef444444;
+  border-radius:12px;
+  background:#ef44440d;
+}
+.cf-job-canceled strong { color:#ff7b7b; font-size:10px; letter-spacing:.06em; }
+.cf-job-canceled span { color:#a97a7a; font-size:8px; line-height:1.45; }
+
+/* Keep the native video fullscreen player at the source aspect ratio (9:16). */
+.cf-video-wrap video:fullscreen {
+  width:100vw !important;
+  height:100vh !important;
+  max-width:none !important;
+  max-height:none !important;
+  aspect-ratio:auto !important;
+  object-fit:contain !important;
+  background:#000 !important;
+}
+.cf-video-wrap video:-webkit-full-screen {
+  width:100vw !important;
+  height:100vh !important;
+  max-width:none !important;
+  max-height:none !important;
+  aspect-ratio:auto !important;
+  object-fit:contain !important;
+  background:#000 !important;
+}
