@@ -108,6 +108,7 @@ export default function Home() {
   const selectedTemplate = CAPTION_TEMPLATES.find(([id]) => id === captionStyle) ?? CAPTION_TEMPLATES[0];
 
   function getProgressStage(progress: number, stage?: string) {
+    if (stage === "canceled") return "Cancelado";
     if (progress >= 100) return "Concluído";
     const normalized = (stage || "").toLowerCase();
     if (normalized.includes("render")) return "Renderizando clips";
@@ -455,8 +456,8 @@ export default function Home() {
       if (timer.current) clearInterval(timer.current);
       timer.current = null;
       setSubmitting(false);
-      setJob((previous) => previous ? { ...previous, status: "failed", progress: previous.progress, message: data.message || "Processamento cancelado." } : previous);
-      setError("Processamento cancelado. Agora você pode alterar as opções e gerar novamente.");
+      setJob((previous) => previous ? { ...previous, status: "canceled", stage: "canceled", progress: previous.progress, message: data.message || "Processamento cancelado." } : previous);
+      setError("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Não foi possível cancelar o processamento.");
     }
@@ -681,16 +682,23 @@ export default function Home() {
 
           {jobId && job && (
             <div className="cf-job">
-              <div className="cf-job-top"><div><span className="cf-job-live">PROCESSAMENTO AO VIVO</span><strong>{job.progress >= 100 ? "Concluído" : getProgressStage(job.progress, job.stage)}</strong></div><span className="cf-job-percent">{job.progress}%</span></div>
-              <div className="cf-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={job.progress} aria-label="Progresso da geração"><div style={{ width: `${job.progress}%` }} /></div>
+              <div className="cf-job-top"><div><span className="cf-job-live">{job.status === "canceled" ? "PROCESSAMENTO CANCELADO" : "PROCESSAMENTO AO VIVO"}</span><strong>{job.status === "canceled" ? "Cancelado" : job.progress >= 100 ? "Concluído" : getProgressStage(job.progress, job.stage)}</strong></div><span className="cf-job-percent">{job.status === "canceled" ? "CANCELADO" : `${job.progress}%`}</span></div>
+              <div className={`cf-progress ${job.status === "canceled" ? "canceled" : ""}`} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={job.progress} aria-label={job.status === "canceled" ? "Processamento cancelado" : "Progresso da geração"}><div style={{ width: `${job.progress}%` }} /></div>
               <div className="cf-job-steps">
                 {[[20, "ANÁLISE"], [45, "TRANSCRIÇÃO"], [70, "MOMENTOS"], [90, "RENDER"], [100, "PRONTO"]].map(([threshold, label]) => <span key={label} className={job.progress >= Number(threshold) ? "done" : ""}>{label}</span>)}
               </div>
-              <small>{getProgressStage(job.progress, job.stage)} · {job.message}{jobId ? ` · Job ${jobId.slice(0, 8)}` : ""}</small>
+              <small>{job.status === "canceled" ? "Processamento cancelado" : getProgressStage(job.progress, job.stage)} · {job.message}{jobId ? ` · Job ${jobId.slice(0, 8)}` : ""}</small>
             </div>
           )}
 
           {error && <p className="cf-error">{error}</p>}
+          {job?.status === "canceled" && (
+            <div className="cf-job-canceled">
+              <strong>PROCESSAMENTO CANCELADO</strong>
+              <span>O processamento foi interrompido. Você pode alterar as opções e iniciar uma nova geração.</span>
+            </div>
+          )}
+
           {job?.status === "failed" && (
             <div className="cf-job-failure">
               <div>
