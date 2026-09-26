@@ -115,6 +115,12 @@ export async function POST(request: Request) {
     if (!cancelResponse.ok && cancelResponse.status !== 409) {
       const detail = await cancelResponse.text();
       console.error("GitHub cancel failed:", cancelResponse.status, detail);
+      if (cancelResponse.status === 403) {
+        return NextResponse.json(
+          { error: "O token do GitHub usado pelo Clip Factory não tem permissão Actions: Write para cancelar execuções." },
+          { status: 502 },
+        );
+      }
       return NextResponse.json({ error: "O GitHub Actions não permitiu cancelar o processamento." }, { status: 502 });
     }
 
