@@ -35,10 +35,10 @@ const idMap = {
 
 function CaptionPreview({ id }: { id: string }) {
   const content = {
-    karaoke: <><i>ISSO</i> <b>MUDA</b> <i>TUDO</i></>,
-    fire: <><i>ISSO</i> <b>MUDA</b> <i>TUDO</i></>,
-    youshaei: <><i>ISSO</i> <b>MUDA</b> <i>TUDO</i></>,
-    harmozi: <><i>ISSO</i> <b>MUDA</b> <i>TUDO</i></>,
+    karaoke: <><span>ISSO</span> <b>MUDA</b> <span>TUDO</span></>,
+    fire: <><span>ISSO</span> <b>MUDA</b> <span>TUDO</span></>,
+    youshaei: <><span>ISSO</span> <b>MUDA</b> <span>TUDO</span></>,
+    harmozi: <><span>ISSO</span> <b>MUDA</b> <span>TUDO</span></>,
     beasty: <><i>ISSO</i> <span className="preview-box-word">MUDA</span> <i>TUDO</i></>,
     cinematic: <><i>isso tudo</i><br/><b>muda a sua vida</b></>,
   }[id as keyof typeof idMap];
