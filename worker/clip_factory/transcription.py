@@ -34,6 +34,17 @@ def _normalize_pt_br(text: str) -> str:
     # Keep the local translation model, but normalize a few common European
     # Portuguese forms that are undesirable in Brazilian short-form captions.
     replacements = {
+        r"\bés\b": "é",
+        r"\bestás\b": "está",
+        r"\btens\b": "tem",
+        r"\bvens\b": "vem",
+        r"\bvais\b": "vai",
+        r"\bqueres\b": "quer",
+        r"\bpodes\b": "pode",
+        r"\bfazes\b": "faz",
+        r"\bsabes\b": "sabe",
+        r"\btrazias\b": "trazia",
+        r"\btrazes\b": "traz",
 r"\bficheiro\b": "arquivo",
         r"\btelemóvel\b": "celular",
         r"\bautocarro\b": "ônibus",
@@ -62,10 +73,11 @@ def _translate_to_pt(texts: list[str]) -> list[str]:
     if not texts:
         return []
 
-    model_name = "Helsinki-NLP/opus-mt-tc-big-en-pt"
-    tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False)
+    model_name = "facebook/nllb-200-distilled-600M"
+    tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False, src_lang="eng_Latn", tgt_lang="por_Latn")
     model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
     model.eval()
+    target_language_id = tokenizer.convert_tokens_to_ids("por_Latn")
     # This is inference-only. A single beam is enough for short social captions
     # and is substantially cheaper on GitHub Actions CPU than the model default.
     num_beams = 1
@@ -94,7 +106,7 @@ def _translate_to_pt(texts: list[str]) -> list[str]:
                         **inputs,
                         max_new_tokens=96,
                         num_beams=num_beams,
-                        early_stopping=True,
+                        forced_bos_token_id=target_language_id,
                     )
                 decoded = tokenizer.batch_decode(output_ids, skip_special_tokens=True)
             except Exception as batch_error:
@@ -114,7 +126,7 @@ def _translate_to_pt(texts: list[str]) -> list[str]:
                             **retry_inputs,
                             max_new_tokens=96,
                             num_beams=num_beams,
-                            early_stopping=True,
+                            forced_bos_token_id=target_language_id,
                         )
                     decoded.extend(tokenizer.batch_decode(retry_ids, skip_special_tokens=True))
 
