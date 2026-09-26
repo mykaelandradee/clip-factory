@@ -864,3 +864,46 @@ button{appearance:none}
   .cf-actions { flex-direction:column; align-items:stretch; }
   .cf-cancel-button { width:100%; }
 }
+
+/* Beasty preview — match rendered caption exactly:
+   normal words: white with black outline; active word: black on a square white background. */
+.cf-template-preview.accent-beasty .preview-subtitle {
+  font-family:"DejaVu Sans Mono",monospace;
+  font-weight:900;
+  text-transform:uppercase;
+  color:#fff;
+  text-shadow:2px 0 #000,-2px 0 #000,0 2px #000,0 -2px #000;
+}
+.cf-template-preview.accent-beasty .preview-subtitle i,
+.cf-template-preview.accent-beasty .preview-subtitle b {
+  border:0;
+  padding:0;
+  background:transparent;
+  box-shadow:none;
+  color:#fff;
+  text-shadow:2px 0 #000,-2px 0 #000,0 2px #000,0 -2px #000;
+}
+.cf-template-preview.accent-beasty .preview-subtitle b {
+  padding:2px 5px;
+  color:#000;
+  background:#fff;
+  text-shadow:none;
+}
+.cf-caption-preview-video.accent-beasty .cf-caption-preview-copy {
+  color:#fff;
+  text-shadow:2px 0 #000,-2px 0 #000,0 2px #000,0 -2px #000;
+}
+.cf-caption-preview-video.accent-beasty .cf-caption-preview-copy span {
+  padding:0;
+  border:0;
+  background:transparent;
+  color:#fff;
+  text-shadow:2px 0 #000,-2px 0 #000,0 2px #000,0 -2px #000;
+}
+.cf-caption-preview-video.accent-beasty .cf-caption-preview-copy span.active {
+  padding:4px 5px;
+  color:#000;
+  background:#fff;
+  border:0;
+  text-shadow:none;
+}
