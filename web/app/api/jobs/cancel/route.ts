@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { createClient } from "../../../lib/supabase/server";
-import { createAdminClient } from "../../../lib/supabase/admin";
+import { createClient } from "../../../../lib/supabase/server";
+import { createAdminClient } from "../../../../lib/supabase/admin";
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 export const runtime = "nodejs";
