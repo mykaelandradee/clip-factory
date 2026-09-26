@@ -16,12 +16,12 @@ type Job = {
 };
 
 const CAPTION_TEMPLATES = [
-  ["karaoke", "Karaoke", "Word-sync limpo com destaque amarelo"],
-  ["fire", "Fire", "Condensada, laranja e de alto impacto"],
-  ["beasty", "Beasty", "Monoespaçada, pesada e agressiva"],
-  ["youshaei", "Youshaei", "Editorial, espaçada com destaque cyan"],
-  ["harmozi", "Harmozi", "Bold condensada com ênfase verde"],
-  ["cinematic", "Cinematic", "Serifada, discreta e elegante"],
+  ["karaoke", "Karaoke", "Bold • palavra falada em amarelo"],
+  ["fire", "Fire", "Bold • palavra falada em laranja"],
+  ["youshaei", "Youshaei", "Bold • palavra falada em azul"],
+  ["harmozi", "Harmozi", "Bold • palavra falada em verde"],
+  ["beasty", "Beasty", "Branco • palavra falada em box branco"],
+  ["cinematic", "Cinematic", "Legenda de cinema • duas linhas"],
 ] as const;
 
 const idMap = {
@@ -37,10 +37,10 @@ function CaptionPreview({ id }: { id: string }) {
   const content = {
     karaoke: <><i>ISSO</i> <b>MUDA</b> <i>TUDO</i></>,
     fire: <><i>ISSO</i> <b>MUDA</b> <i>TUDO</i></>,
-    beasty: <><i>ISSO</i> <b>MUDA</b> <i>TUDO</i></>,
     youshaei: <><i>ISSO</i> <b>MUDA</b> <i>TUDO</i></>,
     harmozi: <><i>ISSO</i> <b>MUDA</b> <i>TUDO</i></>,
-    cinematic: <><i>isso</i> <b>muda</b> <i>tudo</i></>,
+    beasty: <><i>ISSO</i> <span className="preview-box-word">MUDA</span> <i>TUDO</i></>,
+    cinematic: <><i>isso tudo</i><br/><b>muda a sua vida</b></>,
   }[id as keyof typeof idMap];
   return (
     <div className={`cf-template-preview accent-${id}`}>
