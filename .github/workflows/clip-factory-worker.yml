@@ -203,6 +203,7 @@ jobs:
           import os
           from pathlib import Path
 
+          Path("data").mkdir(parents=True, exist_ok=True)
           Path("data/job-status.json").write_text(
               json.dumps({
                   "job_id": os.environ["JOB_ID"],
