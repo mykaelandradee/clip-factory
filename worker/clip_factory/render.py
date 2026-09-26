@@ -187,7 +187,7 @@ def _write_ass(candidate: ClipCandidate, segments: list[TranscriptSegment], outp
                 for index, (_, _, raw_word) in enumerate(group):
                     word_text = _ass_escape(raw_word.upper())
                     if index == active_index:
-                        pieces.append("{\\rBeastyBox}" + word_text + "{\\rCaption}")
+                        pieces.append("{\\rBeastyBox\\1c&H00000000&\\3c&H00FFFFFF&\\4c&H00FFFFFF&}" + word_text + "{\\rCaption}")
                     else:
                         pieces.append("{\\1c&H00FFFFFF&}" + word_text)
                 text = " ".join(pieces)
