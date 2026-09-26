@@ -82,6 +82,7 @@ export default function Home() {
   const [previewErrors, setPreviewErrors] = useState<Record<string, boolean>>({});
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const emptyResultRetries = useRef(0);
+  const canceledJobId = useRef("");
   const pollStartedAt = useRef(0);
   const CLIENT_JOB_TIMEOUT_MS = 50 * 60 * 1000;
 
@@ -155,6 +156,7 @@ export default function Home() {
   }
 
   function startNewGeneration() {
+    canceledJobId.current = "";
     if (timer.current) clearInterval(timer.current);
     timer.current = null;
     setJob(null);
@@ -385,6 +387,7 @@ export default function Home() {
   }
 
   async function poll(id: string, accessTokenOverride?: string) {
+    if (canceledJobId.current === id) return;
     try {
       if (pollStartedAt.current && Date.now() - pollStartedAt.current > CLIENT_JOB_TIMEOUT_MS) {
         if (timer.current) clearInterval(timer.current);
@@ -401,6 +404,7 @@ export default function Home() {
       });
       if (!response.ok) throw new Error("Não foi possível consultar o processamento.");
       const data = await response.json() as Job;
+      if (canceledJobId.current === id) return;
       setError("");
       setJob(data);
       setWorkerOnline(true);
@@ -455,6 +459,7 @@ export default function Home() {
       if (!response.ok) throw new Error(data.error || "Não foi possível cancelar o processamento.");
       if (timer.current) clearInterval(timer.current);
       timer.current = null;
+      canceledJobId.current = jobId;
       setSubmitting(false);
       setJob((previous) => previous ? { ...previous, status: "canceled", stage: "canceled", progress: previous.progress, message: data.message || "Processamento cancelado." } : previous);
       setError("");
@@ -466,6 +471,7 @@ export default function Home() {
   async function submit(e: FormEvent) {
     e.preventDefault();
     setError("");
+    canceledJobId.current = "";
     setJob(null);
     setJobId("");
     setJobAccessToken("");
