@@ -31,34 +31,88 @@ def _speech_only_audio(video_path: Path) -> Path:
 
 
 def _normalize_pt_br(text: str) -> str:
-    # Keep the local translation model, but normalize a few common European
-    # Portuguese forms that are undesirable in Brazilian short-form captions.
-    replacements = {
-        r"\bés\b": "é",
-        r"\bestás\b": "está",
-        r"\btens\b": "tem",
-        r"\bvens\b": "vem",
-        r"\bvais\b": "vai",
-        r"\bqueres\b": "quer",
-        r"\bpodes\b": "pode",
-        r"\bfazes\b": "faz",
-        r"\bsabes\b": "sabe",
-        r"\btrazias\b": "trazia",
-        r"\btrazes\b": "traz",
-        r"\bficheiro\b": "arquivo",
-        r"\btelemóvel\b": "celular",
-        r"\bautocarro\b": "ônibus",
-        r"\bcomboio\b": "trem",
-        r"\becrã\b": "tela",
-        r"\btu\b": "você",
-        r"\btuas\b": "suas",
-        r"\bteu\b": "seu",
-        r"\btua\b": "sua",
-    }
+    """Make local NLLB output sound natural in casual Brazilian Portuguese.
+
+    NLLB is multilingual and can occasionally choose European-Portuguese
+    second-person conjugations. Short-form captions should use Brazilian
+    conversational forms instead of literal/formal phrasing.
+    """
+    replacements = [
+        # European Portuguese vocabulary/pronouns.
+        (r"\bficheiro\b", "arquivo"),
+        (r"\btelemóvel\b", "celular"),
+        (r"\bautocarro\b", "ônibus"),
+        (r"\bcomboio\b", "trem"),
+        (r"\becrã\b", "tela"),
+        (r"\bvós\b", "vocês"),
+        (r"\bvosso\b", "de vocês"),
+        (r"\bvossa\b", "de vocês"),
+        (r"\bvossos\b", "de vocês"),
+        (r"\bvossas\b", "de vocês"),
+        (r"\btuas\b", "suas"),
+        (r"\bteus\b", "seus"),
+        (r"\btua\b", "sua"),
+        (r"\bteu\b", "seu"),
+        (r"\btu\b", "você"),
+        # Second-person singular forms that sound European/formal in a BR caption.
+        (r"\bés\b", "é"),
+        (r"\bestás\b", "está"),
+        (r"\bestavas\b", "estava"),
+        (r"\bestarias\b", "estaria"),
+        (r"\btens\b", "tem"),
+        (r"\btinhas\b", "tinha"),
+        (r"\bterias\b", "teria"),
+        (r"\bvens\b", "vem"),
+        (r"\bvinhas\b", "vinha"),
+        (r"\bvirias\b", "viria"),
+        (r"\bvais\b", "vai"),
+        (r"\bias\b", "ia"),
+        (r"\bqueres\b", "quer"),
+        (r"\bquerias\b", "queria"),
+        (r"\bpodes\b", "pode"),
+        (r"\bpodias\b", "podia"),
+        (r"\bfazes\b", "faz"),
+        (r"\bfazias\b", "fazia"),
+        (r"\bsabes\b", "sabe"),
+        (r"\bsabias\b", "sabia"),
+        (r"\bdizes\b", "diz"),
+        (r"\bdizias\b", "dizia"),
+        (r"\bpensas\b", "pensa"),
+        (r"\bpensavas\b", "pensava"),
+        (r"\bsentes\b", "sente"),
+        (r"\bsentias\b", "sentia"),
+        (r"\bachas\b", "acha"),
+        (r"\bachavas\b", "achava"),
+        (r"\bolhas\b", "olha"),
+        (r"\bolhavas\b", "olhava"),
+        (r"\busas\b", "usa"),
+        (r"\busavas\b", "usava"),
+        (r"\bprecisas\b", "precisa"),
+        (r"\bprecisavas\b", "precisava"),
+        (r"\bdeves\b", "deve"),
+        (r"\bdeverias\b", "deveria"),
+        (r"\btrazes\b", "traz"),
+        (r"\btrazias\b", "trazia"),
+        (r"\blevas\b", "leva"),
+        (r"\blevavas\b", "levava"),
+        (r"\bdeixas\b", "deixa"),
+        (r"\bdeixavas\b", "deixava"),
+        # Conversational Brazilian contractions for short-form captions.
+        (r"\bestá\b", "tá"),
+        (r"\bestão\b", "tão"),
+        (r"\bestou\b", "tô"),
+        (r"\bestamos\b", "tamo"),
+        (r"\bpara\b", "pra"),
+    ]
+
     out = text.strip()
-    for pattern, replacement in replacements.items():
+    for pattern, replacement in replacements:
         out = re.sub(pattern, replacement, out, flags=re.IGNORECASE)
-    return out
+
+    # Avoid doubled spaces introduced by replacements and keep caption casing
+    # controlled by the renderer.
+    out = re.sub(r"\s{2,}", " ", out)
+    return out.strip()
 
 
 def _translate_to_pt(texts: list[str]) -> list[str]:
