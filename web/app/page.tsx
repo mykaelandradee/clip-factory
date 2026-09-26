@@ -47,7 +47,6 @@ function CaptionPreview({ id }: { id: string }) {
       <span className="preview-top">9:16 • LIVE PREVIEW</span>
       <span className="preview-context">VOCÊ PRECISA VER ISSO</span>
       <span className="preview-subtitle">{content}</span>
-      <span className="preview-progress"><span /></span>
       <span className="preview-style-mark">{id}</span>
     </div>
   );
@@ -594,17 +593,33 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="cf-builder-head cf-section-head">
-            <div><span className="cf-kicker">02 / CUT</span><h3>Defina a duração</h3></div>
-            <span className="cf-section-note">Escolha o ritmo do conteúdo</span>
-          </div>
-          <div className="cf-duration-grid">
-            {[["15-30", "15–30s"], ["30-60", "30–60s"], ["45-90", "45–90s"]].map(([id, label]) => (
-              <button type="button" key={id} className={`cf-duration ${duration === id ? "selected" : ""}`} onClick={() => setDuration(id)} disabled={submitting}>
-                <span className="cf-duration-num">0{id === "15-30" ? "1" : id === "30-60" ? "2" : "3"}</span>
-                <strong>{label}</strong><span>clips nesta faixa</span>
-              </button>
-            ))}
+          <div className="cf-cut-layout">
+            <div className="cf-cut-panel">
+              <div className="cf-builder-head cf-section-head cf-cut-head">
+                <div><span className="cf-kicker">02 / CUT</span><h3>Defina a duração</h3></div>
+                <span className="cf-section-note">Escolha o ritmo do conteúdo</span>
+              </div>
+              <div className="cf-duration-grid">
+                {[["15-30", "15–30s"], ["30-60", "30–60s"], ["45-90", "45–90s"]].map(([id, label]) => (
+                  <button type="button" key={id} className={`cf-duration ${duration === id ? "selected" : ""}`} onClick={() => setDuration(id)} disabled={submitting}>
+                    <span className="cf-duration-num">0{id === "15-30" ? "1" : id === "30-60" ? "2" : "3"}</span>
+                    <strong>{label}</strong><span>clips nesta faixa</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="cf-source-preview">
+              <div className="cf-source-preview-head"><span className="cf-kicker">VIDEO PREVIEW</span><span>9:16 · SOURCE</span></div>
+              <div className="cf-source-preview-media">
+                {videoInfo?.thumbnail ? (
+                  <img src={videoInfo.thumbnail} alt="" />
+                ) : (
+                  <div className="cf-source-preview-empty"><span>▶</span><strong>Cole um link do YouTube</strong></div>
+                )}
+                {videoInfo?.thumbnail && <span className="cf-source-preview-play">▶</span>}
+              </div>
+              {videoInfo && <div className="cf-source-preview-info"><strong>{videoInfo.title}</strong><span>{videoInfo.author}</span></div>}
+            </div>
           </div>
 
           <div className="cf-builder-head cf-section-head">
