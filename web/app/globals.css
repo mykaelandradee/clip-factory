@@ -867,13 +867,17 @@ button{appearance:none}
   box-shadow:none !important;
   transform:none !important;
 }
-.cf-template-preview.accent-beasty .preview-subtitle b,
+.cf-template-preview.accent-beasty .preview-subtitle .preview-box-word,
 .cf-caption-preview-video.accent-beasty .cf-caption-preview-copy span.active {
+  display:inline-block !important;
   padding:2px 5px !important;
+  margin:0 !important;
+  border:0 !important;
   background:#fff !important;
   color:#000 !important;
   text-shadow:none !important;
   box-shadow:none !important;
+  transform:none !important;
 }
 
 
