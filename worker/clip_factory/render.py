@@ -114,16 +114,11 @@ def _active_phrase(group, active_index: int, style: str) -> str:
             pieces.append(f"{{\\1c{p['primary']}}}{text}")
             continue
 
-        # Each preset gets a deliberate visual signature while preserving
-        # the same hard-cut word timing.
-        if style == "fire":
-            pieces.append(f"{{\\1c{p['active']}\\3c&H00000000&\\bord8\\fs92}}{text}")
-        elif style == "youshaei":
-            pieces.append(f"{{\\1c{p['active']}\\u1\\bord3}}{text}")
-        elif style == "harmozi":
-            pieces.append(f"{{\\1c{p['active']}\\3c&H00181818&\\bord6\\fs88}}{text}")
-        else:
-            pieces.append(f"{{\\1c{p['active']}}}{text}")
+        # All four primary presets share the exact same treatment:
+        # white uppercase text with a black outline; only the active word
+        # receives the preset accent color. The font family is the only
+        # visual difference between the presets.
+        pieces.append(f"{{\\1c{p['active']}\\3c&H00000000&\\bord5\\shad0}}{text}")
     return " ".join(pieces)
 
 
