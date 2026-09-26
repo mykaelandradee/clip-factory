@@ -62,26 +62,12 @@ def _word_events(candidate: ClipCandidate, segments: list[TranscriptSegment]) ->
 
 
 PRESETS = {
-    # Position is intentionally in the lower-middle safe zone, never vertically centered.
-    # Colors use ASS AABBGGRR notation so they match the UI previews.
-    "karaoke": dict(font="DejaVu Sans", size=76, bold=1, primary="&H00FFFFFF",
-                   active="&H0000D4FF", outline=5, shadow=2, margin=440, spacing=0,
-                   alignment=2, scale_x=100, scale_y=100),
-    "fire": dict(font="DejaVu Sans Condensed", size=84, bold=1, primary="&H00FFFFFF",
-                 active="&H00008CFF", outline=6, shadow=3, margin=410, spacing=-1,
-                 alignment=2, scale_x=104, scale_y=100),
-    "beasty": dict(font="DejaVu Sans Mono", size=82, bold=1, primary="&H00FFFFFF",
-                   active="&H00000000", outline=7, shadow=0, margin=455, spacing=-1,
-                   alignment=2, scale_x=100, scale_y=100),
-    "youshaei": dict(font="DejaVu Sans", size=70, bold=1, primary="&H00FFFFFF",
-                    active="&H00FFE78F", outline=3, shadow=1, margin=485, spacing=1,
-                    alignment=2, scale_x=100, scale_y=100),
-    "harmozi": dict(font="DejaVu Sans Condensed", size=82, bold=1, primary="&H00FFFFFF",
-                    active="&H008BFF37", outline=5, shadow=2, margin=425, spacing=-1,
-                    alignment=2, scale_x=102, scale_y=100),
-    "cinematic": dict(font="DejaVu Serif", size=62, bold=0, primary="&H00FFFFFF",
-                      active="&H00FFFFFF", outline=2, shadow=2, margin=500, spacing=2,
-                      alignment=2, scale_x=100, scale_y=100),
+    "karaoke": dict(font="DejaVu Sans", size=76, bold=1, primary="&H00FFFFFF", active="&H0000FFFF", outline=5, shadow=2, margin=440, spacing=0, alignment=2, scale_x=100, scale_y=100),
+    "fire": dict(font="DejaVu Sans Condensed", size=76, bold=1, primary="&H00FFFFFF", active="&H000080FF", outline=5, shadow=2, margin=440, spacing=0, alignment=2, scale_x=100, scale_y=100),
+    "youshaei": dict(font="Liberation Sans", size=76, bold=1, primary="&H00FFFFFF", active="&H00FFBF00", outline=5, shadow=2, margin=440, spacing=0, alignment=2, scale_x=100, scale_y=100),
+    "harmozi": dict(font="DejaVu Sans Mono", size=76, bold=1, primary="&H00FFFFFF", active="&H004FFF7C", outline=5, shadow=2, margin=440, spacing=0, alignment=2, scale_x=100, scale_y=100),
+    "beasty": dict(font="DejaVu Sans Mono", size=78, bold=1, primary="&H00FFFFFF", active="&H00000000", outline=0, shadow=0, margin=455, spacing=-1, alignment=2, scale_x=100, scale_y=100),
+    "cinematic": dict(font="DejaVu Serif", size=58, bold=0, primary="&H00FFFFFF", active="&H00FFFFFF", outline=2, shadow=1, margin=470, spacing=1, alignment=2, scale_x=100, scale_y=100),
 }
 
 
@@ -149,89 +135,32 @@ def _event_text(group, style: str) -> str:
     for _, (_, _, raw_text) in enumerate(group):
         text = _ass_escape(raw_text.upper())
         if style == "beasty":
-            pieces.append(
-                f"{{\\c{p['primary']}\\3c&H00000000&\\bord7\\shad0}}{text}"
-            )
-        else:
-            pieces.append(text)
-    return " ".join(pieces)
-
-
-CAPTION_MAX_PAUSE = 0.35
-
-def _write_ass(candidate: ClipCandidate, segments: list[TranscriptSegment], output: Path, style: str) -> Path:
-    p = PRESETS.get(style, PRESETS["karaoke"])
-
-    lines = [
-        "[Script Info]",
-        "ScriptType: v4.00+",
-        "PlayResX: 1080",
-        "PlayResY: 1920",
-        "WrapStyle: 2",
-        "ScaledBorderAndShadow: yes",
-        "",
-        "[V4+ Styles]",
-        "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-        (
-            f"Style: Caption,{p['font']},{p['size']},{p['primary']},{p['primary']},"
-            f"&H00000000,&HCC000000,{p['bold']},0,0,0,{p['scale_x']},{p['scale_y']},"
-            f"{p['spacing']},0,1,{p['outline']},{p['shadow']},{p['alignment']},"
-            f"70,70,{p['margin']},1"
-        ),
-        # Beasty uses the same base ASS style as the other presets. Its black-box
-        # look is applied inline per spoken word, avoiding custom-style resolution
-        # differences across libass versions.
-        "",
-        "[Events]",
-        "Format: Layer, Start, End, Style, Name, MarginL, MarginR, Effect, Text",
-    ]
-
-    words = _word_events(candidate, segments)
-    groups = _group_words(words, style)
-
-    # Defensive fallback: if translated word timing is malformed, still render
-    # the overlapping segment text instead of producing a caption-free MP4.
-    if not groups:
-        fallback_words = []
-        for segment in segments:
-            segment_start = max(float(segment.start), candidate.start)
-            segment_end = min(float(segment.end), candidate.end)
-            text = str(segment.text).strip()
-            if text and segment_end > segment_start:
-                fallback_words.append((
-                    segment_start - candidate.start,
-                    segment_end - candidate.start,
-                    text,
-                ))
-        groups = _group_words(fallback_words, style)
-
-    for group in groups:
-        start, end = group[0][0], group[-1][1]
-
-        # Beasty uses a deliberately different personality: each spoken word
-        # becomes a solid inverted box. It intentionally uses the base Caption
-        # style so libass cannot drop the event because of a missing custom style.
-        if style == "beasty":
-            for word_start, word_end, raw_word in group:
-                word_text = _ass_escape(raw_word.upper())
-                text = (
-                    "{\\1c&H00000000&\\3c&H00FFFFFF&\\bord7\\shad0}"
-                    + word_text
-                )
+            for active_index, (word_start, word_end, _) in enumerate(group):
+                pieces = []
+                for index, (_, _, raw_word) in enumerate(group):
+                    word_text = _ass_escape(raw_word.upper())
+                    if index == active_index:
+                        pieces.append("{\\rBeastyBox}" + word_text + "{\\rCaption}")
+                    else:
+                        pieces.append("{\\c&H00FFFFFF&}" + word_text)
+                text = " ".join(pieces)
                 lines.append(
-                    f"Dialogue: 0,{_ass_time(word_start)},{_ass_time(word_end)},"
+                    f"Dialogue: 0,{_ass_time(word_start)},{_ass_time(word_end)},",
                     f"Caption,,0,0,0,{text}"
                 )
             continue
-
         # Cinematic remains on its existing personality path.
         if style == "cinematic":
+            words_text = [_ass_escape(raw.upper()) for _, _, raw in group]
+            midpoint = max(1, len(words_text) // 2)
+            line1 = " ".join(words_text[:midpoint])
+            line2 = " ".join(words_text[midpoint:])
+            text = line1 if not line2 else line1 + "\\N" + line2
             lines.append(
-                f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},"
-                f"Caption,,0,0,0,{_event_text(group, style)}"
+                f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},",
+                f"Caption,,0,0,0,{text}"
             )
             continue
-
         # Exactly one caption event is visible at any moment. We split the
         # phrase into word-timed slices instead of drawing a white base plus a
         # colored overlay. This keeps the caption visually single and prevents
