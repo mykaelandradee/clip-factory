@@ -441,6 +441,27 @@ export default function Home() {
     });
   }
 
+  async function cancelJob() {
+    if (!jobId || !jobAccessToken || !submitting) return;
+    setError("");
+    try {
+      const response = await fetch("/api/jobs/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobId, accessToken: jobAccessToken || undefined }),
+      });
+      const data = await readJsonResponse<{ error?: string; message?: string }>(response);
+      if (!response.ok) throw new Error(data.error || "Não foi possível cancelar o processamento.");
+      if (timer.current) clearInterval(timer.current);
+      timer.current = null;
+      setSubmitting(false);
+      setJob((previous) => previous ? { ...previous, status: "failed", progress: previous.progress, message: data.message || "Processamento cancelado." } : previous);
+      setError("Processamento cancelado. Agora você pode alterar as opções e gerar novamente.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível cancelar o processamento.");
+    }
+  }
+
   async function submit(e: FormEvent) {
     e.preventDefault();
     setError("");
@@ -558,13 +579,6 @@ export default function Home() {
                 <span>{loadingInfo ? "Analisando vídeo..." : videoInfo ? "Vídeo identificado automaticamente" : "Cole um link de vídeo do YouTube"}</span>
                 <span>Sem login para gerar</span>
               </div>
-              {videoInfo && (
-                <div className="cf-video-info">
-                  <div className="cf-video-thumb-wrap"><img src={videoInfo.thumbnail} alt="" /><span>9:16</span></div>
-                  <div><strong>{videoInfo.title}</strong><span>{videoInfo.author}</span><small className="cf-video-ready">● VÍDEO IDENTIFICADO</small></div>
-                  <span className="cf-video-check">✓</span>
-                </div>
-              )}
             </div>
             <div className="cf-field">
               <label>Quantidade de clips</label>
@@ -593,8 +607,32 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="cf-cut-layout">
-            <div className="cf-cut-panel">
+          {videoInfo && (
+            <div className="cf-source-cut-row">
+              <div className="cf-video-info">
+                <div className="cf-video-thumb-wrap"><img src={videoInfo.thumbnail} alt="" /><span>9:16</span></div>
+                <div><strong>{videoInfo.title}</strong><span>{videoInfo.author}</span><small className="cf-video-ready">● VÍDEO IDENTIFICADO</small></div>
+                <span className="cf-video-check">✓</span>
+              </div>
+              <div className="cf-cut-panel">
+                <div className="cf-builder-head cf-section-head cf-cut-head">
+                  <div><span className="cf-kicker">02 / CUT</span><h3>Defina a duração</h3></div>
+                  <span className="cf-section-note">Escolha o ritmo do conteúdo</span>
+                </div>
+                <div className="cf-duration-grid">
+                  {[["15-30", "15–30s"], ["30-60", "30–60s"], ["45-90", "45–90s"]].map(([id, label]) => (
+                    <button type="button" key={id} className={`cf-duration ${duration === id ? "selected" : ""}`} onClick={() => setDuration(id)} disabled={submitting}>
+                      <span className="cf-duration-num">0{id === "15-30" ? "1" : id === "30-60" ? "2" : "3"}</span>
+                      <strong>{label}</strong><span>clips nesta faixa</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!videoInfo && (
+            <div className="cf-cut-panel cf-cut-panel-empty">
               <div className="cf-builder-head cf-section-head cf-cut-head">
                 <div><span className="cf-kicker">02 / CUT</span><h3>Defina a duração</h3></div>
                 <span className="cf-section-note">Escolha o ritmo do conteúdo</span>
@@ -608,19 +646,7 @@ export default function Home() {
                 ))}
               </div>
             </div>
-            <div className="cf-source-preview">
-              <div className="cf-source-preview-head"><span className="cf-kicker">VIDEO PREVIEW</span><span>9:16 · SOURCE</span></div>
-              <div className="cf-source-preview-media">
-                {videoInfo?.thumbnail ? (
-                  <img src={videoInfo.thumbnail} alt="" />
-                ) : (
-                  <div className="cf-source-preview-empty"><span>▶</span><strong>Cole um link do YouTube</strong></div>
-                )}
-                {videoInfo?.thumbnail && <span className="cf-source-preview-play">▶</span>}
-              </div>
-              {videoInfo && <div className="cf-source-preview-info"><strong>{videoInfo.title}</strong><span>{videoInfo.author}</span></div>}
-            </div>
-          </div>
+          )}
 
           <div className="cf-builder-head cf-section-head">
             <div><span className="cf-kicker">03 / STYLE</span><h3>Escolha a personalidade da legenda</h3></div>
@@ -648,6 +674,11 @@ export default function Home() {
             <button className="cf-button" type="submit" disabled={submitting}>
               <span>{submitting ? "PROCESSANDO..." : "GERAR CLIPS"}</span><b>↗</b>
             </button>
+            {submitting && (
+              <button type="button" className="cf-cancel-button" onClick={cancelJob}>
+                CANCELAR PROCESSAMENTO
+              </button>
+            )}
           </div>
 
           {jobId && job && (
