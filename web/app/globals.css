@@ -813,3 +813,54 @@ button{appearance:none}
 @media(max-width:600px){
   .cf-cut-layout { gap:12px; }
 }
+
+/* Source preview + 02 / CUT layout: reuse the existing identified-video preview. */
+.cf-source-cut-row {
+  display:grid;
+  grid-template-columns:minmax(0,1.35fr) minmax(320px,.65fr);
+  gap:12px;
+  align-items:stretch;
+  margin-top:31px;
+  padding-top:25px;
+  border-top:1px solid #ffffff09;
+}
+.cf-source-cut-row .cf-video-info {
+  margin-top:0;
+  height:100%;
+  box-sizing:border-box;
+}
+.cf-source-cut-row .cf-cut-panel {
+  min-width:0;
+  padding:13px;
+  border:1px solid #ffffff10;
+  border-radius:15px;
+  background:#09090d;
+}
+.cf-source-cut-row .cf-cut-panel .cf-section-head {
+  margin-top:0;
+  padding-top:0;
+  border-top:0;
+}
+.cf-cancel-button {
+  min-height:44px;
+  padding:0 16px;
+  border:1px solid #ff6b6b44;
+  border-radius:10px;
+  background:#ff6b6b0d;
+  color:#ffb0b0;
+  font-size:9px;
+  font-weight:900;
+  letter-spacing:.08em;
+  cursor:pointer;
+}
+.cf-cancel-button:hover { background:#ff6b6b18; border-color:#ff6b6b66; }
+.cf-cancel-button:disabled { opacity:.55; cursor:wait; }
+.cf-cut-panel-empty { margin-top:31px; }
+@media(max-width:980px){
+  .cf-source-cut-row { grid-template-columns:1fr; }
+}
+@media(max-width:600px){
+  .cf-source-cut-row { gap:10px; margin-top:22px; padding-top:18px; }
+  .cf-actions { flex-direction:column; align-items:stretch; }
+  .cf-cancel-button { width:100%; }
+}
