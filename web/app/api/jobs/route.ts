@@ -289,7 +289,11 @@ export async function GET(request: Request) {
     }
 
     const status = run.status === "completed"
-      ? (run.conclusion === "success" ? "completed" : "failed")
+      ? (run.conclusion === "success"
+          ? "completed"
+          : run.conclusion === "cancelled"
+            ? "canceled"
+            : "failed")
       : "processing";
 
     let files: Array<{ file: string; url: string }> = [];
@@ -341,7 +345,9 @@ export async function GET(request: Request) {
 
     const message = status === "completed"
       ? "Processamento concluído."
-      : status === "failed"
+      : status === "canceled"
+        ? "Processamento cancelado."
+        : status === "failed"
         ? failureMessage!
         : run.status === "queued"
           ? "Aguardando um runner do GitHub Actions."
