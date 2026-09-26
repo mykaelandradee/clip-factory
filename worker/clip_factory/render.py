@@ -155,7 +155,7 @@ def _write_ass(candidate: ClipCandidate, segments: list[TranscriptSegment], outp
             f"70,70,{p['margin']},1"
         ),
         # Beasty active words use a solid white box with black text.
-        "Style: BeastyBox,DejaVu Sans Mono,78,&H00000000,&H00000000,&H00000000,&H00FFFFFF,1,0,0,0,100,100,-1,0,3,0,0,2,30,30,455,1",
+        "Style: BeastyBox,DejaVu Sans Mono,78,&H00000000,&H00000000,&H00FFFFFF,&H00FFFFFF,1,0,0,0,100,100,-1,0,3,6,0,2,30,30,455,1",
         "",
         "[Events]",
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, Effect, Text",
@@ -187,7 +187,7 @@ def _write_ass(candidate: ClipCandidate, segments: list[TranscriptSegment], outp
                 for index, (_, _, raw_word) in enumerate(group):
                     word_text = _ass_escape(raw_word.upper())
                     if index == active_index:
-                        pieces.append("{\\rBeastyBox\\1c&H00000000&\\3c&H00000000&\\4c&H00FFFFFF&}" + word_text + "{\\rCaption}")
+                        pieces.append("{\\rBeastyBox\\1c&H00000000&}" + word_text + "{\\rCaption}")
                     else:
                         pieces.append("{\\1c&H00FFFFFF&}" + word_text)
                 text = " ".join(pieces)
