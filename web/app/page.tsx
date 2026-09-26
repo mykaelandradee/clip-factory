@@ -145,7 +145,7 @@ export default function Home() {
         message: data.message || "Nova tentativa iniciada.",
       });
       if (timer.current) clearInterval(timer.current);
-      timer.current = setInterval(() => poll(jobId), 3000);
+      timer.current = setInterval(() => poll(jobId, jobAccessToken), 3000);
     } catch (err) {
       setSubmitting(false);
       setError(err instanceof Error ? err.message : "Não foi possível tentar novamente.");
@@ -384,7 +384,7 @@ export default function Home() {
     } catch { setWorkerOnline(false); }
   }
 
-  async function poll(id: string) {
+  async function poll(id: string, accessTokenOverride?: string) {
     try {
       if (pollStartedAt.current && Date.now() - pollStartedAt.current > CLIENT_JOB_TIMEOUT_MS) {
         if (timer.current) clearInterval(timer.current);
@@ -397,7 +397,7 @@ export default function Home() {
       const query = new URLSearchParams({ id });
       const response = await fetch("/api/jobs?" + query.toString(), {
         cache: "no-store",
-        headers: jobAccessToken ? { Authorization: `Bearer ${jobAccessToken}` } : undefined,
+        headers: (accessTokenOverride || jobAccessToken) ? { Authorization: `Bearer ${accessTokenOverride || jobAccessToken}` } : undefined,
       });
       if (!response.ok) throw new Error("Não foi possível consultar o processamento.");
       const data = await response.json() as Job;
@@ -479,7 +479,7 @@ export default function Home() {
       setJobAccessToken(data.accessToken || "");
       pollStartedAt.current = Date.now();
       setJob(data);
-      timer.current = setInterval(() => poll(data.jobId), 3000);
+      timer.current = setInterval(() => poll(data.jobId, data.accessToken || ""), 3000);
     } catch (err) {
       setSubmitting(false);
       setWorkerOnline(false);
