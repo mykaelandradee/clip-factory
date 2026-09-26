@@ -12,8 +12,6 @@ from urllib.parse import parse_qs, unquote, urlparse
 import requests
 
 from .config import settings
-from .pipeline import run_pipeline
-from .youtube import prepare_youtube_cookies
 
 jobs: dict[str, dict] = {}
 jobs_lock = threading.Lock()
@@ -129,6 +127,7 @@ class Handler(BaseHTTPRequestHandler):
         cookie_path = None
         cookie_error = None
         try:
+            from .youtube import prepare_youtube_cookies
             cookie_path = prepare_youtube_cookies()
         except Exception as exc:
             cookie_error = str(exc)
@@ -256,6 +255,8 @@ class Handler(BaseHTTPRequestHandler):
             def progress(stage: str, percent: int, message: str) -> None:
                 update_job(job_id, status="processing", stage=stage, progress=percent, message=message)
 
+            from .pipeline import run_pipeline
+
             result = run_pipeline(
                 str(payload["url"]),
                 provider=str(payload.get("provider", "openai")),
@@ -282,7 +283,8 @@ class Handler(BaseHTTPRequestHandler):
 def main() -> None:
     settings.ensure_dirs()
     server = ThreadingHTTPServer((settings.worker_host, settings.worker_port), Handler)
-    print(f"Clip Factory worker listening on http://{settings.worker_host}:{settings.worker_port}")
+    print(f"Starting Clip Factory worker on {settings.worker_host}:{settings.worker_port}", flush=True)
+    print(f"Clip Factory worker listening on http://{settings.worker_host}:{settings.worker_port}", flush=True)
     server.serve_forever()
 
 
