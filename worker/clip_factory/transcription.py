@@ -45,7 +45,7 @@ def _normalize_pt_br(text: str) -> str:
         r"\bsabes\b": "sabe",
         r"\btrazias\b": "trazia",
         r"\btrazes\b": "traz",
-r"\bficheiro\b": "arquivo",
+        r"\bficheiro\b": "arquivo",
         r"\btelemóvel\b": "celular",
         r"\bautocarro\b": "ônibus",
         r"\bcomboio\b": "trem",
