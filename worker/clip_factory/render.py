@@ -127,13 +127,65 @@ def _active_phrase(group, active_index: int, style: str) -> str:
     return " ".join(pieces)
 
 
+
 def _event_text(group, style: str) -> str:
-    # Kept for the existing Beasty/Cinematic paths. The active-word overlay
-    # renderer below is used for the four color-highlight styles.
     p = PRESETS.get(style, PRESETS["karaoke"])
     pieces = []
-    for _, (_, _, raw_text) in enumerate(group):
+    for _, _, raw_text in group:
         text = _ass_escape(raw_text.upper())
+        pieces.append(text)
+    return " ".join(pieces)
+
+
+CAPTION_MAX_PAUSE = 0.35
+
+
+def _write_ass(candidate: ClipCandidate, segments: list[TranscriptSegment], output: Path, style: str) -> Path:
+    p = PRESETS.get(style, PRESETS["karaoke"])
+
+    lines = [
+        "[Script Info]",
+        "ScriptType: v4.00+",
+        "PlayResX: 1080",
+        "PlayResY: 1920",
+        "WrapStyle: 2",
+        "ScaledBorderAndShadow: yes",
+        "",
+        "[V4+ Styles]",
+        "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
+        (
+            f"Style: Caption,{p['font']},{p['size']},{p['primary']},{p['primary']},"
+            f"&H00000000,&HCC000000,{p['bold']},0,0,0,{p['scale_x']},{p['scale_y']},"
+            f"{p['spacing']},0,1,{p['outline']},{p['shadow']},{p['alignment']},"
+            f"70,70,{p['margin']},1"
+        ),
+        # Beasty active words use a solid white box with black text.
+        "Style: BeastyBox,DejaVu Sans Mono,78,&H00000000,&H00000000,&H00FFFFFF,&H00FFFFFF,1,0,0,0,100,100,-1,0,3,0,0,2,30,30,455,1",
+        "",
+        "[Events]",
+        "Format: Layer, Start, End, Style, Name, MarginL, MarginR, Effect, Text",
+    ]
+
+    words = _word_events(candidate, segments)
+    groups = _group_words(words, style)
+
+    if not groups:
+        fallback_words = []
+        for segment in segments:
+            segment_start = max(float(segment.start), candidate.start)
+            segment_end = min(float(segment.end), candidate.end)
+            text = str(segment.text).strip()
+            if text and segment_end > segment_start:
+                fallback_words.append((
+                    segment_start - candidate.start,
+                    segment_end - candidate.start,
+                    text,
+                ))
+        groups = _group_words(fallback_words, style)
+
+    for group in groups:
+        start, end = group[0][0], group[-1][1]
+
         if style == "beasty":
             for active_index, (word_start, word_end, _) in enumerate(group):
                 pieces = []
@@ -142,13 +194,14 @@ def _event_text(group, style: str) -> str:
                     if index == active_index:
                         pieces.append("{\\rBeastyBox}" + word_text + "{\\rCaption}")
                     else:
-                        pieces.append("{\\c&H00FFFFFF&}" + word_text)
+                        pieces.append("{\\1c&H00FFFFFF&}" + word_text)
                 text = " ".join(pieces)
                 lines.append(
-                    f"Dialogue: 0,{_ass_time(word_start)},{_ass_time(word_end)},Caption,,0,0,0,{text}"
+                    f"Dialogue: 0,{_ass_time(word_start)},{_ass_time(word_end)},"
+                    f"Caption,,0,0,0,{text}"
                 )
             continue
-        # Cinematic remains on its existing personality path.
+
         if style == "cinematic":
             words_text = [_ass_escape(raw.upper()) for _, _, raw in group]
             midpoint = max(1, len(words_text) // 2)
@@ -156,13 +209,11 @@ def _event_text(group, style: str) -> str:
             line2 = " ".join(words_text[midpoint:])
             text = line1 if not line2 else line1 + "\\N" + line2
             lines.append(
-                f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},Caption,,0,0,0,{text}"
+                f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},"
+                f"Caption,,0,0,0,{text}"
             )
             continue
-        # Exactly one caption event is visible at any moment. We split the
-        # phrase into word-timed slices instead of drawing a white base plus a
-        # colored overlay. This keeps the caption visually single and prevents
-        # duplicate outlines/shadows from stacking.
+
         for active_index, (word_start, word_end, _) in enumerate(group):
             phrase = _active_phrase(group, active_index, style)
             lines.append(
@@ -170,8 +221,6 @@ def _event_text(group, style: str) -> str:
                 f"Caption,,0,0,0,{phrase}"
             )
 
-        # Keep the phrase white during pauses between words. This is still a
-        # single caption event, never an overlapping foreground/background pair.
         for index in range(len(group) - 1):
             gap_start = group[index][1]
             gap_end = group[index + 1][0]
@@ -182,17 +231,8 @@ def _event_text(group, style: str) -> str:
                     f"Caption,,0,0,0,{phrase}"
                 )
 
-    if not groups:
-        for segment in segments:
-            start = max(segment.start, candidate.start) - candidate.start
-            end = min(segment.end, candidate.end) - candidate.start
-            text = _ass_escape(" ".join(segment.text.split()).upper())
-            if end > start and text:
-                lines.append(f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},Caption,,0,0,0,{text}")
-
     output.write_text("\n".join(lines), encoding="utf-8")
     return output
-
 
 def render_vertical(source: Path, candidate: ClipCandidate, output: Path,
                     segments: list[TranscriptSegment], caption_style: str = "karaoke") -> Path:
