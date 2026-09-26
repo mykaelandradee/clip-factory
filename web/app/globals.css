@@ -815,31 +815,11 @@ button{appearance:none}
 }
 
 /* Source preview + 02 / CUT layout: reuse the existing identified-video preview. */
-.cf-source-cut-row {
-  display:grid;
-  grid-template-columns:minmax(0,1.35fr) minmax(320px,.65fr);
-  gap:12px;
-  align-items:stretch;
+.cf-cut-panel {
   margin-top:31px;
-  padding-top:25px;
-  border-top:1px solid #ffffff09;
 }
-.cf-source-cut-row .cf-video-info {
+.cf-cut-panel .cf-section-head {
   margin-top:0;
-  height:100%;
-  box-sizing:border-box;
-}
-.cf-source-cut-row .cf-cut-panel {
-  min-width:0;
-  padding:13px;
-  border:1px solid #ffffff10;
-  border-radius:15px;
-  background:#09090d;
-}
-.cf-source-cut-row .cf-cut-panel .cf-section-head {
-  margin-top:0;
-  padding-top:0;
-  border-top:0;
 }
 .cf-cancel-button {
   min-height:44px;
