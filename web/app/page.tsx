@@ -20,7 +20,7 @@ const CAPTION_TEMPLATES = [
   ["fire", "Fire", "Bold • palavra falada em laranja"],
   ["youshaei", "Youshaei", "Bold • palavra falada em azul"],
   ["harmozi", "Harmozi", "Bold • palavra falada em verde"],
-  ["beasty", "Beasty", "Branco • palavra falada em box branco"],
+  ["beasty", "Beasty", "Branco • palavra falada preta em box branco"],
   ["cinematic", "Cinematic", "Legenda de cinema • duas linhas"],
 ] as const;
 
