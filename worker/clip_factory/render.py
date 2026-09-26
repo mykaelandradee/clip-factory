@@ -145,8 +145,7 @@ def _event_text(group, style: str) -> str:
                         pieces.append("{\\c&H00FFFFFF&}" + word_text)
                 text = " ".join(pieces)
                 lines.append(
-                    f"Dialogue: 0,{_ass_time(word_start)},{_ass_time(word_end)},",
-                    f"Caption,,0,0,0,{text}"
+                    f"Dialogue: 0,{_ass_time(word_start)},{_ass_time(word_end)},Caption,,0,0,0,{text}"
                 )
             continue
         # Cinematic remains on its existing personality path.
@@ -157,8 +156,7 @@ def _event_text(group, style: str) -> str:
             line2 = " ".join(words_text[midpoint:])
             text = line1 if not line2 else line1 + "\\N" + line2
             lines.append(
-                f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},",
-                f"Caption,,0,0,0,{text}"
+                f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},Caption,,0,0,0,{text}"
             )
             continue
         # Exactly one caption event is visible at any moment. We split the
