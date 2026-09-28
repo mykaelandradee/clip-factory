@@ -71,6 +71,10 @@ export async function POST(request: Request) {
   const ownsAuthenticatedJob = ownedJob?.user_id === user.id;
   const ownsAnonymousJob = ownedJob?.user_id == null && isAnonymousJobAccessValid(jobId, accessToken);
   if (!ownedJob || (!ownsAuthenticatedJob && !ownsAnonymousJob)) return NextResponse.json({ error: "Este processamento não pertence ao usuário autenticado." }, { status: 403 });
+  if (ownsAnonymousJob) {
+    const { error: claimError } = await admin.from("clip_jobs").update({ user_id: user.id }).eq("id", jobId).is("user_id", null);
+    if (claimError) return NextResponse.json({ error: "Não foi possível vincular este processamento ao usuário autenticado." }, { status: 500 });
+  }
 
   const dispatchedAt = new Date().toISOString();
   const response = await fetch("https://api.github.com/repos/mykaelandradee/clip-factory/dispatches", {
