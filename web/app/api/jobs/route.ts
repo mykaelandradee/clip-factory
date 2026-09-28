@@ -307,7 +307,7 @@ export async function GET(request: Request) {
       : "processing";
 
     let files: Array<{ file: string; url: string }> = [];
-    if (status === "completed") {
+    if (["completed", "failed", "canceled"].includes(status)) {
       try {
         files = await listR2ClipUrls(id);
       } catch (r2Error) {
@@ -376,7 +376,7 @@ export async function GET(request: Request) {
         ? `${failureMessage} (${run.conclusion ?? "erro"}${failedStep ? ` · ${failedStep}` : ""})`
         : undefined,
       errorCategory: status === "failed" ? failureCategory : undefined,
-      result: status === "completed"
+      result: files.length
         ? {
             files,
             candidates: [],
