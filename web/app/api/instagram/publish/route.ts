@@ -95,6 +95,10 @@ export async function POST(request: Request) {
   if (!ownedJob || (!ownsAuthenticatedJob && !ownsAnonymousJob)) {
     return NextResponse.json({ error: "Este processamento não pertence ao usuário autenticado." }, { status: 403 });
   }
+  if (ownsAnonymousJob) {
+    const { error: claimError } = await admin.from("clip_jobs").update({ user_id: user.id }).eq("id", jobId).is("user_id", null);
+    if (claimError) return NextResponse.json({ error: "Não foi possível vincular este processamento ao usuário autenticado." }, { status: 500 });
+  }
 
   try {
     let accessToken = decryptInstagramAccessToken(connection.access_token_encrypted);
