@@ -494,9 +494,19 @@ export default function Home() {
         return;
       }
       const query = new URLSearchParams({ id });
+      let sessionAccessToken = accessTokenOverride || jobAccessToken;
+      if (!sessionAccessToken && !GENERATION_ONLY_MODE) {
+        try {
+          const supabase = createClient();
+          const { data } = await supabase.auth.getSession();
+          sessionAccessToken = data.session?.access_token || "";
+        } catch {
+          sessionAccessToken = "";
+        }
+      }
       const response = await fetch("/api/jobs?" + query.toString(), {
         cache: "no-store",
-        headers: (accessTokenOverride || jobAccessToken) ? { Authorization: `Bearer ${accessTokenOverride || jobAccessToken}` } : undefined,
+        headers: sessionAccessToken ? { Authorization: `Bearer ${sessionAccessToken}` } : undefined,
       });
       if (!response.ok) throw new Error("Não foi possível consultar o processamento.");
       const data = await response.json() as Job;
