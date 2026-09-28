@@ -1035,3 +1035,6 @@ button{appearance:none}
   .cf-result-actions{display:grid;grid-template-columns:1fr 1fr;justify-content:stretch}
   .cf-result-actions .cf-download{width:100%}
 }
+
+/* Phase 3 — keep Youshaei preview blue identical to render */
+.cf-template-preview.accent-youshaei .preview-subtitle b{color:#0000ff}
