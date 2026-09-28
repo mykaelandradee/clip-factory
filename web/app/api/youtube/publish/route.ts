@@ -25,7 +25,6 @@ function configured() {
     process.env.YOUTUBE_CLIENT_ID &&
     process.env.YOUTUBE_CLIENT_SECRET &&
     process.env.CLIP_FACTORY_GITHUB_TOKEN &&
-    process.env.CLIP_FACTORY_PUBLISH_API_KEY &&
     process.env.NEXT_PUBLIC_SUPABASE_URL &&
     process.env.SUPABASE_SERVICE_ROLE_KEY &&
     process.env.CLIP_FACTORY_TOKEN_ENCRYPTION_KEY,
