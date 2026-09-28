@@ -711,22 +711,6 @@ export default function Home() {
               ))}
             </div>
           </div>
-          {!videoInfo && (
-            <div className="cf-cut-panel cf-cut-panel-empty">
-              <div className="cf-builder-head cf-section-head cf-cut-head">
-                <div><span className="cf-kicker">02 / CUT</span><h3>Defina a duração</h3></div>
-                <span className="cf-section-note">Escolha o ritmo do conteúdo</span>
-              </div>
-              <div className="cf-duration-grid">
-                {[["15-30", "15–30s"], ["30-60", "30–60s"], ["45-90", "45–90s"]].map(([id, label]) => (
-                  <button type="button" key={id} className={`cf-duration ${duration === id ? "selected" : ""}`} onClick={() => setDuration(id)} disabled={submitting}>
-                    <span className="cf-duration-num">0{id === "15-30" ? "1" : id === "30-60" ? "2" : "3"}</span>
-                    <strong>{label}</strong><span>clips nesta faixa</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
 
           <div className="cf-builder-head cf-section-head">
             <div><span className="cf-kicker">03 / STYLE</span><h3>Escolha o estilo da legenda</h3></div>
