@@ -27,8 +27,8 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL("/?auth_error=session_required", url.origin));
   }
 
-  const clientId = process.env.INSTAGRAM_CLIENT_ID;
-  const clientSecret = process.env.INSTAGRAM_CLIENT_SECRET;
+  const clientId = process.env.INSTAGRAM_CLIENT_ID || process.env.INSTAGRAM_APP_ID;
+  const clientSecret = process.env.INSTAGRAM_CLIENT_SECRET || process.env.INSTAGRAM_APP_SECRET;
   if (!clientId || !clientSecret || !process.env.CLIP_FACTORY_TOKEN_ENCRYPTION_KEY) {
     return NextResponse.redirect(new URL("/?instagram_error=not_configured", url.origin));
   }
