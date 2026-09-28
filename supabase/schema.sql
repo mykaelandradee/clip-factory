@@ -99,3 +99,42 @@ alter table public.clip_jobs add column if not exists caption_style text;
 
 create index if not exists clip_jobs_created_at_idx
   on public.clip_jobs(created_at desc);
+
+
+-- Automatic retention for job metadata. Video files are cleaned independently from R2.
+create extension if not exists pg_cron;
+
+create or replace function public.cleanup_clip_jobs()
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  deleted_count integer;
+begin
+  delete from public.clip_jobs
+  where created_at < now() - interval '90 days';
+
+  get diagnostics deleted_count = row_count;
+  return deleted_count;
+end;
+$$;
+
+revoke all on function public.cleanup_clip_jobs() from public;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from cron.job
+    where jobname = 'clip-jobs-cleanup'
+  ) then
+    perform cron.schedule(
+      'clip-jobs-cleanup',
+      '17 4 * * *',
+      $$select public.cleanup_clip_jobs();$$
+    );
+  end if;
+end;
+$$;
