@@ -139,7 +139,7 @@ export async function POST(request: Request) {
     } catch (cleanupError) {
       console.warn("Old clip job cleanup failed:", cleanupError);
     }
-    const { error: jobError } = await admin.from("clip_jobs").insert({ id: jobId, user_id: user?.id ?? null });
+    const { error: jobError } = await admin.from("clip_jobs").insert({\n      id: jobId,\n      user_id: user?.id ?? null,\n      source_url: String(payload?.url).trim(),\n      source_title: typeof payload?.source_title === "string" ? payload.source_title.trim().slice(0, 500) : null,\n      requested_count: count,\n      min_duration: minDuration,\n      max_duration: maxDuration,\n      subtitle_language: subtitleLanguage,\n      caption_style: captionStyle,\n    });
     if (jobError) {
       console.error("Clip job storage failed:", jobError.message);
       return NextResponse.json({ error: "Não foi possível registrar o processamento." }, { status: 500 });
