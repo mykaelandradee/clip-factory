@@ -1250,3 +1250,32 @@ button{appearance:none}
   .cf-actions{align-items:stretch}
   .cf-button{width:100%}
 }
+
+
+/* Processing states: avoid a false offline warning while health is loading. */
+.cf-status-pill.checking {
+  color:#8b8b96;
+  border-color:#ffffff12;
+  background:#ffffff05;
+}
+.cf-status-pill.checking span {
+  background:#8b8b96;
+  box-shadow:0 0 0 3px #8b8b9612;
+}
+.cf-job-live {
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+}
+.cf-job-live::before {
+  content:"";
+  width:5px;
+  height:5px;
+  border-radius:50%;
+  background:currentColor;
+  box-shadow:0 0 0 3px currentColor;
+  opacity:.16;
+}
+.cf-job-failure + .cf-results {
+  margin-top:14px;
+}
