@@ -8,6 +8,7 @@ from botocore.config import Config
 
 RETENTION_HOURS = 72
 MAX_DELETE_PER_RUN = 500
+MAX_STORAGE_BYTES = 8 * 1024 * 1024 * 1024
 
 
 def env(name: str) -> str:
@@ -34,8 +35,7 @@ def main() -> None:
         config=Config(signature_version="s3v4"),
     )
 
-    deleted = 0
-    scanned = 0
+    objects = []
     continuation_token = None
 
     while True:
@@ -45,30 +45,55 @@ def main() -> None:
         response = client.list_objects_v2(**kwargs)
 
         for obj in response.get("Contents", []):
-            scanned += 1
             key = obj.get("Key", "")
-            if not key.endswith(".mp4"):
+            if not key.lower().endswith(".mp4"):
                 continue
             if job_id and key.startswith(f"jobs/{job_id}/"):
                 continue
-
-            modified = obj.get("LastModified")
-            if modified is None or modified.timestamp() >= cutoff:
-                continue
-
-            client.delete_object(Bucket=bucket, Key=key)
-            deleted += 1
-            print(f"Deleted expired R2 object: {key}")
-            if deleted >= MAX_DELETE_PER_RUN:
-                print(f"Reached cleanup safety limit of {MAX_DELETE_PER_RUN} objects.")
-                print(f"[r2-cleanup] scanned={scanned} deleted={deleted} retention_hours={RETENTION_HOURS}")
-                return
+            objects.append(obj)
 
         if not response.get("IsTruncated"):
             break
         continuation_token = response.get("NextContinuationToken")
 
-    print(f"[r2-cleanup] scanned={scanned} deleted={deleted} retention_hours={RETENTION_HOURS}")
+    total_bytes = sum(int(obj.get("Size", 0)) for obj in objects)
+
+    expired = [
+        obj for obj in objects
+        if obj.get("LastModified") is not None
+        and obj["LastModified"].timestamp() < cutoff
+    ]
+
+    candidates = expired
+
+    # If storage exceeds the safety threshold, continue with the oldest
+    # remaining clips after the normal 72-hour retention candidates.
+    if total_bytes > MAX_STORAGE_BYTES:
+        expired_keys = {obj["Key"] for obj in expired}
+        for obj in sorted(objects, key=lambda item: item.get("LastModified")):
+            if obj["Key"] not in expired_keys:
+                candidates.append(obj)
+
+    candidates.sort(key=lambda item: item.get("LastModified"))
+    selected = candidates[:MAX_DELETE_PER_RUN]
+
+    deleted = 0
+    deleted_bytes = 0
+
+    for obj in selected:
+        client.delete_object(Bucket=bucket, Key=obj["Key"])
+        deleted += 1
+        deleted_bytes += int(obj.get("Size", 0))
+        print(f"Deleted R2 object: {obj['Key']}")
+
+    print(
+        f"[r2-cleanup] scanned={len(objects)} deleted={deleted} "
+        f"deleted_bytes={deleted_bytes} total_bytes={total_bytes} "
+        f"retention_hours={RETENTION_HOURS} max_storage_bytes={MAX_STORAGE_BYTES}"
+    )
+
+    if total_bytes > MAX_STORAGE_BYTES and deleted == 0:
+        raise RuntimeError("R2 storage safety limit exceeded and no object could be deleted.")
 
 
 if __name__ == "__main__":
