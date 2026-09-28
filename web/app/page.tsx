@@ -462,20 +462,39 @@ export default function Home() {
     }
   }
 
-  function downloadAllClips() {
+  function getDownloadUrl(file: string) {
+    const params = new URLSearchParams({ jobId, file });
+    if (jobAccessToken) params.set("accessToken", jobAccessToken);
+    return `/api/jobs/download?${params.toString()}`;
+  }
+
+  async function downloadClip(file: string) {
+    try {
+      const response = await fetch(getDownloadUrl(file), { cache: "no-store" });
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        throw new Error(data?.error || "Não foi possível baixar o clip.");
+      }
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = file;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível baixar o clip.");
+    }
+  }
+
+  async function downloadAllClips() {
     const files = job?.result?.files ?? [];
-    files.forEach((item, index) => {
-      window.setTimeout(() => {
-        const link = document.createElement("a");
-        link.href = item.url;
-        link.download = item.file;
-        link.target = "_blank";
-        link.rel = "noopener";
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-      }, index * 350);
-    });
+    for (const item of files) {
+      await downloadClip(item.file);
+      await new Promise((resolve) => window.setTimeout(resolve, 250));
+    }
   }
 
   async function cancelJob() {
@@ -873,7 +892,7 @@ export default function Home() {
                         </div>
                       )}
                       <div className="cf-result-actions">
-                        <a href={download} download className="cf-download">Baixar <span>↓</span></a>
+                        <button type="button" className="cf-download cf-download-button" onClick={() => downloadClip(file)}>Baixar <span>↓</span></button>
                         {!GENERATION_ONLY_MODE && youtubeConnected && (
                           <button
                             type="button"
@@ -925,7 +944,7 @@ export default function Home() {
               <video controls autoPlay playsInline preload="metadata" src={previewClip.url} onLoadedMetadata={(event) => { const video = event.currentTarget; if (previewClip.currentTime > 0 && Number.isFinite(video.duration)) video.currentTime = Math.min(previewClip.currentTime, Math.max(0, video.duration - 0.05)); void video.play().catch(() => {}); }} />
             </div>
             <div className="cf-preview-modal-actions">
-              <a href={previewClip.url} download={previewClip.file} className="cf-download">Baixar <span>↓</span></a>
+              <button type="button" className="cf-download cf-download-button" onClick={() => downloadClip(previewClip.file)}>Baixar <span>↓</span></button>
               <button type="button" className="cf-preview-close-action" onClick={() => setPreviewClip(null)}>Fechar preview</button>
             </div>
           </div>
