@@ -345,7 +345,7 @@ export default function Home() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Não foi possível iniciar a publicação no YouTube.");
-      setStatus("queued", draft.publishAt ? "Publicação agendada no YouTube. Aguardando o GitHub Actions." : "Publicação iniciada no YouTube. Aguardando o envio.");
+      setStatus("queued", draft.publishAt ? "Publicação agendada no YouTube. Aguardando o envio." : "O vídeo está sendo enviado para o YouTube.");
       const check = async () => {
         try {
           const statusQuery = new URLSearchParams({
@@ -372,7 +372,7 @@ export default function Home() {
             setPublishingTarget(null);
             return false;
           } else {
-            setStatus(statusData.status === "running" ? "running" : "queued", statusData.message || "Publicação em andamento no YouTube.");
+            setStatus(statusData.status === "running" ? "running" : "queued", statusData.message || "O vídeo está sendo enviado para o YouTube.");
             return true;
           }
         } catch (err) {
@@ -738,7 +738,7 @@ export default function Home() {
               <div className="cf-job-steps">
                 {[[20, "ANÁLISE"], [45, "TRANSCRIÇÃO"], [70, "MOMENTOS"], [90, "RENDER"], [100, "PRONTO"]].map(([threshold, label]) => <span key={label} className={job.progress >= Number(threshold) ? "done" : ""}>{label}</span>)}
               </div>
-              <small>{job.status === "canceled" ? "Processamento cancelado" : getProgressStage(job.progress, job.stage)} · {job.message}{jobId ? ` · Job ${jobId.slice(0, 8)}` : ""}</small>
+              <small>{job.status === "canceled" ? "Processamento cancelado" : getProgressStage(job.progress, job.stage)}{job.status !== "completed" && job.message && !/install system dependencies|install dependencies|github actions|r2|job [a-f0-9-]{8,}/i.test(job.message) ? ` · ${job.message}` : ""}</small>
             </div>
           )}
 
