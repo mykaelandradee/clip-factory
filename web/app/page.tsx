@@ -6,7 +6,21 @@ import { createClient } from "../lib/supabase/client";
 
 const GENERATION_ONLY_MODE = process.env.NEXT_PUBLIC_CLIP_FACTORY_GENERATION_ONLY === "true";
 
-type HistoryItem = {\n  id: string;\n  created_at: string;\n  source_url?: string | null;\n  source_title?: string | null;\n  requested_count?: number | null;\n  min_duration?: number | null;\n  max_duration?: number | null;\n  subtitle_language?: string | null;\n  caption_style?: string | null;\n  status: "queued" | "processing" | "completed" | "canceled" | "failed";\n  runId?: number | null;\n};\n\ntype Job = {
+type HistoryItem = {
+  id: string;
+  created_at: string;
+  source_url?: string | null;
+  source_title?: string | null;
+  requested_count?: number | null;
+  min_duration?: number | null;
+  max_duration?: number | null;
+  subtitle_language?: string | null;
+  caption_style?: string | null;
+  status: "queued" | "processing" | "completed" | "canceled" | "failed";
+  runId?: number | null;
+};
+
+type Job = {
   status: string;
   progress: number;
   stage?: string;
