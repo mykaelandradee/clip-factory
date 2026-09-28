@@ -6,20 +6,6 @@ import { createClient } from "../lib/supabase/client";
 
 const GENERATION_ONLY_MODE = process.env.NEXT_PUBLIC_CLIP_FACTORY_GENERATION_ONLY === "true";
 
-type HistoryItem = {
-  id: string;
-  created_at: string;
-  source_url?: string | null;
-  source_title?: string | null;
-  requested_count?: number | null;
-  min_duration?: number | null;
-  max_duration?: number | null;
-  subtitle_language?: string | null;
-  caption_style?: string | null;
-  status: "queued" | "processing" | "completed" | "canceled" | "failed";
-  runId?: number | null;
-};
-
 type Job = {
   status: string;
   progress: number;
@@ -86,8 +72,6 @@ export default function Home() {
   const [showAuthInfo, setShowAuthInfo] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
   const [authModal, setAuthModal] = useState("");
   const [publishingTarget, setPublishingTarget] = useState<string | null>(null);
   const [publishMessage, setPublishMessage] = useState("");
@@ -216,53 +200,6 @@ export default function Home() {
     }, 450);
     return () => clearTimeout(timeout);
   }, [url]);
-
-  async function loadHistory() {
-    if (GENERATION_ONLY_MODE || !user) {
-      setHistory([]);
-      return;
-    }
-    setHistoryLoading(true);
-    try {
-      const response = await fetch("/api/history", { cache: "no-store" });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Não foi possível carregar o histórico.");
-      setHistory(Array.isArray(data.history) ? data.history : []);
-    } catch {
-      setHistory([]);
-    } finally {
-      setHistoryLoading(false);
-    }
-  }
-
-  function openHistoryItem(item: HistoryItem) {
-    canceledJobId.current = "";
-    if (timer.current) clearInterval(timer.current);
-    timer.current = null;
-    setJobId(item.id);
-    setJobAccessToken("");
-    setError("");
-    setJob({
-      status: item.status,
-      progress: item.status === "completed" ? 100 : 5,
-      stage: item.status,
-      message: item.status === "completed"
-        ? "Processamento concluído."
-        : item.status === "failed"
-          ? "Este processamento terminou com erro. Você pode tentar novamente."
-          : item.status === "canceled"
-            ? "Este processamento foi cancelado."
-            : "Retomando o acompanhamento do processamento.",
-    });
-    if (item.status === "processing" || item.status === "queued") {
-      pollStartedAt.current = Date.now();
-      timer.current = setInterval(() => poll(item.id), 3000);
-      void poll(item.id);
-    } else {
-      void poll(item.id);
-    }
-    window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
-  }
 
   async function initAuth() {
     try {
@@ -706,37 +643,6 @@ export default function Home() {
             <div className="cf-hero-orbit orbit-two" />
           </div>
         </section>
-
-        {!GENERATION_ONLY_MODE && user && (
-          <section className="cf-history">
-            <div className="cf-section-head">
-              <div>
-                <span className="cf-section-kicker">HISTÓRICO</span>
-                <h2>Suas gerações</h2>
-              </div>
-              <button type="button" className="cf-history-refresh" onClick={() => void loadHistory()} disabled={historyLoading}>
-                {historyLoading ? "Atualizando…" : "Atualizar"}
-              </button>
-            </div>
-            {history.length === 0 ? (
-              <p className="cf-history-empty">{historyLoading ? "Carregando histórico…" : "Nenhuma geração registrada nesta conta."}</p>
-            ) : (
-              <div className="cf-history-list">
-                {history.map((item) => (
-                  <button type="button" className="cf-history-item" key={item.id} onClick={() => openHistoryItem(item)}>
-                    <div className="cf-history-main">
-                      <strong>{item.source_title || "Vídeo do YouTube"}</strong>
-                      <span>{new Date(item.created_at).toLocaleString("pt-BR")} · {item.requested_count || "—"} clips · {item.caption_style || "karaoke"}</span>
-                    </div>
-                    <div className={`cf-history-status status-${item.status}`}>
-                      {item.status === "completed" ? "Concluído" : item.status === "processing" ? "Processando" : item.status === "queued" ? "Na fila" : item.status === "canceled" ? "Cancelado" : "Falhou"}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </section>
-        )}
 
         <form className="cf-card cf-builder" onSubmit={submit}>
           <div className="cf-builder-head">
