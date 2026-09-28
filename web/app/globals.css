@@ -999,3 +999,39 @@ button{appearance:none}
   .cf-auth-modal { padding:14px; }
   .cf-auth-modal-card { padding:18px; }
 }
+
+/* Phase 3 — result feedback and compact mobile layout */
+.cf-partial-output{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  margin-top:12px;
+  padding:10px 12px;
+  border:1px solid #8d7cff22;
+  border-radius:11px;
+  background:#8d7cff08;
+}
+.cf-partial-output strong{
+  color:#c2beff;
+  font-size:9px;
+  font-weight:900;
+  letter-spacing:.05em;
+  text-transform:uppercase;
+}
+.cf-partial-output span{
+  color:#777783;
+  font-size:9px;
+  line-height:1.45;
+}
+@media(max-width:600px){
+  .cf-header-meta{max-width:68%}
+  .cf-status-pill{font-size:8px}
+  .cf-url-box{gap:6px}
+  .cf-paste-button{padding:0 8px}
+  .cf-video-info{align-items:flex-start}
+  .cf-video-info div{max-width:calc(100% - 150px)}
+  .cf-results-title p{font-size:9px}
+  .cf-partial-output{margin-top:10px}
+  .cf-result-actions{display:grid;grid-template-columns:1fr 1fr;justify-content:stretch}
+  .cf-result-actions .cf-download{width:100%}
+}
