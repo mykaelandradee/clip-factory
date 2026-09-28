@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "../../../../lib/supabase/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { getClientKey, rateLimit } from "../../../../lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -11,6 +12,7 @@ const REPO = "clip-factory";
 const WORKFLOW = "clip-factory-worker.yml";
 const GENERATION_ONLY_MODE = process.env.CLIP_FACTORY_GENERATION_ONLY === "true";
 const JOB_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const MAX_BODY_BYTES = 16 * 1024;
 
 function getAnonymousJobSecret() {
   return process.env.CLIP_FACTORY_TOKEN_ENCRYPTION_KEY || process.env.CLIP_FACTORY_WORKER_TOKEN || process.env.CLIP_FACTORY_GITHUB_TOKEN || "";
@@ -70,8 +72,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Não foi possível validar o acesso ao processamento." }, { status: 503 });
   }
 
+  const limit = rateLimit(getClientKey(request, user?.id), 10, 10 * 60 * 1000);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "Muitas solicitações de cancelamento. Aguarde antes de tentar novamente.", retryAfterSeconds: limit.retryAfterSeconds },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds), "Cache-Control": "no-store" } },
+    );
+  }
+
+  const contentLength = Number(request.headers.get("content-length") || 0);
+  if (contentLength > MAX_BODY_BYTES) {
+    return NextResponse.json({ error: "Requisição muito grande." }, { status: 413, headers: { "Cache-Control": "no-store" } });
+  }
+
   const body = await request.json().catch(() => null);
-  const jobId = typeof body?.jobId === "string" ? body.jobId : "";
+  const jobId = typeof body?.jobId === "string" ? body.jobId.trim() : "";
   const accessToken = typeof body?.accessToken === "string" ? body.accessToken : null;
 
   if (!JOB_ID_PATTERN.test(jobId)) {
@@ -99,12 +114,19 @@ export async function POST(request: Request) {
     const data = await response.json();
     const run = data.workflow_runs?.find(
       (item: { id?: number; display_title?: string; run_name?: string; status?: string }) =>
-        (item.display_title === `Clip Factory ${jobId}` || item.run_name === `Clip Factory ${jobId}`) &&
-        item.status !== "completed",
+        item.display_title === `Clip Factory ${jobId}` || item.run_name === `Clip Factory ${jobId}`,
     );
 
     if (!run?.id) {
-      return NextResponse.json({ message: "O processamento já terminou ou ainda não iniciou no GitHub Actions." }, { status: 200 });
+      return NextResponse.json({ error: "A execução do worker ainda não foi encontrada. Aguarde alguns segundos e tente novamente." }, { status: 409 });
+    }
+
+    if (run.status === "completed") {
+      const status = run.conclusion === "success" ? "completed" : run.conclusion === "cancelled" ? "canceled" : "failed";
+      return NextResponse.json(
+        { error: status === "completed" ? "Este processamento já foi concluído." : "Este processamento já terminou.", status },
+        { status: 409 },
+      );
     }
 
     const cancelResponse = await githubFetch(
@@ -127,7 +149,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       message: "Processamento cancelado. Você pode alterar as opções e gerar novamente.",
       jobId,
-    });
+    }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("Clip job cancel error:", error);
     return NextResponse.json(
