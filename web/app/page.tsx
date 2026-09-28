@@ -127,6 +127,7 @@ export default function Home() {
 
   async function retryJob() {
     if (!jobId || retrying) return;
+    canceledJobId.current = "";
     setRetrying(true);
     setSubmitting(true);
     setError("");
@@ -498,7 +499,7 @@ export default function Home() {
   }
 
   async function cancelJob() {
-    if (!jobId || !jobAccessToken || !submitting) return;
+    if (!jobId || !submitting) return;
     setError("");
     try {
       const response = await fetch("/api/jobs/cancel", {
