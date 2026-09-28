@@ -390,19 +390,6 @@ export default function Home() {
     }
   }
 
-  async function publishToBoth(file: string, index: number) {
-    if (!youtubeConnected || !instagramConnected) return;
-    if (publishTimer.current) clearInterval(publishTimer.current);
-    setPublishingTarget(`both:${file}`);
-    const draft = getPublishDraft(file, index);
-    try {
-      await publishToYouTube(file, index);
-      await publishToInstagram(file, index);
-    } finally {
-      setPublishingTarget(null);
-    }
-  }
-
   async function publishToInstagram(file: string, index: number) {
     if (publishTimer.current) clearInterval(publishTimer.current);
     setPublishingTarget(`instagram:${file}`);
@@ -905,16 +892,6 @@ export default function Home() {
                             disabled={publishingTarget === `instagram:${file}` || !getPublishDraft(file, index).title.trim()}
                           >
                             {publishingTarget === `instagram:${file}` ? "Publicando…" : "Publicar Instagram ↗"}
-                          </button>
-                        )}
-                        {!GENERATION_ONLY_MODE && youtubeConnected && instagramConnected && (
-                          <button
-                            type="button"
-                            className="cf-download cf-publish-button cf-publish-both"
-                            onClick={() => publishToBoth(file, index)}
-                            disabled={publishingTarget === `both:${file}` || Boolean(publishingTarget) || !getPublishDraft(file, index).title.trim()}
-                          >
-                            {publishingTarget === `both:${file}` ? "Publicando…" : "Publicar nos dois ↗"}
                           </button>
                         )}
                       </div>                    </div>
