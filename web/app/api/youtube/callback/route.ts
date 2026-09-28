@@ -8,6 +8,7 @@ export const runtime = "nodejs";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
+  const publicOrigin = (process.env.CLIP_FACTORY_WEB_URL || url.origin).replace(/\/$/, "");
   const code = url.searchParams.get("code");
   const error = url.searchParams.get("error");
   const returnedState = url.searchParams.get("state");
@@ -22,7 +23,7 @@ export async function GET(request: Request) {
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.redirect(new URL("/?auth_required=1", url.origin));
+  if (!user) return NextResponse.redirect(new URL("/?auth_required=1", publicOrigin));
 
   const clientId = process.env.YOUTUBE_CLIENT_ID;
   const clientSecret = process.env.YOUTUBE_CLIENT_SECRET;
@@ -35,7 +36,7 @@ export async function GET(request: Request) {
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
       code, client_id: clientId, client_secret: clientSecret,
-      redirect_uri: `${url.origin}/api/youtube/callback`, grant_type: "authorization_code",
+      redirect_uri: `${publicOrigin}/api/youtube/callback`, grant_type: "authorization_code",
     }),
   });
   const data = await response.json();
