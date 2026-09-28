@@ -18,7 +18,7 @@ jobs:
       VIDEO_DESCRIPTION: ${{ github.event.client_payload.description }}
       PUBLISH_AT: ${{ github.event.client_payload.publish_at }}
       CLIP_FACTORY_PUBLISH_API_KEY: ${{ secrets.CLIP_FACTORY_PUBLISH_API_KEY }}
-      CLIP_FACTORY_URL: https://clip-factory-pi.vercel.app
+      CLIP_FACTORY_URL: https://clip-factory-web.onrender.com
     steps:
       - name: Checkout
         uses: actions/checkout@v6
