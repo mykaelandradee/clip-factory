@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { createClient } from "../../../../lib/supabase/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
 import { getClientKey, rateLimit } from "../../../../lib/rate-limit";
@@ -8,6 +9,18 @@ export const runtime = "nodejs";
 const GITHUB_API = "https://api.github.com";
 const OWNER = "mykaelandradee";
 const REPO = "clip-factory";
+
+function isAnonymousJobAccessValid(jobId: string, token: string | null) {
+  if (!token) return false;
+  const secret = process.env.CLIP_FACTORY_TOKEN_ENCRYPTION_KEY || process.env.CLIP_FACTORY_WORKER_TOKEN || process.env.CLIP_FACTORY_GITHUB_TOKEN || "";
+  if (!secret) return false;
+  try {
+    const expected = createHmac("sha256", secret).update("clip-factory-anonymous-job:" + jobId).digest("base64url");
+    const a = Buffer.from(expected);
+    const b = Buffer.from(token);
+    return a.length === b.length && timingSafeEqual(a, b);
+  } catch { return false; }
+}
 
 function headers() {
   const token = process.env.CLIP_FACTORY_GITHUB_TOKEN;
@@ -44,6 +57,7 @@ export async function GET(request: Request) {
   const file = params.get("file") || "";
   const runId = params.get("runId") || "";
   const startedAt = params.get("startedAt") || "";
+  const accessToken = params.get("accessToken");
 
   if (platform !== "youtube" || !jobId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(jobId) || !/^clip-\d{2}\.mp4$/.test(file)) {
     return NextResponse.json({ error: "platform, jobId e file são obrigatórios." }, { status: 400, headers: noStore });
@@ -52,12 +66,13 @@ export async function GET(request: Request) {
   const admin = createAdminClient();
   const { data: ownedJob } = await admin
     .from("clip_jobs")
-    .select("id")
+    .select("id,user_id")
     .eq("id", jobId)
-    .eq("user_id", user.id)
     .maybeSingle();
 
-  if (!ownedJob) {
+  const ownsAuthenticatedJob = ownedJob?.user_id === user.id;
+  const ownsAnonymousJob = ownedJob?.user_id == null && isAnonymousJobAccessValid(jobId, accessToken);
+  if (!ownedJob || (!ownsAuthenticatedJob && !ownsAnonymousJob)) {
     return NextResponse.json({ error: "Este processamento não pertence ao usuário autenticado." }, { status: 403, headers: noStore });
   }
 
