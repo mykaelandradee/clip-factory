@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { HeadBucketCommand, S3Client } from "@aws-sdk/client-s3";
-import { logEvent, logError } from "../../../../lib/observability";
+import { logEvent, logError } from "../../../lib/observability";
 
 export const runtime = "nodejs";
 
