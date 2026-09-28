@@ -88,8 +88,8 @@ button{appearance:none}
 .cf-template-preview.accent-fire .preview-subtitle b{color:#ff8c00}
 .cf-template-preview.accent-youshaei .preview-subtitle{font-family:"DejaVu Sans",Arial,sans-serif}
 .cf-template-preview.accent-youshaei .preview-subtitle b{color:#0066ff}
-.cf-template-preview.accent-harmozi .preview-subtitle{font-family:"DejaVu Sans Mono",monospace}
-.cf-template-preview.accent-harmozi .preview-subtitle b{color:#00d447}
+.cf-template-preview.accent-harmozi .preview-subtitle{font-family:"DejaVu Sans Mono",monospace;font-weight:900;text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000}
+.cf-template-preview.accent-harmozi .preview-subtitle b{color:#00ff00}
 .cf-template-preview.accent-beasty .preview-subtitle{font-family:"DejaVu Sans Mono",monospace}
 .cf-template-preview.accent-beasty .preview-subtitle i{font-style:normal}
 .cf-template-preview.accent-beasty .preview-box-word{background:#fff;color:#09090c}
