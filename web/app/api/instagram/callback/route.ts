@@ -82,7 +82,7 @@ export async function GET(request: Request) {
       return NextResponse.redirect(new URL("/?instagram_error=save_failed", publicOrigin));
     }
 
-    const response = NextResponse.redirect(new URL("/?instagram_connected=1", publicOrigin));
+    const response = NextResponse.redirect(new URL("/", publicOrigin));
     response.cookies.delete(getInstagramOAuthStateCookieName());
     return response;
   } catch (error) {

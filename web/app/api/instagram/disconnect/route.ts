@@ -10,8 +10,8 @@ export async function POST() {
   if (!user) return NextResponse.json({ error: "Sessão necessária." }, { status: 401 });
 
   const admin = createAdminClient();
-  const { error } = await admin.from("youtube_connections").delete().eq("user_id", user.id);
-  if (error) return NextResponse.json({ error: "Não foi possível desconectar o YouTube." }, { status: 500 });
+  const { error } = await admin.from("instagram_connections").delete().eq("user_id", user.id);
+  if (error) return NextResponse.json({ error: "Não foi possível desconectar o Instagram." }, { status: 500 });
 
-  return NextResponse.json({ connected: false, message: "YouTube desconectado." });
+  return NextResponse.json({ connected: false, message: "Instagram desconectado." });
 }

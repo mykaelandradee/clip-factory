@@ -265,6 +265,32 @@ export default function Home() {
     }
   }
 
+  async function disconnectYouTube() {
+    if (!window.confirm("O YouTube já está conectado. Deseja desconectar esta conta?")) return;
+    try {
+      const response = await fetch("/api/youtube/disconnect", { method: "POST" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Não foi possível desconectar o YouTube.");
+      setYoutubeConnected(false);
+      setAuthMessage("YouTube desconectado.");
+    } catch (err) {
+      setAuthMessage(err instanceof Error ? err.message : "Não foi possível desconectar o YouTube.");
+    }
+  }
+
+  async function disconnectInstagram() {
+    if (!window.confirm("O Instagram já está conectado. Deseja desconectar esta conta?")) return;
+    try {
+      const response = await fetch("/api/instagram/disconnect", { method: "POST" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Não foi possível desconectar o Instagram.");
+      setInstagramConnected(false);
+      setAuthMessage("Instagram desconectado.");
+    } catch (err) {
+      setAuthMessage(err instanceof Error ? err.message : "Não foi possível desconectar o Instagram.");
+    }
+  }
+
   async function pasteYouTubeUrl() {
     try {
       const text = await navigator.clipboard.readText();
@@ -537,14 +563,28 @@ export default function Home() {
               )}
               {user && (
                 <>
-                  <a className="cf-youtube-button" href="/api/youtube/oauth" aria-label="Conectar YouTube">
-                    <span className={`cf-yt-dot ${youtubeConnected ? "connected" : ""}`} />
-                    {youtubeConnected ? "YouTube conectado" : "Conectar YouTube"}
-                  </a>
-                  <a className="cf-youtube-button" href="/api/instagram/oauth" aria-label="Conectar Instagram">
-                    <span className={`cf-yt-dot ${instagramConnected ? "connected" : ""}`} />
-                    {instagramConnected ? "Instagram conectado" : "Conectar Instagram"}
-                  </a>
+                  {youtubeConnected ? (
+                    <button type="button" className="cf-youtube-button" onClick={disconnectYouTube} aria-label="Desconectar YouTube">
+                      <span className="cf-yt-dot connected" />
+                      YouTube conectado
+                    </button>
+                  ) : (
+                    <a className="cf-youtube-button" href="/api/youtube/oauth" aria-label="Conectar YouTube">
+                      <span className="cf-yt-dot" />
+                      Conectar YouTube
+                    </a>
+                  )}
+                  {instagramConnected ? (
+                    <button type="button" className="cf-youtube-button" onClick={disconnectInstagram} aria-label="Desconectar Instagram">
+                      <span className="cf-yt-dot connected" />
+                      Instagram conectado
+                    </button>
+                  ) : (
+                    <a className="cf-youtube-button" href="/api/instagram/oauth" aria-label="Conectar Instagram">
+                      <span className="cf-yt-dot" />
+                      Conectar Instagram
+                    </a>
+                  )}
                   <span className="cf-account-label" title={user.email || "Conta do Clip Factory"}>Clip Factory conectado</span>
                   <button type="button" className="cf-auth-button" onClick={signOut}>Sair</button>
                 </>
