@@ -176,4 +176,12 @@ def run_pipeline(
         json.dumps(result.to_dict(), ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+    (settings.data_dir / "job-timings.json").write_text(
+        json.dumps({
+            "job_id": settings.data_dir.name if settings.data_dir.name else None,
+            "project_name": project_name,
+            "timings": timings,
+        }, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
     return result
