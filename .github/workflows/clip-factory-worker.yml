@@ -245,5 +245,6 @@ jobs:
           path: |
             worker/data/r2-urls.json
             worker/data/job-status.json
+            worker/data/job-timings.json
           if-no-files-found: warn
           retention-days: 3
