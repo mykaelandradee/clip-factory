@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { createClient } from "../../../../lib/supabase/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
 import { decryptInstagramAccessToken, encryptInstagramAccessToken, refreshInstagramLongLivedToken } from "../../../../lib/instagram-auth";
@@ -9,6 +10,18 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 
 const MAX_BODY_BYTES = 16 * 1024;
+
+function isAnonymousJobAccessValid(jobId: string, token: string | null) {
+  if (!token) return false;
+  const secret = process.env.CLIP_FACTORY_TOKEN_ENCRYPTION_KEY || process.env.CLIP_FACTORY_WORKER_TOKEN || process.env.CLIP_FACTORY_GITHUB_TOKEN || "";
+  if (!secret) return false;
+  try {
+    const expected = createHmac("sha256", secret).update("clip-factory-anonymous-job:" + jobId).digest("base64url");
+    const a = Buffer.from(expected);
+    const b = Buffer.from(token);
+    return a.length === b.length && timingSafeEqual(a, b);
+  } catch { return false; }
+}
 
 const INSTAGRAM_API_VERSION = "v25.0";
 const INSTAGRAM_GRAPH = `https://graph.instagram.com/${INSTAGRAM_API_VERSION}`;
@@ -50,6 +63,7 @@ export async function POST(request: Request) {
   const jobId = typeof body?.jobId === "string" ? body.jobId : "";
   const file = typeof body?.file === "string" ? body.file : "";
   const caption = typeof body?.caption === "string" ? body.caption.trim() : "";
+  const accessToken = typeof body?.accessToken === "string" ? body.accessToken : null;
 
   if (!jobId || !/^clip-\d{2}\.mp4$/.test(file) || !caption) {
     return NextResponse.json({ error: "jobId, file e caption são obrigatórios." }, { status: 400 });
@@ -67,7 +81,7 @@ export async function POST(request: Request) {
       .maybeSingle(),
     admin
       .from("clip_jobs")
-      .select("id")
+      .select("id,user_id")
       .eq("id", jobId)
       .eq("user_id", user.id)
       .maybeSingle(),
@@ -76,7 +90,9 @@ export async function POST(request: Request) {
   if (!connection) {
     return NextResponse.json({ error: "Conecte sua conta do Instagram antes de publicar." }, { status: 401 });
   }
-  if (!ownedJob) {
+  const ownsAuthenticatedJob = ownedJob?.user_id === user.id;
+  const ownsAnonymousJob = ownedJob?.user_id == null && isAnonymousJobAccessValid(jobId, accessToken);
+  if (!ownedJob || (!ownsAuthenticatedJob && !ownsAnonymousJob)) {
     return NextResponse.json({ error: "Este processamento não pertence ao usuário autenticado." }, { status: 403 });
   }
 
