@@ -13,28 +13,29 @@ function readCookie(request: Request, name: string) {
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
+  const publicOrigin = (process.env.CLIP_FACTORY_WEB_URL || url.origin).replace(/\/$/, "");
   const code = url.searchParams.get("code");
   const returnedState = url.searchParams.get("state");
   const expectedState = readCookie(request, getInstagramOAuthStateCookieName());
 
   if (!code || !returnedState || !expectedState || returnedState !== expectedState) {
-    return NextResponse.redirect(new URL("/?instagram_error=invalid_callback", url.origin));
+    return NextResponse.redirect(new URL("/?instagram_error=invalid_callback", publicOrigin));
   }
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
-    return NextResponse.redirect(new URL("/?auth_error=session_required", url.origin));
+    return NextResponse.redirect(new URL("/?auth_error=session_required", publicOrigin));
   }
 
   const clientId = process.env.INSTAGRAM_CLIENT_ID || process.env.INSTAGRAM_APP_ID;
   const clientSecret = process.env.INSTAGRAM_CLIENT_SECRET || process.env.INSTAGRAM_APP_SECRET;
   if (!clientId || !clientSecret || !process.env.CLIP_FACTORY_TOKEN_ENCRYPTION_KEY) {
-    return NextResponse.redirect(new URL("/?instagram_error=not_configured", url.origin));
+    return NextResponse.redirect(new URL("/?instagram_error=not_configured", publicOrigin));
   }
 
   try {
-    const redirectUri = new URL("/api/instagram/callback", url.origin).toString();
+    const redirectUri = `${publicOrigin}/api/instagram/callback`;
     const tokenResponse = await fetch("https://api.instagram.com/oauth/access_token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -51,7 +52,7 @@ export async function GET(request: Request) {
     const tokenData = await tokenResponse.json();
     if (!tokenResponse.ok || !tokenData.access_token || !tokenData.user_id) {
       console.error("Instagram token exchange failed:", tokenData);
-      return NextResponse.redirect(new URL("/?instagram_error=token_exchange", url.origin));
+      return NextResponse.redirect(new URL("/?instagram_error=token_exchange", publicOrigin));
     }
 
     const longLived = await exchangeInstagramShortLivedToken(String(tokenData.access_token));
@@ -63,7 +64,7 @@ export async function GET(request: Request) {
     const profile = await profileResponse.json();
     if (!profileResponse.ok || !profile.user_id) {
       console.error("Instagram profile lookup failed:", profile);
-      return NextResponse.redirect(new URL("/?instagram_error=profile_lookup", url.origin));
+      return NextResponse.redirect(new URL("/?instagram_error=profile_lookup", publicOrigin));
     }
 
     const admin = createAdminClient();
@@ -78,14 +79,14 @@ export async function GET(request: Request) {
 
     if (error) {
       console.error("Instagram connection save failed:", error.message);
-      return NextResponse.redirect(new URL("/?instagram_error=save_failed", url.origin));
+      return NextResponse.redirect(new URL("/?instagram_error=save_failed", publicOrigin));
     }
 
-    const response = NextResponse.redirect(new URL("/?instagram_connected=1", url.origin));
+    const response = NextResponse.redirect(new URL("/?instagram_connected=1", publicOrigin));
     response.cookies.delete(getInstagramOAuthStateCookieName());
     return response;
   } catch (error) {
     console.error("Instagram callback failed:", error);
-    return NextResponse.redirect(new URL("/?instagram_error=callback_failed", url.origin));
+    return NextResponse.redirect(new URL("/?instagram_error=callback_failed", publicOrigin));
   }
 }
