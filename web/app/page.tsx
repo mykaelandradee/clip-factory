@@ -809,8 +809,8 @@ export default function Home() {
                 )}
               </div>
               <div className="cf-results-head-actions">
-                <div className="cf-output-badge"><span /> {job.result.files?.length ?? 0}/{clips} DISPONÍVEIS</div>
-                <button type="button" className="cf-button cf-button-secondary" onClick={downloadAllClips} disabled={!job.result.files?.length}>Baixar tudo <b>↓</b></button>
+                <div className="cf-output-badge"><span /> {job?.result?.files?.length ?? 0}/{clips} DISPONÍVEIS</div>
+                <button type="button" className="cf-button cf-button-secondary" onClick={downloadAllClips} disabled={!job?.result?.files?.length}>Baixar tudo <b>↓</b></button>
                 <button type="button" className="cf-results-new" onClick={startNewGeneration}>+ Novo vídeo</button>
               </div>
             </div>
