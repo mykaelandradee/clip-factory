@@ -1115,3 +1115,138 @@ button{appearance:none}
   .cf-history-item { align-items: flex-start; flex-direction: column; gap: 9px; }
   .cf-history-main span { white-space: normal; }
 }
+
+
+/* Final UI polish — cleaner hierarchy, denser workspace, stronger mobile readability. */
+.cf-shell{
+  padding:18px 18px 64px;
+  background:
+    radial-gradient(circle at 50% -14%,#22222a 0,#101015 30rem,#07070a 64rem);
+}
+.cf-container{max-width:1080px}
+.cf-header{
+  height:56px;
+  border-bottom-color:#ffffff0c;
+}
+.cf-header-meta{gap:10px}
+.cf-live-label{color:#686873;font-weight:800}
+.cf-hero{
+  min-height:310px;
+  padding:52px 4px 42px;
+}
+.cf-hero-copy{max-width:680px}
+.cf-hero h2{
+  margin:15px 0 15px;
+  font-size:clamp(48px,6.7vw,78px);
+  line-height:.91;
+}
+.cf-hero p{max-width:540px;color:#858590}
+.cf-hero-pills{margin-top:20px}
+.cf-hero-pills span{
+  padding:6px 9px;
+  background:#ffffff05;
+}
+.cf-hero-mark-wrap{
+  width:174px;
+  height:174px;
+  margin-right:18px;
+  opacity:.8;
+}
+.cf-hero-mark{
+  inset:23px;
+  width:128px;
+  height:128px;
+}
+.cf-hero-mark strong{font-size:26px}
+.cf-card{
+  border-radius:20px;
+  box-shadow:0 24px 70px #00000042;
+}
+.cf-builder{padding:22px}
+.cf-builder-head{margin-bottom:15px}
+.cf-builder-head h3{font-size:16px}
+.cf-section-head{
+  margin-top:25px;
+  padding-top:20px;
+}
+.cf-grid{grid-template-columns:minmax(0,1.55fr) .8fr 1fr;gap:10px}
+.cf-field input,.cf-field select{height:48px}
+.cf-video-info{
+  margin-top:10px;
+  padding:9px;
+}
+.cf-duration-grid{gap:8px}
+.cf-duration{
+  padding:13px;
+  border-radius:12px;
+}
+.cf-template-grid{
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:10px;
+}
+.cf-template{border-radius:14px}
+.cf-template-preview{height:176px}
+.cf-template-info{padding:11px 12px 12px}
+.cf-template-info strong{font-size:12px}
+.cf-template-info span{font-size:8px}
+.cf-style-detail{
+  margin-top:10px;
+  padding:11px 13px;
+}
+.cf-actions{
+  margin-top:20px;
+  padding-top:18px;
+  border-top:1px solid #ffffff09;
+}
+.cf-button{min-height:48px}
+.cf-job{
+  margin-top:14px;
+  border-radius:14px;
+}
+.cf-results{
+  margin-top:22px;
+}
+.cf-results-head{
+  margin-bottom:14px;
+}
+.cf-results-grid{gap:12px}
+.cf-result-card{
+  border-radius:16px;
+}
+.cf-output-badge{
+  border-radius:999px;
+}
+@media(max-width:980px){
+  .cf-hero{min-height:280px}
+  .cf-template-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .cf-grid{grid-template-columns:1fr 1fr}
+  .cf-field:first-child{grid-column:1/-1}
+}
+@media(max-width:600px){
+  .cf-shell{padding:10px 10px 48px}
+  .cf-header{height:50px}
+  .cf-header-meta{gap:7px}
+  .cf-hero{
+    min-height:0;
+    padding:38px 2px 30px;
+  }
+  .cf-hero h2{
+    margin:13px 0;
+    font-size:clamp(42px,13vw,58px);
+  }
+  .cf-hero p{font-size:11px;line-height:1.55}
+  .cf-hero-pills{gap:5px}
+  .cf-hero-pills span{font-size:7px;padding:6px 8px}
+  .cf-builder{
+    padding:14px;
+    border-radius:17px;
+  }
+  .cf-grid{grid-template-columns:1fr}
+  .cf-field:first-child{grid-column:auto}
+  .cf-template-grid{grid-template-columns:1fr}
+  .cf-template-preview{height:165px}
+  .cf-duration-grid{grid-template-columns:1fr}
+  .cf-section-head{margin-top:22px;padding-top:18px}
+  .cf-actions{align-items:stretch}
+  .cf-button{width:100%}
+}
