@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { createClient } from "../../../../lib/supabase/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
 import { getClientKey, rateLimit } from "../../../../lib/rate-limit";
@@ -6,6 +7,18 @@ import { getClientKey, rateLimit } from "../../../../lib/rate-limit";
 export const runtime = "nodejs";
 
 const MAX_BODY_BYTES = 16 * 1024;
+
+function isAnonymousJobAccessValid(jobId: string, token: string | null) {
+  if (!token) return false;
+  const secret = process.env.CLIP_FACTORY_TOKEN_ENCRYPTION_KEY || process.env.CLIP_FACTORY_WORKER_TOKEN || process.env.CLIP_FACTORY_GITHUB_TOKEN || "";
+  if (!secret) return false;
+  try {
+    const expected = createHmac("sha256", secret).update("clip-factory-anonymous-job:" + jobId).digest("base64url");
+    const a = Buffer.from(expected);
+    const b = Buffer.from(token);
+    return a.length === b.length && timingSafeEqual(a, b);
+  } catch { return false; }
+}
 
 function configured() {
   return Boolean(
@@ -39,6 +52,7 @@ export async function POST(request: Request) {
   const title = typeof body?.title === "string" ? body.title.trim() : "";
   const description = typeof body?.description === "string" ? body.description : "";
   const publishAt = typeof body?.publishAt === "string" ? body.publishAt : "";
+  const accessToken = typeof body?.accessToken === "string" ? body.accessToken : null;
 
   if (!jobId || !/^clip-\d{2}\.mp4$/.test(file) || !title) return NextResponse.json({ error: "jobId, file e title são obrigatórios." }, { status: 400 });
   if (title.length > 100) return NextResponse.json({ error: "O título pode ter no máximo 100 caracteres." }, { status: 400 });
@@ -53,8 +67,10 @@ export async function POST(request: Request) {
   const { data: connection } = await admin.from("youtube_connections").select("id").eq("user_id", user.id).maybeSingle();
   if (!connection) return NextResponse.json({ error: "Conecte sua conta do YouTube antes de publicar." }, { status: 401 });
 
-  const { data: ownedJob } = await admin.from("clip_jobs").select("id").eq("id", jobId).eq("user_id", user.id).maybeSingle();
-  if (!ownedJob) return NextResponse.json({ error: "Este processamento não pertence ao usuário autenticado." }, { status: 403 });
+  const { data: ownedJob } = await admin.from("clip_jobs").select("id,user_id").eq("id", jobId).maybeSingle();
+  const ownsAuthenticatedJob = ownedJob?.user_id === user.id;
+  const ownsAnonymousJob = ownedJob?.user_id == null && isAnonymousJobAccessValid(jobId, accessToken);
+  if (!ownedJob || (!ownsAuthenticatedJob && !ownsAnonymousJob)) return NextResponse.json({ error: "Este processamento não pertence ao usuário autenticado." }, { status: 403 });
 
   const dispatchedAt = new Date().toISOString();
   const response = await fetch("https://api.github.com/repos/mykaelandradee/clip-factory/dispatches", {
