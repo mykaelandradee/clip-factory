@@ -64,7 +64,7 @@ def _word_events(candidate: ClipCandidate, segments: list[TranscriptSegment]) ->
 PRESETS = {
     "karaoke": dict(font="DejaVu Sans", size=76, bold=1, primary="&H00FFFFFF", active="&H0000FFFF", outline=5, shadow=0, margin=440, spacing=0, alignment=2, scale_x=100, scale_y=100),
     "fire": dict(font="DejaVu Sans Condensed", size=76, bold=1, primary="&H00FFFFFF", active="&H000080FF", outline=5, shadow=0, margin=440, spacing=0, alignment=2, scale_x=100, scale_y=100),
-    "youshaei": dict(font="DejaVu Sans", size=76, bold=1, primary="&H00FFFFFF", active="&H00FF0000", outline=5, shadow=0, margin=440, spacing=0, alignment=2, scale_x=100, scale_y=100),
+    "youshaei": dict(font="DejaVu Sans", size=76, bold=1, primary="&H00FFFFFF", active="&H00FFBF00", outline=5, shadow=0, margin=440, spacing=0, alignment=2, scale_x=100, scale_y=100),
     "harmozi": dict(font="DejaVu Sans Mono", size=76, bold=1, primary="&H00FFFFFF", active="&H0000FF00", outline=5, shadow=0, margin=440, spacing=0, alignment=2, scale_x=100, scale_y=100),
     "beasty": dict(font="DejaVu Sans Mono", size=78, bold=1, primary="&H00FFFFFF", active="&H00000000", outline=0, shadow=0, margin=455, spacing=-1, alignment=2, scale_x=100, scale_y=100),
     "cinematic": dict(font="DejaVu Serif", size=58, bold=0, primary="&H00FFFFFF", active="&H00FFFFFF", outline=2, shadow=1, margin=470, spacing=1, alignment=2, scale_x=100, scale_y=100),
