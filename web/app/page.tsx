@@ -147,7 +147,7 @@ export default function Home() {
         message: data.message || "Nova tentativa iniciada.",
       });
       if (timer.current) clearInterval(timer.current);
-      timer.current = setInterval(() => poll(jobId, jobAccessToken), 3000);
+      timer.current = setInterval(() => poll(jobId, jobAccessToken), 5000);
     } catch (err) {
       setSubmitting(false);
       setError(err instanceof Error ? err.message : "Não foi possível tentar novamente.");
@@ -568,7 +568,7 @@ export default function Home() {
       setJobAccessToken(data.accessToken || "");
       pollStartedAt.current = Date.now();
       setJob(data);
-      timer.current = setInterval(() => poll(data.jobId, data.accessToken || ""), 3000);
+      timer.current = setInterval(() => poll(data.jobId, data.accessToken || ""), 5000);
     } catch (err) {
       setSubmitting(false);
       setWorkerOnline(false);
@@ -794,22 +794,22 @@ export default function Home() {
           
         </form>
 
-        {job?.status === "completed" && job.result && (
+        {job?.result?.files?.length && (
           <section className="cf-results">
             <div className="cf-results-head">
               <div className="cf-results-title">
                 <div className="cf-section-kicker">04 / OUTPUT</div>
-                <h2>Seus clips estão prontos.</h2>
-                <p><strong>{job.result.files?.length ?? 0} de {clips} clips gerados</strong> · 9:16 · hospedados no R2 e prontos para publicar.</p>
+                <h2>{job.status === "completed" ? "Seus clips estão prontos." : "Clips disponíveis."}</h2>
+                <p><strong>{job.result.files?.length ?? 0} de {clips} clips disponíveis</strong> · 9:16 · prontos para baixar ou publicar.</p>
                 {(job.result.files?.length ?? 0) < Number(clips) && (
                   <div className="cf-partial-output">
-                    <strong>Resultado parcial disponível</strong>
-                    <span>Foram gerados os clips que o processamento conseguiu concluir. Os arquivos disponíveis já podem ser baixados ou publicados.</span>
+                    <strong>{job.status === "completed" ? "Resultado parcial disponível" : "Clips preservados apesar da falha"}</strong>
+                    <span>Os arquivos disponíveis já podem ser baixados ou publicados. Você pode tentar novamente para gerar os clips restantes.</span>
                   </div>
                 )}
               </div>
               <div className="cf-results-head-actions">
-                <div className="cf-output-badge"><span /> {job.result.files?.length ?? 0}/{clips} GERADOS</div>
+                <div className="cf-output-badge"><span /> {job.result.files?.length ?? 0}/{clips} DISPONÍVEIS</div>
                 <button type="button" className="cf-button cf-button-secondary" onClick={downloadAllClips} disabled={!job.result.files?.length}>Baixar tudo <b>↓</b></button>
                 <button type="button" className="cf-results-new" onClick={startNewGeneration}>+ Novo vídeo</button>
               </div>
