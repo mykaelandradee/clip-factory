@@ -815,7 +815,7 @@ export default function Home() {
               </div>
             </div>
             <div className="cf-results-grid">
-              {(job.result.files ?? []).map((r2File, index) => {
+              {(job?.result?.files ?? []).map((r2File, index) => {
                 const file = r2File.file;
                 const source = r2File.url;
                 const download = r2File.url;
