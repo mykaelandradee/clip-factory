@@ -1043,3 +1043,75 @@ button{appearance:none}
 /* Reliable downloads: same-origin proxy forces attachment instead of opening cross-origin R2 URLs. */
 .cf-download-button { border:0; background:none; padding:0; cursor:pointer; font:inherit; }
 .cf-download-button:hover { color:#fff; }
+
+
+.cf-history {
+  margin: 28px 0;
+  padding: 22px;
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 20px;
+  background: rgba(255,255,255,.035);
+}
+.cf-history .cf-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.cf-history .cf-section-kicker {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 10px;
+  letter-spacing: .16em;
+  opacity: .55;
+}
+.cf-history h2 {
+  margin: 0;
+  font-size: 22px;
+}
+.cf-history-refresh {
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  padding: 9px 13px;
+  cursor: pointer;
+}
+.cf-history-refresh:disabled { opacity: .5; cursor: default; }
+.cf-history-list { display: grid; gap: 8px; }
+.cf-history-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  text-align: left;
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 13px;
+  background: rgba(0,0,0,.12);
+  color: inherit;
+  padding: 13px 15px;
+  cursor: pointer;
+}
+.cf-history-item:hover { border-color: rgba(255,255,255,.16); background: rgba(255,255,255,.045); }
+.cf-history-main { min-width: 0; display: grid; gap: 5px; }
+.cf-history-main strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cf-history-main span { font-size: 12px; opacity: .55; }
+.cf-history-status {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.cf-history-status.status-completed { color: #6ee7b7; }
+.cf-history-status.status-processing, .cf-history-status.status-queued { color: #facc15; }
+.cf-history-status.status-failed, .cf-history-status.status-canceled { color: #fb7185; }
+.cf-history-empty { margin: 0; opacity: .55; font-size: 13px; }
+
+@media (max-width: 640px) {
+  .cf-history { padding: 17px; border-radius: 16px; }
+  .cf-history-item { align-items: flex-start; flex-direction: column; gap: 9px; }
+  .cf-history-main span { white-space: normal; }
+}
