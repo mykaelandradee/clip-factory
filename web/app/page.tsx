@@ -584,7 +584,7 @@ export default function Home() {
         <header className="cf-header cf-header-modern">
           <div className="cf-brand"><div className="cf-logo">CF</div><span>Clip Factory</span></div>
           <div className="cf-header-meta">
-            <span className="cf-live-label">LOCAL AI PIPELINE</span>
+            <span className="cf-live-label">AI CLIP MAKER</span>
             {!GENERATION_ONLY_MODE && <>
               {!user && !authLoading && (
                 <div className="cf-auth-group">
@@ -632,10 +632,10 @@ export default function Home() {
 
         <section className="cf-hero">
           <div className="cf-hero-copy">
-            <div className="cf-hero-label"><span /> VIDEO → CLIPS → SOCIAL</div>
-            <h2>Transforme seu vídeo<br /><em>em conteúdo.</em></h2>
-            <p>Recorte automático, legendas animadas e formato 9:16 em um único fluxo. Sem precisar conectar uma conta para gerar.</p>
-            <div className="cf-hero-pills"><span>AI CLIPPING</span><span>9:16</span><span>WORD SYNC</span><span>READY TO POST</span></div>
+            <div className="cf-hero-label"><span /> AI CLIP MAKER</div>
+            <h2>Transforme vídeos<br /><em>em clips.</em></h2>
+            <p>Escolha o vídeo, defina o formato e deixe o Clip Factory encontrar os melhores momentos automaticamente.</p>
+            <div className="cf-hero-pills"><span>9:16</span><span>LEGENDAS</span><span>PRONTO PARA PUBLICAR</span></div>
           </div>
           <div className="cf-hero-mark-wrap">
             <div className="cf-hero-mark"><strong>9:16</strong><span>SHORT FORM</span></div>
@@ -729,7 +729,7 @@ export default function Home() {
           )}
 
           <div className="cf-builder-head cf-section-head">
-            <div><span className="cf-kicker">03 / STYLE</span><h3>Escolha a personalidade da legenda</h3></div>
+            <div><span className="cf-kicker">03 / STYLE</span><h3>Escolha o estilo da legenda</h3></div>
             <span className="cf-section-note">Preview fiel ao preset usado na renderização</span>
           </div>
           <div className="cf-template-grid">
