@@ -133,7 +133,7 @@ export async function POST(request: Request) {
     if (!user) accessToken = createAnonymousAccessToken(jobId);
     const admin = createAdminClient();
     try {
-      const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
       const { error: cleanupError } = await admin.from("clip_jobs").delete().lt("created_at", cutoff);
       if (cleanupError) console.warn("Old clip job cleanup skipped:", cleanupError.message);
     } catch (cleanupError) {
