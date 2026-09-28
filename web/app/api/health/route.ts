@@ -79,12 +79,17 @@ export async function GET() {
   checks.r2 = results[1].status === "fulfilled" && results[1].value;
   checks.supabase = results[2].status === "fulfilled" && results[2].value;
 
-  const failures = results
-    .map((result, index) => result.status === "rejected" ? ["github", "r2", "supabase"][index] : null)
-    .filter(Boolean);
+  const checkNames = ["github", "r2", "supabase"] as const;
+  const failures = checkNames.filter((name, index) =>
+    results[index].status === "rejected" || checks[name] === false
+  );
 
   if (failures.length) {
-    logError("healthcheck_dependency_failed", failures.join(","), { failures: failures.join(",") });
+    logError(
+      "healthcheck_dependency_failed",
+      failures.join(","),
+      { failures: failures.join(",") }
+    );
   }
 
   const online = checks.github && checks.r2 && checks.supabase;
@@ -94,6 +99,7 @@ export async function GET() {
     github: checks.github,
     r2: checks.r2,
     supabase: checks.supabase,
+    failedChecks: failures.join(",") || undefined,
   });
 
   return NextResponse.json(
@@ -101,6 +107,7 @@ export async function GET() {
       status: online ? "online" : "degraded",
       backend: "github-actions",
       checks,
+      failedChecks: failures,
       timestamp: new Date().toISOString(),
     },
     {
