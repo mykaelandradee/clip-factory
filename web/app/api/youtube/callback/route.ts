@@ -58,8 +58,5 @@ export async function GET(request: Request) {
     return new NextResponse("Não foi possível armazenar a conexão do YouTube.", { status: 500 });
   }
 
-  return new NextResponse(
-    `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Clip Factory · YouTube conectado</title><style>body{font-family:system-ui;background:#09090b;color:#fff;max-width:720px;margin:60px auto;padding:24px}main{background:#18181b;border:1px solid #27272a;border-radius:20px;padding:28px}a{display:inline-block;margin-top:18px;background:#fff;color:#09090b;padding:12px 18px;border-radius:12px;text-decoration:none;font-weight:700}</style></head><body><main><h1>YouTube conectado</h1><p>Sua conta do YouTube foi vinculada ao seu usuário do Clip Factory.</p><p>A autorização fica armazenada de forma protegida no banco de dados e não no navegador.</p><a href="/">Voltar ao Clip Factory</a></main></body></html>`,
-    { headers: { "Content-Type": "text/html; charset=utf-8" } },
-  );
+  return NextResponse.redirect(new URL("/?youtube_connected=1#", publicOrigin));
 }
