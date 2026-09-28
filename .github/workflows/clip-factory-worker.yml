@@ -223,7 +223,7 @@ jobs:
               f"- **Tentativa:** {status['run_attempt']}",
               f"- **Status:** {status['job_status']}",
           ]
-          result_file = Path("data/result.json")
+          result_file = Path("data/job-timings.json")
           if result_file.exists():
               try:
                   result = json.loads(result_file.read_text(encoding="utf-8"))
