@@ -72,7 +72,7 @@ export default function Home() {
   const [showAuthInfo, setShowAuthInfo] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [authMessage, setAuthMessage] = useState("");
+  const [authModal, setAuthModal] = useState("");
   const [publishingTarget, setPublishingTarget] = useState<string | null>(null);
   const [publishMessage, setPublishMessage] = useState("");
   const [publishStatuses, setPublishStatuses] = useState<Record<string, { platform: "youtube" | "instagram"; status: "queued" | "running" | "success" | "failed"; message: string }>>({});
@@ -210,10 +210,10 @@ export default function Home() {
         await checkInstagram();
       }
       const params = new URLSearchParams(window.location.search);
-      if (params.get("auth_error") === "session_required") setAuthMessage("Entre no Clip Factory para conectar YouTube ou Instagram.");
-      else if (params.get("auth_error")) setAuthMessage("Não foi possível concluir a autenticação. Tente novamente.");
-      if (params.get("instagram_connected") === "1") setAuthMessage("Instagram conectado com sucesso.");
-      if (params.get("instagram_error")) setAuthMessage("Não foi possível conectar o Instagram. Verifique a configuração e tente novamente.");
+      if (params.get("auth_error") === "session_required") setAuthModal("Entre no Clip Factory para conectar YouTube ou Instagram.");
+      else if (params.get("auth_error")) setAuthModal("Não foi possível concluir a autenticação. Tente novamente.");
+      if (params.get("instagram_connected") === "1") setAuthModal("Instagram conectado com sucesso.");
+      if (params.get("instagram_error")) setAuthModal("Não foi possível conectar o Instagram. Verifique a configuração e tente novamente.");
       supabase.auth.onAuthStateChange((_event, session) => {
         setUser(session?.user ?? null);
         if (session?.user) {
@@ -225,7 +225,7 @@ export default function Home() {
         }
       });
     } catch {
-      setAuthMessage("Autenticação ainda não está configurada.");
+      setAuthModal("Autenticação ainda não está configurada.");
     } finally {
       setAuthLoading(false);
     }
@@ -239,7 +239,7 @@ export default function Home() {
       setYoutubeConnected(false);
       setInstagramConnected(false);
     } catch {
-      setAuthMessage("Não foi possível sair.");
+      setAuthModal("Não foi possível sair.");
     }
   }
 
@@ -272,9 +272,9 @@ export default function Home() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Não foi possível desconectar o YouTube.");
       setYoutubeConnected(false);
-      setAuthMessage("YouTube desconectado.");
+      setAuthModal("YouTube desconectado.");
     } catch (err) {
-      setAuthMessage(err instanceof Error ? err.message : "Não foi possível desconectar o YouTube.");
+      setAuthModal(err instanceof Error ? err.message : "Não foi possível desconectar o YouTube.");
     }
   }
 
@@ -285,9 +285,9 @@ export default function Home() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Não foi possível desconectar o Instagram.");
       setInstagramConnected(false);
-      setAuthMessage("Instagram desconectado.");
+      setAuthModal("Instagram desconectado.");
     } catch (err) {
-      setAuthMessage(err instanceof Error ? err.message : "Não foi possível desconectar o Instagram.");
+      setAuthModal(err instanceof Error ? err.message : "Não foi possível desconectar o Instagram.");
     }
   }
 
@@ -594,7 +594,6 @@ export default function Home() {
           </div>
         </header>
 
-        {!GENERATION_ONLY_MODE && authMessage && <div className="cf-auth-message">{authMessage}</div>}
         <section className="cf-hero">
           <div className="cf-hero-copy">
             <div className="cf-hero-label"><span /> VIDEO → CLIPS → SOCIAL</div>
@@ -917,6 +916,20 @@ export default function Home() {
               <a href={previewClip.url} download={previewClip.file} className="cf-download">Baixar <span>↓</span></a>
               <button type="button" className="cf-preview-close-action" onClick={() => setPreviewClip(null)}>Fechar preview</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {!GENERATION_ONLY_MODE && authModal && (
+        <div className="cf-auth-modal" role="dialog" aria-modal="true" aria-label="Status da conexão" onMouseDown={(event) => { if (event.target === event.currentTarget) setAuthModal(""); }}>
+          <div className="cf-auth-modal-card">
+            <div className="cf-auth-modal-icon">✓</div>
+            <div className="cf-auth-modal-copy">
+              <span>CLIP FACTORY</span>
+              <strong>{authModal}</strong>
+            </div>
+            <button type="button" className="cf-auth-modal-close" onClick={() => setAuthModal("")} aria-label="Fechar mensagem">×</button>
+            <button type="button" className="cf-auth-modal-action" onClick={() => setAuthModal("")}>Continuar</button>
           </div>
         </div>
       )}
