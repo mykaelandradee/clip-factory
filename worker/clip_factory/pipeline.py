@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import time
 import uuid
@@ -178,7 +179,7 @@ def run_pipeline(
     )
     (settings.data_dir / "job-timings.json").write_text(
         json.dumps({
-            "job_id": settings.data_dir.name if settings.data_dir.name else None,
+            "job_id": os.getenv("JOB_ID"),
             "project_name": project_name,
             "timings": timings,
         }, ensure_ascii=False, indent=2),
