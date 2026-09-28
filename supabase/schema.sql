@@ -123,7 +123,7 @@ $$;
 
 revoke all on function public.cleanup_clip_jobs() from public;
 
-do $$
+do $do$
 begin
   if not exists (
     select 1
@@ -133,8 +133,8 @@ begin
     perform cron.schedule(
       'clip-jobs-cleanup',
       '17 4 * * *',
-      $$select public.cleanup_clip_jobs();$$
+      $cron$select public.cleanup_clip_jobs();$cron$
     );
   end if;
 end;
-$$;
+$do$;
