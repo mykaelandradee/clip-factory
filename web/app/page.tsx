@@ -60,7 +60,7 @@ export default function Home() {
   const [duration, setDuration] = useState("30-60");
   const [subtitleLanguage, setSubtitleLanguage] = useState("original");
   const [captionStyle, setCaptionStyle] = useState("karaoke");
-  const [workerOnline, setWorkerOnline] = useState(false);
+  const [workerOnline, setWorkerOnline] = useState<boolean | null>(null);
   const [jobId, setJobId] = useState("");
   const [jobAccessToken, setJobAccessToken] = useState("");
   const [job, setJob] = useState<Job | null>(null);
@@ -626,7 +626,7 @@ export default function Home() {
                 </>
               )}
             </>}
-            <div className={`cf-status-pill ${workerOnline ? "online" : "offline"}`}><span /> {workerOnline ? "Sistema online" : "Sistema indisponível"}</div>
+            <div className={`cf-status-pill ${workerOnline === true ? "online" : workerOnline === false ? "offline" : "checking"}`}><span /> {workerOnline === true ? "Sistema online" : workerOnline === false ? "Sistema indisponível" : "Verificando sistema"}</div>
           </div>
         </header>
 
@@ -763,12 +763,12 @@ export default function Home() {
 
           {jobId && job && (
             <div className="cf-job">
-              <div className="cf-job-top"><div><span className="cf-job-live">{job.status === "canceled" ? "PROCESSAMENTO CANCELADO" : "PROCESSAMENTO AO VIVO"}</span><strong>{job.status === "canceled" ? "Cancelado" : job.progress >= 100 ? "Concluído" : getProgressStage(job.progress, job.stage)}</strong></div><span className="cf-job-percent">{job.status === "canceled" ? "CANCELADO" : `${job.progress}%`}</span></div>
+              <div className="cf-job-top"><div><span className="cf-job-live">{job.status === "canceled" ? "PROCESSAMENTO CANCELADO" : job.status === "failed" ? "PROCESSAMENTO INTERROMPIDO" : "PROCESSAMENTO AO VIVO"}</span><strong>{job.status === "canceled" ? "Cancelado" : job.progress >= 100 ? "Concluído" : getProgressStage(job.progress, job.stage)}</strong></div><span className="cf-job-percent">{job.status === "canceled" ? "CANCELADO" : `${job.progress}%`}</span></div>
               <div className={`cf-progress ${job.status === "canceled" ? "canceled" : ""}`} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={job.progress} aria-label={job.status === "canceled" ? "Processamento cancelado" : "Progresso da geração"}><div style={{ width: `${job.progress}%` }} /></div>
               <div className="cf-job-steps">
                 {[[20, "ANÁLISE"], [45, "TRANSCRIÇÃO"], [70, "MOMENTOS"], [90, "RENDER"], [100, "PRONTO"]].map(([threshold, label]) => <span key={label} className={job.progress >= Number(threshold) ? "done" : ""}>{label}</span>)}
               </div>
-              <small>{job.status === "canceled" ? "Processamento cancelado" : getProgressStage(job.progress, job.stage)}{job.status !== "completed" && job.message && !/install system dependencies|install dependencies|github actions|r2|job [a-f0-9-]{8,}/i.test(job.message) ? ` · ${job.message}` : ""}</small>
+              <small>{job.status === "canceled" ? "Processamento cancelado" : job.status === "failed" ? "Processamento interrompido. Os clips já gerados foram preservados." : getProgressStage(job.progress, job.stage)}{job.status !== "completed" && job.message && !/install system dependencies|install dependencies|github actions|r2|job [a-f0-9-]{8,}/i.test(job.message) ? ` · ${job.message}` : ""}</small>
             </div>
           )}
 
