@@ -320,8 +320,8 @@ def transcribe(
     speech_audio: Path | None = None
     try:
         # PT-BR must first transcribe the original language. For English output,
-    # Whisper can use its native translation task.
-    task = "translate" if subtitle_language == "en" else "transcribe"
+        # Whisper can use its native translation task.
+        task = "translate" if subtitle_language == "en" else "transcribe"
 
         def _run(path: Path, language: str | None = None):
             kwargs = {
