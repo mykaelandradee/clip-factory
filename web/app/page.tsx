@@ -85,7 +85,9 @@ export default function Home() {
   const [instagramConnected, setInstagramConnected] = useState(false);
   const [showAuthInfo, setShowAuthInfo] = useState(false);
   const [user, setUser] = useState<User | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);\n  const [history, setHistory] = useState<HistoryItem[]>([]);\n  const [historyLoading, setHistoryLoading] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [authModal, setAuthModal] = useState("");
   const [publishingTarget, setPublishingTarget] = useState<string | null>(null);
   const [publishMessage, setPublishMessage] = useState("");
