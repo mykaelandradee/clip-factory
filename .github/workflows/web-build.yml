@@ -38,6 +38,12 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Test
+        run: npm test
+
+      - name: Security audit
+        run: npm audit --audit-level=moderate
+
       - name: Build
         env:
           NEXT_TELEMETRY_DISABLED: "1"
