@@ -340,6 +340,7 @@ export default function Home() {
           title: draft.title.trim(),
           description: draft.description,
           publishAt: draft.publishAt ? new Date(draft.publishAt).toISOString() : "",
+          accessToken: jobAccessToken || undefined,
         }),
       });
       const data = await response.json();
@@ -353,6 +354,7 @@ export default function Home() {
             file,
             ...(data.runId ? { runId: String(data.runId) } : {}),
             ...(data.startedAt ? { startedAt: String(data.startedAt) } : {}),
+            ...(jobAccessToken ? { accessToken: jobAccessToken } : {}),
           });
           const statusResponse = await fetch(`/api/publish/status?${statusQuery.toString()}`, { cache: "no-store" });
           const statusData = await statusResponse.json();
@@ -398,7 +400,7 @@ export default function Home() {
       const response = await fetch("/api/instagram/publish", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jobId, file, caption }),
+        body: JSON.stringify({ jobId, file, caption, accessToken: jobAccessToken || undefined }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Não foi possível publicar no Instagram.");
