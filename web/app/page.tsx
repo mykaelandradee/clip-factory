@@ -794,7 +794,7 @@ export default function Home() {
           
         </form>
 
-        {job?.result?.files?.length && (
+        {Boolean(job?.result?.files?.length) && (
           <section className="cf-results">
             <div className="cf-results-head">
               <div className="cf-results-title">
