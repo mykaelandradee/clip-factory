@@ -22,15 +22,15 @@ COPY clip_factory ./clip_factory
 COPY run_worker.py ./run_worker.py
 
 ENV CLIP_FACTORY_WORKER_HOST=0.0.0.0 \
-    CLIP_FACTORY_WORKER_PORT=8765 \
+    CLIP_FACTORY_WORKER_PORT=10000 \
     CLIP_FACTORY_DATA_DIR=/data \
     WHISPER_MODEL=base
 
 RUN mkdir -p /data
 
-EXPOSE 8765
+EXPOSE 10000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=3 \
-    CMD sh -c 'curl -fsS "http://127.0.0.1:${PORT:-8765}/health" || exit 1'
+    CMD sh -c 'curl -fsS "http://127.0.0.1:\${PORT:-10000}/health" || exit 1'
 
 CMD ["python", "run_worker.py"]
