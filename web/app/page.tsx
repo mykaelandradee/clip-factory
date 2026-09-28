@@ -799,9 +799,9 @@ export default function Home() {
             <div className="cf-results-head">
               <div className="cf-results-title">
                 <div className="cf-section-kicker">04 / OUTPUT</div>
-                <h2>{job.status === "completed" ? "Seus clips estão prontos." : "Clips disponíveis."}</h2>
-                <p><strong>{job.result.files?.length ?? 0} de {clips} clips disponíveis</strong> · 9:16 · prontos para baixar ou publicar.</p>
-                {(job.result.files?.length ?? 0) < Number(clips) && (
+                <h2>{job?.status === "completed" ? "Seus clips estão prontos." : "Clips disponíveis."}</h2>
+                <p><strong>{job?.result?.files?.length ?? 0} de {clips} clips disponíveis</strong> · 9:16 · prontos para baixar ou publicar.</p>
+                {(job?.result?.files?.length ?? 0) < Number(clips) && (
                   <div className="cf-partial-output">
                     <strong>{job.status === "completed" ? "Resultado parcial disponível" : "Clips preservados apesar da falha"}</strong>
                     <span>Os arquivos disponíveis já podem ser baixados ou publicados. Você pode tentar novamente para gerar os clips restantes.</span>
