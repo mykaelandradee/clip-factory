@@ -13,7 +13,7 @@ export async function GET(request: Request) {
   }
 
   const clientId = process.env.YOUTUBE_CLIENT_ID;
-  if (!clientId) return NextResponse.json({ error: "YOUTUBE_CLIENT_ID não configurado na Vercel." }, { status: 503 });
+  if (!clientId) return NextResponse.json({ error: "YOUTUBE_CLIENT_ID não configurado no Clip Factory." }, { status: 503 });
 
   const state = createOAuthState();
   const cookieStore = await cookies();
@@ -21,8 +21,8 @@ export async function GET(request: Request) {
     httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 600,
   });
 
-  const origin = new URL(request.url).origin;
-  const redirectUri = `${origin}/api/youtube/callback`;
+  const publicOrigin = (process.env.CLIP_FACTORY_WEB_URL || new URL(request.url).origin).replace(/\/$/, "");
+  const redirectUri = `${publicOrigin}/api/youtube/callback`;
   const params = new URLSearchParams({
     client_id: clientId, redirect_uri: redirectUri, response_type: "code",
     access_type: "offline", prompt: "consent",
