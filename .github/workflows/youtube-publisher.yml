@@ -19,6 +19,7 @@ jobs:
       PUBLISH_AT: ${{ github.event.client_payload.publish_at }}
       CLIP_FACTORY_PUBLISH_API_KEY: ${{ secrets.CLIP_FACTORY_TOKEN_ENCRYPTION_KEY }}
       CLIP_FACTORY_URL: https://clip-factory-web.onrender.com
+      R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -31,19 +32,18 @@ jobs:
       - name: Install uploader
         run: pip install google-api-python-client google-auth
 
-      - name: Download Clip Factory artifact
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Download clip from Cloudflare R2
         run: |
-          set -e
+          set -euo pipefail
+          test -n "${R2_PUBLIC_URL}"
+          test -n "${JOB_ID}"
+          test -n "${FILE}"
+          R2_FILE_URL="${R2_PUBLIC_URL%/}/jobs/${JOB_ID}/${FILE}"
+          echo "Downloading clip from R2: ${R2_FILE_URL}"
           mkdir -p publish
-          gh run download \
-            --repo "${GITHUB_REPOSITORY}" \
-            --name "clip-factory-${JOB_ID}" \
-            --dir publish
-          FOUND="$(find publish -type f -name "${FILE}" | head -n 1)"
-          test -n "${FOUND}"
-          cp "${FOUND}" publish/video.mp4
+          curl --fail --location --retry 3 --retry-all-errors --output publish/video.mp4 "${R2_FILE_URL}"
+          test -s publish/video.mp4
+          file publish/video.mp4
 
       - name: Validate publisher configuration
         run: |
