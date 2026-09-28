@@ -86,3 +86,16 @@ create policy "Users can update their Instagram connection"
   for update
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+
+-- FASE 5 — histórico de gerações.
+alter table public.clip_jobs add column if not exists source_url text;
+alter table public.clip_jobs add column if not exists source_title text;
+alter table public.clip_jobs add column if not exists requested_count integer;
+alter table public.clip_jobs add column if not exists min_duration integer;
+alter table public.clip_jobs add column if not exists max_duration integer;
+alter table public.clip_jobs add column if not exists subtitle_language text;
+alter table public.clip_jobs add column if not exists caption_style text;
+
+create index if not exists clip_jobs_created_at_idx
+  on public.clip_jobs(created_at desc);
