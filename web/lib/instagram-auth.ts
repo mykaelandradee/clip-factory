@@ -42,8 +42,8 @@ async function readJson(response: Response) {
 }
 
 export async function exchangeInstagramShortLivedToken(shortLivedToken: string) {
-  const clientSecret = process.env.INSTAGRAM_CLIENT_SECRET;
-  if (!clientSecret) throw new Error("INSTAGRAM_CLIENT_SECRET não configurado.");
+  const clientSecret = process.env.INSTAGRAM_CLIENT_SECRET || process.env.INSTAGRAM_APP_SECRET;
+  if (!clientSecret) throw new Error("INSTAGRAM_CLIENT_SECRET/INSTAGRAM_APP_SECRET não configurado.");
 
   const url = new URL(`${INSTAGRAM_GRAPH}/access_token`);
   url.searchParams.set("grant_type", "ig_exchange_token");
