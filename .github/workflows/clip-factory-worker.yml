@@ -204,15 +204,37 @@ jobs:
           from pathlib import Path
 
           Path("data").mkdir(parents=True, exist_ok=True)
+          status = {
+              "job_id": os.environ["JOB_ID"],
+              "run_id": os.environ["GITHUB_RUN_ID"],
+              "run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
+              "job_status": os.environ["JOB_STATUS"],
+          }
           Path("data/job-status.json").write_text(
-              json.dumps({
-                  "job_id": os.environ["JOB_ID"],
-                  "run_id": os.environ["GITHUB_RUN_ID"],
-                  "run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
-                  "job_status": os.environ["JOB_STATUS"],
-              }, ensure_ascii=False),
+              json.dumps(status, ensure_ascii=False),
               encoding="utf-8",
           )
+
+          summary = [
+              "## Clip Factory — execução",
+              "",
+              f"- **Job:** {status['job_id']}",
+              f"- **Run:** {status['run_id']}",
+              f"- **Tentativa:** {status['run_attempt']}",
+              f"- **Status:** {status['job_status']}",
+          ]
+          result_file = Path("data/result.json")
+          if result_file.exists():
+              try:
+                  result = json.loads(result_file.read_text(encoding="utf-8"))
+                  timings = result.get("timings", {})
+                  if timings:
+                      summary.extend(["", "### Tempos"])
+                      for name, seconds in timings.items():
+                          summary.append(f"- {name}: {seconds}s")
+              except Exception as exc:
+                  summary.append(f"- Não foi possível ler result.json: {exc}")
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(summary) + "\n", encoding="utf-8")
           PY
 
       - name: Upload results
