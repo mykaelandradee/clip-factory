@@ -40,12 +40,12 @@ function CaptionPreview({ id }: { id: string }) {
     youshaei: <><span>ISSO</span> <b>MUDA</b> <span>TUDO</span></>,
     harmozi: <><span>ISSO</span> <b>MUDA</b> <span>TUDO</span></>,
     beasty: <><i>ISSO</i> <span className="preview-box-word">MUDA</span> <i>TUDO</i></>,
-    cinematic: <><i>isso tudo</i><br/><b>muda a sua vida</b></>,
+    cinematic: <><i>ISSO TUDO</i><br/><b>MUDA A SUA VIDA</b></>,
   }[id as keyof typeof idMap];
   return (
     <div className={`cf-template-preview accent-${id}`}>
-      <span className="preview-top">9:16 • LIVE PREVIEW</span>
-      <span className="preview-context">VOCÊ PRECISA VER ISSO</span>
+      <span className="preview-top">9:16 • PREVIEW</span>
+      <span className="preview-context">EXEMPLO DE LEGENDA</span>
       <span className="preview-subtitle">{content}</span>
       <span className="preview-style-mark">{id}</span>
     </div>
@@ -700,7 +700,7 @@ export default function Home() {
 
           <div className="cf-builder-head cf-section-head">
             <div><span className="cf-kicker">03 / STYLE</span><h3>Escolha a personalidade da legenda</h3></div>
-            <span className="cf-section-note">Cada preset usa tipografia e animação próprias</span>
+            <span className="cf-section-note">Preview fiel ao preset usado na renderização</span>
           </div>
           <div className="cf-template-grid">
             {CAPTION_TEMPLATES.map(([id, name, description]) => (
@@ -716,7 +716,7 @@ export default function Home() {
           </div>
           <div className={`cf-style-detail accent-${selectedTemplate[0]}`}>
             <div className="cf-style-detail-icon">✦</div>
-            <div><span>PRESET SELECIONADO</span><strong>{selectedTemplate[1]}</strong><p>{selectedTemplate[2]} · maiúsculas · word-sync · 9:16</p></div>
+            <div><span>PRESET SELECIONADO</span><strong>{selectedTemplate[1]}</strong><p>{selectedTemplate[2]} · mesma tipografia, destaque e posicionamento do vídeo final · 9:16</p></div>
             <div className="cf-style-wave"><i/><i/><i/><i/><i/><i/></div>
           </div>
 

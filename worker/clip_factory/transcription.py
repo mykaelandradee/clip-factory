@@ -115,7 +115,7 @@ def _normalize_pt_br(text: str) -> str:
     return out.strip()
 
 
-def _translate_to_pt(texts: list[str]) -> list[str]:
+def _translate_to_pt(texts: list[str], source_language: str = "eng_Latn") -> list[str]:
     """Translate English captions to Brazilian Portuguese with a local model.
 
     The model is loaded once per job. If a batch fails because of a tokenizer/model
@@ -128,9 +128,12 @@ def _translate_to_pt(texts: list[str]) -> list[str]:
         return []
 
     model_name = "facebook/nllb-200-distilled-600M"
-    tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False, src_lang="eng_Latn", tgt_lang="por_Latn")
+    tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False, src_lang=source_language, tgt_lang="por_Latn")
     model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
     model.eval()
+    # Avoid Transformers generation warnings caused by stale model defaults.
+    model.generation_config.max_length = None
+    model.generation_config.early_stopping = False
     target_language_id = tokenizer.convert_tokens_to_ids("por_Latn")
     # This is inference-only. A single beam is enough for short social captions
     # and is substantially cheaper on GitHub Actions CPU than the model default.
@@ -200,7 +203,7 @@ def _translate_to_pt(texts: list[str]) -> list[str]:
     return translated
 
 
-def translate_segments_to_pt(segments: list[TranscriptSegment], candidates) -> None:
+def translate_segments_to_pt(segments: list[TranscriptSegment], candidates, source_language: str = "en") -> None:
     """Translate only segments that will actually appear in rendered clips."""
     if not segments or not candidates:
         return
@@ -214,7 +217,20 @@ def translate_segments_to_pt(segments: list[TranscriptSegment], candidates) -> N
         return
 
     source_texts = [segments[index].text for index in indexes]
-    translated = [_normalize_pt_br(text) for text in _translate_to_pt(source_texts)]
+    if source_language in {"pt", "pt-br", "por_Latn"}:
+        translated = [_normalize_pt_br(text) for text in source_texts]
+    else:
+        language_map = {
+            "en": "eng_Latn",
+            "es": "spa_Latn",
+            "fr": "fra_Latn",
+            "de": "deu_Latn",
+            "it": "ita_Latn",
+            "nl": "nld_Latn",
+            "ru": "rus_Cyrl",
+        }
+        source_code = language_map.get(source_language.lower(), "eng_Latn")
+        translated = [_normalize_pt_br(text) for text in _translate_to_pt(source_texts, source_code)]
     for index, text in zip(indexes, translated):
         segment = segments[index]
         segment.text = text
@@ -303,7 +319,9 @@ def transcribe(
     model = whisper.load_model(model_name, device="cpu")
     speech_audio: Path | None = None
     try:
-        task = "translate" if subtitle_language == "en" else "transcribe"
+        # PT-BR must first transcribe the original language. For English output,
+    # Whisper can use its native translation task.
+    task = "translate" if subtitle_language == "en" else "transcribe"
 
         def _run(path: Path, language: str | None = None):
             kwargs = {
@@ -327,7 +345,7 @@ def transcribe(
         # PT-BR translation is English -> Portuguese. Pin Whisper to English
         # in this mode so short interview audio is not misclassified as Welsh,
         # Spanish, etc., which can produce nonsensical translated captions.
-        source_language = "en" if subtitle_language == "pt-BR" else None
+        source_language = None
         result = _run(speech_audio, language=source_language)
 
         def _keep(raw):
@@ -380,19 +398,7 @@ def transcribe(
             ]
 
         detected_language = str(result.get("language", "")).lower()
-
-        # Keep the Whisper model alive while performing the explicit English retry.
-        if subtitle_language == "pt-BR" and detected_language not in {"en", "pt", "pt-br"}:
-            print(
-                "[transcription] unsupported detected source language "
-                f"'{detected_language}', retrying Whisper with language=en"
-            )
-            result = _run(speech_audio, language="en")
-            raw_segments = [
-                raw for raw in result.get("segments", [])
-                if raw.get("text", "").strip()
-            ]
-            detected_language = str(result.get("language", "en")).lower()
+        print(f"[transcription] detected_language={detected_language or 'unknown'}")
     finally:
         del model
         gc.collect()

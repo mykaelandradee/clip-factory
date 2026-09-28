@@ -88,7 +88,8 @@ def run_pipeline(
     if subtitle_language == "pt-BR":
         report("translating", 60, "Traduzindo somente as legendas dos clips selecionados...")
         translation_started = time.perf_counter()
-        translate_segments_to_pt(segments, candidates)
+        detected_source_language = segments[0].language if segments and segments[0].language else "en"
+        translate_segments_to_pt(segments, candidates, detected_source_language)
         timings["translation"] = round(time.perf_counter() - translation_started, 2)
         print(f"[timing] translation={timings['translation']:.2f}s")
 
@@ -120,19 +121,29 @@ def run_pipeline(
             }
             completed = 0
             results: dict[int, str] = {}
+            render_errors: dict[str, str] = {}
             for future in as_completed(futures):
-                index, output, elapsed = future.result()
-                clip_timings[f"clip-{index:02d}"] = round(elapsed, 2)
+                index = futures[future]
+                try:
+                    index, output, elapsed = future.result()
+                    clip_timings[f"clip-{index:02d}"] = round(elapsed, 2)
+                    results[index] = output
+                except Exception as render_error:
+                    render_errors[f"clip-{index:02d}"] = str(render_error)
+                    print(f"[render] clip-{index:02d} failed: {render_error}")
                 completed += 1
                 percent = 70 + int(completed / total * 25)
                 report("rendering", percent, f"Renderizando clip {completed} de {total}...")
-                results[index] = output
 
         rendered = [results[index] for index in sorted(results)]
-        if len(rendered) != total:
+        if not rendered:
             raise RuntimeError(
-                f"Renderização incompleta: esperados {total} clips, "
-                f"mas foram gerados {len(rendered)}."
+                f"Nenhum clip pôde ser renderizado dos {total} selecionados."
+            )
+        if len(rendered) < total:
+            print(
+                f"[render] partial result: {len(rendered)}/{total} clips rendered; "
+                f"failed={', '.join(sorted(render_errors))}"
             )
         missing_outputs = [
             path for path in rendered
