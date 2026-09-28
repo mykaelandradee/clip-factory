@@ -12,7 +12,7 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL("/api/auth/google?next=/api/instagram/oauth", request.url));
   }
 
-  const clientId = process.env.INSTAGRAM_CLIENT_ID;
+  const clientId = process.env.INSTAGRAM_CLIENT_ID || process.env.INSTAGRAM_APP_ID;
   if (!clientId) return NextResponse.redirect(new URL("/?instagram_error=not_configured", request.url));
 
   const state = createInstagramOAuthState();
