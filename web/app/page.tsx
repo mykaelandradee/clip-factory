@@ -75,7 +75,7 @@ export default function Home() {
   const [authModal, setAuthModal] = useState("");
   const [publishingTarget, setPublishingTarget] = useState<string | null>(null);
   const [publishMessage, setPublishMessage] = useState("");
-  const [publishStatuses, setPublishStatuses] = useState<Record<string, { platform: "youtube" | "instagram"; status: "queued" | "running" | "success" | "failed"; message: string }>>({});
+  const [publishStatuses, setPublishStatuses] = useState<Record<string, { platform: "youtube" | "instagram"; status: "queued" | "running" | "success" | "failed" | "canceled"; message: string; scheduledPostId?: string }>>({});
   const publishTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const [publishDrafts, setPublishDrafts] = useState<Record<string, { title: string; description: string; publishAt: string; instagramPublishAt: string }>>({});
   const [previewClip, setPreviewClip] = useState<{ file: string; url: string; index: number; currentTime: number } | null>(null);
@@ -332,8 +332,8 @@ export default function Home() {
     if (publishTimer.current) clearInterval(publishTimer.current);
     setPublishingTarget(`youtube:${file}`);
     const draft = getPublishDraft(file, index);
-    const setStatus = (status: "queued" | "running" | "success" | "failed", message: string) =>
-      setPublishStatuses((previous) => ({ ...previous, [file]: { platform: "youtube", status, message } }));
+    const setStatus = (status: "queued" | "running" | "success" | "failed" | "canceled", message: string, scheduledPostId?: string) =>
+      setPublishStatuses((previous) => ({ ...previous, [file]: { platform: "youtube", status, message, ...(scheduledPostId ? { scheduledPostId } : {}) } }));
     try {
       const response = await fetch("/api/youtube/publish", {
         method: "POST",
@@ -364,7 +364,7 @@ export default function Home() {
           const statusData = await statusResponse.json();
           if (!statusResponse.ok) throw new Error(statusData.error || "Não foi possível consultar a publicação.");
           if (statusData.status === "success") {
-            setStatus("success", draft.publishAt ? "Publicação agendada com sucesso no YouTube." : "Vídeo publicado com sucesso no YouTube.");
+            setStatus("success", draft.publishAt ? "Publicação agendada com sucesso no YouTube." : "Vídeo publicado com sucesso no YouTube.", statusData.scheduledPostId);
             if (publishTimer.current) clearInterval(publishTimer.current);
             publishTimer.current = null;
             setPublishingTarget(null);
@@ -422,6 +422,7 @@ export default function Home() {
           message: scheduledAt
             ? `Reel agendado para ${new Date(scheduledAt).toLocaleString("pt-BR")}.`
             : (data.message || "Reel publicado com sucesso no Instagram."),
+          ...(scheduledAt && data.scheduledPost?.id ? { scheduledPostId: data.scheduledPost.id } : {}),
         },
       }));
     } catch (err) {
@@ -430,6 +431,60 @@ export default function Home() {
       setPublishingTarget(null);
     }
   }
+  async function cancelInstagramSchedule(file: string, scheduledPostId: string) {
+    if (!window.confirm("Deseja cancelar este agendamento do Instagram?")) return;
+    try {
+      const response = await fetch(`/api/instagram/schedule?id=${encodeURIComponent(scheduledPostId)}`, { method: "DELETE" });
+      const data = await readJsonResponse<{ error?: string }>(response);
+      if (!response.ok) throw new Error(data.error || "Não foi possível cancelar o agendamento do Instagram.");
+      setPublishStatuses((previous) => ({
+        ...previous,
+        [file]: {
+          ...previous[file],
+          status: "canceled",
+          message: "Agendamento do Instagram cancelado.",
+          scheduledPostId: undefined,
+        },
+      }));
+    } catch (err) {
+      setPublishStatuses((previous) => ({
+        ...previous,
+        [file]: {
+          ...previous[file],
+          status: "failed",
+          message: err instanceof Error ? err.message : "Não foi possível cancelar o agendamento do Instagram.",
+        },
+      }));
+    }
+  }
+
+  async function cancelYouTubeSchedule(file: string, scheduledPostId: string) {
+    if (!window.confirm("Deseja cancelar este agendamento do YouTube?")) return;
+    try {
+      const response = await fetch(`/api/youtube/schedule?id=${encodeURIComponent(scheduledPostId)}`, { method: "DELETE" });
+      const data = await readJsonResponse<{ error?: string }>(response);
+      if (!response.ok) throw new Error(data.error || "Não foi possível cancelar o agendamento do YouTube.");
+      setPublishStatuses((previous) => ({
+        ...previous,
+        [file]: {
+          ...previous[file],
+          status: "canceled",
+          message: "Agendamento do YouTube cancelado. O vídeo permanece privado.",
+          scheduledPostId: undefined,
+        },
+      }));
+    } catch (err) {
+      setPublishStatuses((previous) => ({
+        ...previous,
+        [file]: {
+          ...previous[file],
+          status: "failed",
+          message: err instanceof Error ? err.message : "Não foi possível cancelar o agendamento do YouTube.",
+        },
+      }));
+    }
+  }
+
   async function checkWorker() {
     try {
       const response = await fetch("/api/health", { cache: "no-store" });
@@ -921,10 +976,25 @@ export default function Home() {
                         </div>
                       )}
                       {publishStatuses[file] && (
-                        <div className={`cf-publish-status cf-publish-status-${publishStatuses[file].status}`}>
-                          <strong>{publishStatuses[file].status === "success" ? "✓" : publishStatuses[file].status === "failed" ? "!" : "⋯"}</strong>
-                          <span>{publishStatuses[file].message}</span>
-                        </div>
+                        <>
+                          <div className={`cf-publish-status cf-publish-status-${publishStatuses[file].status}`}>
+                            <strong>{publishStatuses[file].status === "success" ? "✓" : publishStatuses[file].status === "failed" ? "!" : publishStatuses[file].status === "canceled" ? "×" : "⋯"}</strong>
+                            <span>{publishStatuses[file].message}</span>
+                          </div>
+                          {publishStatuses[file].scheduledPostId && publishStatuses[file].status === "success" && (
+                            <button
+                              type="button"
+                              className="cf-schedule-cancel"
+                              onClick={() =>
+                                publishStatuses[file].platform === "instagram"
+                                  ? cancelInstagramSchedule(file, publishStatuses[file].scheduledPostId!)
+                                  : cancelYouTubeSchedule(file, publishStatuses[file].scheduledPostId!)
+                              }
+                            >
+                              Cancelar agendamento
+                            </button>
+                          )}
+                        </>
                       )}
                       <div className="cf-result-actions">
                         <button type="button" className="cf-download cf-download-button" onClick={() => downloadClip(file)}>Baixar <span>↓</span></button>
