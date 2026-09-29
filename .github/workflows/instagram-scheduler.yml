@@ -4,9 +4,6 @@ on:
   schedule:
     - cron: "2-59/5 * * * *"
       timezone: "America/Cuiaba"
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 concurrency:
