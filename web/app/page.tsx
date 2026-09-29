@@ -565,12 +565,15 @@ export default function Home() {
         const detail = data.githubStatus ? ` (GitHub HTTP ${data.githubStatus})` : "";
         throw new Error(`${data.error || "Não foi possível iniciar o processamento."}${detail}`);
       }
+      if (!data.jobId) {
+        throw new Error("O servidor criou o processamento, mas não retornou o identificador do job.");
+      }
       setWorkerOnline(true);
       setJobId(data.jobId);
       setJobAccessToken(data.accessToken || "");
       pollStartedAt.current = Date.now();
       setJob(data);
-      timer.current = setInterval(() => poll(data.jobId, data.accessToken || ""), 5000);
+      timer.current = setInterval(() => poll(data.jobId!, data.accessToken || ""), 5000);
     } catch (err) {
       setSubmitting(false);
       setWorkerOnline(false);
