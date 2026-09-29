@@ -190,8 +190,10 @@ export default function Home() {
         setLoadingInfo(true);
         const response = await fetch("/api/youtube-info?url=" + encodeURIComponent(url.trim()), { cache: "no-store" });
         if (!response.ok) return;
-        const data = await readJsonResponse(response);
-        if (data.title && data.thumbnail) setVideoInfo(data);
+        const data = await readJsonResponse<{ title?: string; author?: string; thumbnail?: string }>(response);
+        if (data.title && data.thumbnail) {
+          setVideoInfo({ title: data.title, author: data.author || "", thumbnail: data.thumbnail });
+        }
       } catch {
         setVideoInfo(null);
       } finally {
@@ -252,7 +254,7 @@ export default function Home() {
     try {
       const response = await fetch("/api/instagram/status", { cache: "no-store" });
       if (!response.ok) return;
-      const data = await readJsonResponse(response);
+      const data = await readJsonResponse<{ connected?: boolean }>(response);
       setInstagramConnected(Boolean(data.connected));
     } catch {
       setInstagramConnected(false);
@@ -263,7 +265,7 @@ export default function Home() {
     try {
       const response = await fetch("/api/youtube/status", { cache: "no-store" });
       if (!response.ok) return;
-      const data = await readJsonResponse(response);
+      const data = await readJsonResponse<{ connected?: boolean }>(response);
       setYoutubeConnected(Boolean(data.connected));
     } catch {
       setYoutubeConnected(false);
@@ -274,7 +276,7 @@ export default function Home() {
     if (!window.confirm("O YouTube já está conectado. Deseja desconectar esta conta?")) return;
     try {
       const response = await fetch("/api/youtube/disconnect", { method: "POST" });
-      const data = await readJsonResponse(response);
+      const data = await readJsonResponse<{ error?: string }>(response);
       if (!response.ok) throw new Error(data.error || "Não foi possível desconectar o YouTube.");
       setYoutubeConnected(false);
       setAuthModal("YouTube desconectado.");
@@ -287,7 +289,7 @@ export default function Home() {
     if (!window.confirm("O Instagram já está conectado. Deseja desconectar esta conta?")) return;
     try {
       const response = await fetch("/api/instagram/disconnect", { method: "POST" });
-      const data = await readJsonResponse(response);
+      const data = await readJsonResponse<{ error?: string }>(response);
       if (!response.ok) throw new Error(data.error || "Não foi possível desconectar o Instagram.");
       setInstagramConnected(false);
       setAuthModal("Instagram desconectado.");
@@ -344,7 +346,7 @@ export default function Home() {
           accessToken: jobAccessToken || undefined,
         }),
       });
-      const data = await readJsonResponse(response);
+      const data = await readJsonResponse<{ error?: string; runId?: number; startedAt?: string }>(response);
       if (!response.ok) throw new Error(data.error || "Não foi possível iniciar a publicação no YouTube.");
       setStatus("queued", draft.publishAt ? "Publicação agendada no YouTube. Aguardando o envio." : "O vídeo está sendo enviado para o YouTube.");
       const check = async () => {
@@ -403,7 +405,7 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ jobId, file, caption, accessToken: jobAccessToken || undefined }),
       });
-      const data = await readJsonResponse(response);
+      const data = await readJsonResponse<{ error?: string; message?: string }>(response);
       if (!response.ok) throw new Error(data.error || "Não foi possível publicar no Instagram.");
       setPublishStatuses((previous) => ({ ...previous, [file]: { platform: "instagram", status: "success", message: data.message || "Reel publicado com sucesso no Instagram." } }));
     } catch (err) {
@@ -483,7 +485,7 @@ export default function Home() {
     try {
       const response = await fetch(getDownloadUrl(file), { cache: "no-store" });
       if (!response.ok) {
-        const data = await readJsonResponse(response).catch(() => null);
+        const data = await readJsonResponse<{ error?: string }>(response).catch(() => null);
         throw new Error(data?.error || "Não foi possível baixar o clip.");
       }
       const blob = await response.blob();
@@ -558,7 +560,7 @@ export default function Home() {
           caption_style: captionStyle,
         }),
       });
-      const data = await readJsonResponse(response);
+      const data = await readJsonResponse<{ error?: string; githubStatus?: number; jobId?: string; accessToken?: string } & Partial<Job>>(response);
       if (!response.ok) {
         const detail = data.githubStatus ? ` (GitHub HTTP ${data.githubStatus})` : "";
         throw new Error(`${data.error || "Não foi possível iniciar o processamento."}${detail}`);
