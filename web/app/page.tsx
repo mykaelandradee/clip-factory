@@ -52,6 +52,174 @@ function CaptionPreview({ id }: { id: string }) {
   );
 }
 
+type ScheduledItem = {
+  id: string;
+  platform: "instagram" | "youtube";
+  jobId: string;
+  file: string;
+  title: string;
+  scheduledAt: string;
+  status: string;
+  caption?: string;
+  videoId?: string;
+  lastError?: string | null;
+};
+
+function ScheduleScreen() {
+  const [items, setItems] = useState<ScheduledItem[]>([]);
+  const [filter, setFilter] = useState<"all" | "instagram" | "youtube">("all");
+  const [loading, setLoading] = useState(true);
+  const [canceling, setCanceling] = useState("");
+  const [error, setError] = useState("");
+
+  async function loadSchedules() {
+    setLoading(true);
+    setError("");
+    try {
+      const [instagramResponse, youtubeResponse] = await Promise.all([
+        fetch("/api/instagram/schedule", { cache: "no-store" }),
+        fetch("/api/youtube/schedule", { cache: "no-store" }),
+      ]);
+      const instagramData = await instagramResponse.json().catch(() => ({}));
+      const youtubeData = await youtubeResponse.json().catch(() => ({}));
+      if (instagramResponse.status === 401 || youtubeResponse.status === 401) {
+        setItems([]);
+        setError("Entre no Clip Factory para visualizar seus agendamentos.");
+        return;
+      }
+      if (!instagramResponse.ok && !youtubeResponse.ok) {
+        throw new Error("Não foi possível carregar os agendamentos.");
+      }
+
+      const instagram: ScheduledItem[] = (instagramData.scheduledPosts || []).map((post: any) => ({
+        id: post.id,
+        platform: "instagram",
+        jobId: post.job_id,
+        file: post.file,
+        title: (post.caption || "Reel do Clip Factory").split("\n")[0],
+        caption: post.caption,
+        scheduledAt: post.scheduled_at,
+        status: post.status,
+        lastError: post.last_error,
+      }));
+      const youtube: ScheduledItem[] = (youtubeData.scheduledPosts || []).map((post: any) => ({
+        id: post.id,
+        platform: "youtube",
+        jobId: post.job_id,
+        file: post.file,
+        title: post.title || "Vídeo do Clip Factory",
+        scheduledAt: post.scheduled_at,
+        status: post.status,
+        videoId: post.video_id,
+      }));
+      setItems([...instagram, ...youtube].sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível carregar os agendamentos.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function cancel(item: ScheduledItem) {
+    if (!window.confirm(`Deseja cancelar o agendamento do ${item.platform === "instagram" ? "Instagram" : "YouTube"}?`)) return;
+    setCanceling(item.id);
+    try {
+      const endpoint = item.platform === "instagram" ? "/api/instagram/schedule" : "/api/youtube/schedule";
+      const response = await fetch(`${endpoint}?id=${encodeURIComponent(item.id)}`, { method: "DELETE" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Não foi possível cancelar o agendamento.");
+      await loadSchedules();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível cancelar o agendamento.");
+    } finally {
+      setCanceling("");
+    }
+  }
+
+  useEffect(() => {
+    void loadSchedules();
+  }, []);
+
+  const visible = items.filter((item) => filter === "all" || item.platform === filter);
+  const activeCount = items.filter((item) => item.status === "scheduled").length;
+
+  return (
+    <section className="cf-schedules">
+      <div className="cf-schedules-head">
+        <div>
+          <span className="cf-kicker">02 / SCHEDULES</span>
+          <h2>Seus agendamentos</h2>
+          <p>Uma visão única das publicações programadas no Instagram e no YouTube.</p>
+        </div>
+        <div className="cf-schedules-count">
+          <strong>{activeCount}</strong>
+          <span>ativos</span>
+        </div>
+      </div>
+
+      <div className="cf-schedules-toolbar">
+        <div className="cf-schedule-filters">
+          {[
+            ["all", "Todos"],
+            ["instagram", "Instagram"],
+            ["youtube", "YouTube"],
+          ].map(([id, label]) => (
+            <button key={id} type="button" className={filter === id ? "active" : ""} onClick={() => setFilter(id as typeof filter)}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <button type="button" className="cf-schedule-refresh" onClick={() => void loadSchedules()} disabled={loading}>
+          {loading ? "Atualizando…" : "Atualizar"}
+        </button>
+      </div>
+
+      {error && <div className="cf-schedule-alert">{error}</div>}
+
+      {loading ? (
+        <div className="cf-schedule-empty"><strong>Carregando agendamentos…</strong><span>Buscando suas publicações programadas.</span></div>
+      ) : visible.length === 0 ? (
+        <div className="cf-schedule-empty">
+          <div className="cf-schedule-empty-icon">◷</div>
+          <strong>Nenhum agendamento encontrado</strong>
+          <span>Quando você programar um Reel ou vídeo, ele aparecerá aqui.</span>
+        </div>
+      ) : (
+        <div className="cf-schedule-list">
+          {visible.map((item) => {
+            const date = new Date(item.scheduledAt);
+            const platformLabel = item.platform === "instagram" ? "Instagram Reel" : "YouTube";
+            const statusLabel = item.status === "scheduled" ? "Agendado" : item.status === "processing" ? "Publicando" : item.status === "published" ? "Publicado" : item.status === "failed" ? "Falhou" : "Cancelado";
+            return (
+              <article className="cf-schedule-row" key={`${item.platform}-${item.id}`}>
+                <div className={`cf-schedule-platform ${item.platform}`}>
+                  <span>{item.platform === "instagram" ? "IG" : "YT"}</span>
+                </div>
+                <div className="cf-schedule-main">
+                  <div className="cf-schedule-title">
+                    <strong>{item.title}</strong>
+                    <span>{platformLabel} · {item.file.replace(".mp4", "").toUpperCase()}</span>
+                  </div>
+                  <div className="cf-schedule-date">
+                    <strong>{date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }).replace(".", "")}</strong>
+                    <span>{date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
+                  </div>
+                  <span className={`cf-schedule-status ${item.status}`}>{statusLabel}</span>
+                  {item.status === "scheduled" && (
+                    <button type="button" className="cf-schedule-cancel" onClick={() => void cancel(item)} disabled={canceling === item.id}>
+                      {canceling === item.id ? "Cancelando…" : "Cancelar"}
+                    </button>
+                  )}
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function Home() {
   const [url, setUrl] = useState("");
   const [videoInfo, setVideoInfo] = useState<{title:string;author:string;thumbnail:string}|null>(null);
@@ -79,7 +247,7 @@ export default function Home() {
   const publishTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const [publishDrafts, setPublishDrafts] = useState<Record<string, { title: string; description: string; publishAt: string; instagramPublishAt: string }>>({});
   const [previewClip, setPreviewClip] = useState<{ file: string; url: string; index: number; currentTime: number } | null>(null);
-  const [previewErrors, setPreviewErrors] = useState<Record<string, boolean>>({});
+  const [previewErrors, setPreviewErrors] = useState<Record<string, boolean>>({});\n  const [activeView, setActiveView] = useState<"generator" | "schedules">("generator");
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const emptyResultRetries = useRef(0);
   const canceledJobId = useRef("");
@@ -713,6 +881,19 @@ export default function Home() {
           </div>
         </header>
 
+        {!GENERATION_ONLY_MODE && (
+          <nav className="cf-main-nav" aria-label="Navegação principal">
+            <button type="button" className={activeView === "generator" ? "active" : ""} onClick={() => setActiveView("generator")}>
+              <span>01</span> Gerar clips
+            </button>
+            <button type="button" className={activeView === "schedules" ? "active" : ""} onClick={() => setActiveView("schedules")}>
+              <span>02</span> Agendamentos
+            </button>
+          </nav>
+        )}
+
+        {activeView === "generator" ? (
+          <>
         <section className="cf-hero">
           <div className="cf-hero-copy">
             <div className="cf-hero-label"><span /> AI CLIP MAKER</div>
@@ -1026,6 +1207,11 @@ export default function Home() {
               })}
             </div>
           </section>
+        )}
+        </section>
+        </>
+        ) : (
+          <ScheduleScreen />
         )}
       </div>
 
