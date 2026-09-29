@@ -549,14 +549,14 @@ button{appearance:none}
 
 
 /* Caption personality refinement */
-.cf-template-preview.accent-karaoke .preview-subtitle b{color:#ffd400;text-shadow:0 2px 12px #ffd40044}
+.cf-template-preview.accent-karaoke .preview-subtitle b{color:#FFE83B}
 .cf-template-preview.accent-fire .preview-subtitle{text-shadow:0 3px 0 #000,0 8px 20px #0008}
-.cf-template-preview.accent-fire .preview-subtitle b{color:#ff8c00;transform:scale(1.08);text-shadow:0 2px 0 #000,0 0 16px #ff8c0055}
+.cf-template-preview.accent-fire .preview-subtitle b{color:#FF8C00}
 .cf-template-preview.accent-beasty .preview-subtitle i,.cf-template-preview.accent-beasty .preview-subtitle b{border:2px solid #f3f3f5aa;padding:1px 4px;background:#050507;box-shadow:0 3px 0 #f3f3f544}
 .cf-template-preview.accent-beasty .preview-subtitle b{color:#050507;background:#f3f3f5;border-color:#f3f3f5}
 .cf-template-preview.accent-youshaei .preview-subtitle{font-weight:700}
-.cf-template-preview.accent-youshaei .preview-subtitle b{color:#00bfff;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px}
-.cf-template-preview.accent-harmozi .preview-subtitle b{color:#D8FF37;transform:scale(1.08);text-shadow:0 0 15px #D8FF3755}
+.cf-template-preview.accent-youshaei .preview-subtitle b{color:#00BFFF}
+.cf-template-preview.accent-harmozi .preview-subtitle b{color:#D8FF37}
 .cf-template-preview.accent-cinematic .preview-subtitle{color:#e9e4d8;letter-spacing:.035em;text-shadow:0 3px 18px #000b}
 
 /* Fixed 30s caption style preview */
@@ -585,14 +585,14 @@ button{appearance:none}
 .cf-caption-preview-video.accent-karaoke .cf-caption-preview-copy{font-family:"DejaVu Sans",system-ui,sans-serif;font-weight:800}
 .cf-caption-preview-video.accent-karaoke .cf-caption-preview-copy span.active{color:#ffe83b}
 .cf-caption-preview-video.accent-fire .cf-caption-preview-copy{font-family:"DejaVu Sans Condensed",Impact,sans-serif;font-size:32px;font-weight:900}
-.cf-caption-preview-video.accent-fire .cf-caption-preview-copy span.active{color:#ff8c00;transform:scale(1.08);text-shadow:0 2px 0 #000,0 0 16px #ff8c0055}
+.cf-caption-preview-video.accent-fire .cf-caption-preview-copy span.active{color:#FF8C00}
 .cf-caption-preview-video.accent-beasty .cf-caption-preview-copy{font-family:"DejaVu Sans Mono","Courier New",monospace;font-size:26px;font-weight:900;letter-spacing:-.06em}
 .cf-caption-preview-video.accent-beasty .cf-caption-preview-copy span{padding:4px 5px;border:2px solid #f3f3f5aa;background:#050507}
 .cf-caption-preview-video.accent-beasty .cf-caption-preview-copy span.active{color:#050507;background:#f3f3f5;border-color:#f3f3f5;text-shadow:none}
 .cf-caption-preview-video.accent-youshaei .cf-caption-preview-copy{font-family:"DejaVu Sans",system-ui,sans-serif;font-size:24px;font-weight:700;letter-spacing:.02em}
-.cf-caption-preview-video.accent-youshaei .cf-caption-preview-copy span.active{color:#00bfff;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:5px}
+.cf-caption-preview-video.accent-youshaei .cf-caption-preview-copy span.active{color:#00BFFF}
 .cf-caption-preview-video.accent-harmozi .cf-caption-preview-copy{font-family:"DejaVu Sans Condensed",Impact,sans-serif;font-size:31px;font-weight:900}
-.cf-caption-preview-video.accent-harmozi .cf-caption-preview-copy span.active{color:#D8FF37;transform:scale(1.08);text-shadow:0 0 15px #D8FF3755}
+.cf-caption-preview-video.accent-harmozi .cf-caption-preview-copy span.active{color:#D8FF37}
 .cf-caption-preview-video.accent-cinematic .cf-caption-preview-copy{font-family:"DejaVu Serif",Georgia,serif;font-size:21px;font-weight:500;letter-spacing:.09em;text-transform:none}
 .cf-caption-preview-video.accent-cinematic .cf-caption-preview-copy span.active{color:#fff;font-style:italic}
 .cf-caption-preview-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;color:#62626d;font-size:9px}
@@ -693,9 +693,9 @@ button{appearance:none}
   transform:none !important;
   text-shadow:-2px -2px 0 #000,2px -2px 0 #000,-2px 2px 0 #000,2px 2px 0 #000 !important;
 }
-.cf-template-preview.accent-karaoke .preview-subtitle b { color:#ffe83b !important; }
-.cf-template-preview.accent-fire .preview-subtitle b { color:#ff8c00 !important; }
-.cf-template-preview.accent-youshaei .preview-subtitle b { color:#00bfff !important; }
+.cf-template-preview.accent-karaoke .preview-subtitle b { color:#FFE83B !important; }
+.cf-template-preview.accent-fire .preview-subtitle b { color:#FF8C00 !important; }
+.cf-template-preview.accent-youshaei .preview-subtitle b { color:#00BFFF !important; }
 .cf-template-preview.accent-harmozi .preview-subtitle b { color:#D8FF37 !important; }
 
 .cf-template-preview.accent-karaoke .preview-progress,
