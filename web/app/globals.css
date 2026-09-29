@@ -1379,3 +1379,28 @@ button{appearance:none}
   background:#ff6b6b18;
   border-color:#ff6b6b66;
 }
+
+
+/* Unified scheduled posts screen */
+.cf-main-nav{display:flex;align-items:center;gap:6px;margin:18px 0 24px;padding:5px;border:1px solid rgba(255,255,255,.08);border-radius:14px;background:rgba(12,14,18,.72);backdrop-filter:blur(14px)}
+.cf-main-nav button{appearance:none;border:0;background:transparent;color:rgba(255,255,255,.55);padding:10px 16px;border-radius:10px;font:inherit;font-weight:800;letter-spacing:.01em;cursor:pointer;transition:.2s ease}
+.cf-main-nav button span{font-size:10px;opacity:.45;margin-right:7px}
+.cf-main-nav button:hover{color:#fff;background:rgba(255,255,255,.05)}
+.cf-main-nav button.active{color:#fff;background:rgba(255,255,255,.09);box-shadow:0 1px 0 rgba(255,255,255,.08) inset}
+.cf-schedules{margin:8px 0 42px;padding:30px;border:1px solid rgba(255,255,255,.08);border-radius:24px;background:rgba(12,14,18,.76);box-shadow:0 20px 60px rgba(0,0,0,.16);backdrop-filter:blur(18px)}
+.cf-schedules-head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:26px}
+.cf-schedules-head h2{margin:5px 0 6px;font-size:clamp(26px,3vw,38px);letter-spacing:-.04em}
+.cf-schedules-head p{margin:0;color:rgba(255,255,255,.52);max-width:620px}
+.cf-schedules-count{min-width:86px;padding:12px 15px;border:1px solid rgba(255,255,255,.08);border-radius:14px;text-align:center;background:rgba(255,255,255,.025)}
+.cf-schedules-count strong{display:block;font-size:24px;line-height:1}.cf-schedules-count span{font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:rgba(255,255,255,.42)}
+.cf-schedules-toolbar{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:18px}
+.cf-schedule-filters{display:flex;gap:5px;padding:4px;border-radius:12px;background:rgba(255,255,255,.035)}
+.cf-schedule-filters button,.cf-schedule-refresh{border:0;border-radius:9px;background:transparent;color:rgba(255,255,255,.5);padding:9px 13px;font:inherit;font-size:12px;font-weight:800;cursor:pointer}
+.cf-schedule-filters button.active{background:rgba(255,255,255,.09);color:#fff}.cf-schedule-refresh{border:1px solid rgba(255,255,255,.09);color:rgba(255,255,255,.72)}.cf-schedule-refresh:disabled{opacity:.5;cursor:default}
+.cf-schedule-list{display:grid;gap:9px}.cf-schedule-row{display:flex;gap:14px;align-items:center;padding:14px;border:1px solid rgba(255,255,255,.07);border-radius:16px;background:rgba(255,255,255,.025)}
+.cf-schedule-platform{width:42px;height:42px;flex:0 0 42px;display:grid;place-items:center;border-radius:12px;background:rgba(255,255,255,.07);font-size:11px;font-weight:950;letter-spacing:.04em}.cf-schedule-platform.instagram{background:rgba(255,255,255,.07)}.cf-schedule-platform.youtube{background:rgba(255,255,255,.07)}
+.cf-schedule-main{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;align-items:center;gap:20px;width:100%}.cf-schedule-title{min-width:0}.cf-schedule-title strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}.cf-schedule-title span{display:block;margin-top:4px;color:rgba(255,255,255,.4);font-size:10px;text-transform:uppercase;letter-spacing:.08em}
+.cf-schedule-date{text-align:right;min-width:68px}.cf-schedule-date strong{display:block;font-size:13px}.cf-schedule-date span{display:block;margin-top:3px;color:rgba(255,255,255,.42);font-size:11px}.cf-schedule-status{min-width:82px;text-align:center;padding:7px 9px;border-radius:999px;background:rgba(255,255,255,.06);color:rgba(255,255,255,.65);font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.07em}.cf-schedule-status.scheduled{color:#d9ffb8;background:rgba(150,220,80,.08)}.cf-schedule-status.published{color:#b9e7ff;background:rgba(70,170,255,.08)}.cf-schedule-status.failed{color:#ffb5b5;background:rgba(255,80,80,.08)}
+.cf-schedule-cancel{border:1px solid rgba(255,255,255,.1);background:transparent;color:rgba(255,255,255,.58);padding:8px 11px;border-radius:9px;font:inherit;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap}.cf-schedule-cancel:hover{color:#fff;border-color:rgba(255,255,255,.2)}.cf-schedule-cancel:disabled{opacity:.5;cursor:default}
+.cf-schedule-alert{margin-bottom:16px;padding:12px 14px;border:1px solid rgba(255,110,110,.18);border-radius:12px;background:rgba(255,70,70,.06);color:#ffbcbc;font-size:12px}.cf-schedule-empty{min-height:250px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;border:1px dashed rgba(255,255,255,.09);border-radius:18px;color:rgba(255,255,255,.45)}.cf-schedule-empty strong{color:#fff;font-size:15px}.cf-schedule-empty span{margin-top:6px;font-size:12px}.cf-schedule-empty-icon{font-size:30px;margin-bottom:8px;color:rgba(255,255,255,.35)}
+@media (max-width:720px){.cf-main-nav{margin:12px 0 18px}.cf-main-nav button{flex:1;padding:10px 8px}.cf-schedules{padding:20px 15px;border-radius:18px}.cf-schedules-head{align-items:flex-start}.cf-schedules-count{min-width:70px}.cf-schedules-toolbar{align-items:stretch;flex-direction:column}.cf-schedule-filters{width:100%}.cf-schedule-filters button{flex:1}.cf-schedule-refresh{width:100%}.cf-schedule-row{align-items:flex-start}.cf-schedule-main{grid-template-columns:minmax(0,1fr) auto;gap:10px}.cf-schedule-date{grid-column:2;grid-row:1}.cf-schedule-status{grid-column:1;justify-self:start}.cf-schedule-cancel{grid-column:2;grid-row:2}.cf-schedule-title{grid-column:1;grid-row:1}.cf-schedule-platform{margin-top:2px}}
