@@ -412,6 +412,7 @@ export default function Home() {
       const supabase = createClient();
       await supabase.auth.signOut();
       setUser(null);
+      setActiveView("generator");
       setYoutubeConnected(false);
       setInstagramConnected(false);
     } catch {
@@ -882,7 +883,7 @@ export default function Home() {
           </div>
         </header>
 
-        {!GENERATION_ONLY_MODE && (
+        {!GENERATION_ONLY_MODE && user && (
           <nav className="cf-main-nav" aria-label="Navegação principal">
             <button type="button" className={activeView === "generator" ? "active" : ""} onClick={() => setActiveView("generator")}>
               <span>01</span> Gerar clips
@@ -893,7 +894,7 @@ export default function Home() {
           </nav>
         )}
 
-        {activeView === "generator" ? (
+        {(!user || activeView === "generator" || GENERATION_ONLY_MODE) ? (
           <>
         <section className="cf-hero">
           <div className="cf-hero-copy">
