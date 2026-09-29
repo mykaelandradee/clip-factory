@@ -55,7 +55,7 @@ export async function DELETE(request: Request) {
   if (!connection) return NextResponse.json({ error: "Conecte sua conta do YouTube antes de cancelar." }, { status: 401, headers: noStore });
 
   try {
-    const accessToken = await getAccessToken(decryptYouTubeRefreshToken(connection.refresh_token_encrypted));
+    const refreshToken = decryptYouTubeRefreshToken(connection.refresh_token_encrypted);\n    if (!refreshToken) {\n      return NextResponse.json({ error: "Não foi possível recuperar a conexão do YouTube." }, { status: 401, headers });\n    }\n    const accessToken = await getAccessToken(refreshToken);
     const response = await fetch("https://www.googleapis.com/youtube/v3/videos?part=status", {
       method: "PUT",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
