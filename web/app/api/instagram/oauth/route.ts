@@ -16,8 +16,8 @@ export async function GET(request: Request) {
   if (!clientId) return NextResponse.redirect(new URL("/?instagram_error=not_configured", request.url));
 
   const state = createInstagramOAuthState();
-  const publicOrigin = new URL(request.url).origin;
-  const redirectUri = `${publicOrigin}/api/instagram/callback`;
+  const publicOrigin = process.env.CLIP_FACTORY_WEB_URL || new URL(request.url).origin;
+  const redirectUri = `${publicOrigin.replace(/\/$/, "")}/api/instagram/callback`;
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,
