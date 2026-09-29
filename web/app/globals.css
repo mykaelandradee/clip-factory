@@ -1404,3 +1404,151 @@ button{appearance:none}
 .cf-schedule-cancel{border:1px solid rgba(255,255,255,.1);background:transparent;color:rgba(255,255,255,.58);padding:8px 11px;border-radius:9px;font:inherit;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap}.cf-schedule-cancel:hover{color:#fff;border-color:rgba(255,255,255,.2)}.cf-schedule-cancel:disabled{opacity:.5;cursor:default}
 .cf-schedule-alert{margin-bottom:16px;padding:12px 14px;border:1px solid rgba(255,110,110,.18);border-radius:12px;background:rgba(255,70,70,.06);color:#ffbcbc;font-size:12px}.cf-schedule-empty{min-height:250px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;border:1px dashed rgba(255,255,255,.09);border-radius:18px;color:rgba(255,255,255,.45)}.cf-schedule-empty strong{color:#fff;font-size:15px}.cf-schedule-empty span{margin-top:6px;font-size:12px}.cf-schedule-empty-icon{font-size:30px;margin-bottom:8px;color:rgba(255,255,255,.35)}
 @media (max-width:720px){.cf-main-nav{margin:12px 0 18px}.cf-main-nav button{flex:1;padding:10px 8px}.cf-schedules{padding:20px 15px;border-radius:18px}.cf-schedules-head{align-items:flex-start}.cf-schedules-count{min-width:70px}.cf-schedules-toolbar{align-items:stretch;flex-direction:column}.cf-schedule-filters{width:100%}.cf-schedule-filters button{flex:1}.cf-schedule-refresh{width:100%}.cf-schedule-row{align-items:flex-start}.cf-schedule-main{grid-template-columns:minmax(0,1fr) auto;gap:10px}.cf-schedule-date{grid-column:2;grid-row:1}.cf-schedule-status{grid-column:1;justify-self:start}.cf-schedule-cancel{grid-column:2;grid-row:2}.cf-schedule-title{grid-column:1;grid-row:1}.cf-schedule-platform{margin-top:2px}}
+
+
+
+
+/* Agendamentos — same visual language as the main workspace. */
+.cf-main-nav{
+  margin:16px 0 20px;
+  padding:3px;
+  gap:3px;
+  border:1px solid #ffffff0d;
+  border-radius:12px;
+  background:#ffffff04;
+  box-shadow:0 8px 28px #00000018;
+}
+.cf-main-nav button{
+  min-height:36px;
+  padding:8px 14px;
+  border-radius:9px;
+  color:#777782;
+  font-size:9px;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+}
+.cf-main-nav button span{font-size:8px;margin-right:6px;color:#565660}
+.cf-main-nav button.active{
+  color:#f5f5f7;
+  background:#ffffff0b;
+  box-shadow:0 1px 0 #ffffff0b inset,0 5px 16px #00000016;
+}
+
+.cf-schedules{
+  margin:0 0 42px;
+  padding:22px;
+  border:1px solid #ffffff0c;
+  border-radius:20px;
+  background:#ffffff03;
+  box-shadow:0 18px 55px #00000024;
+  backdrop-filter:blur(16px);
+}
+.cf-schedules-head{
+  align-items:center;
+  margin-bottom:20px;
+  padding-bottom:18px;
+  border-bottom:1px solid #ffffff09;
+}
+.cf-schedules-head h2{
+  margin:5px 0 7px;
+  font-size:clamp(24px,3vw,34px);
+  letter-spacing:-.045em;
+}
+.cf-schedules-head p{font-size:10px;line-height:1.5;color:#777781}
+.cf-schedules-count{
+  min-width:72px;
+  padding:10px 12px;
+  border-color:#ffffff0b;
+  border-radius:12px;
+  background:#ffffff03;
+}
+.cf-schedules-count strong{font-size:20px}
+.cf-schedules-count span{font-size:8px}
+
+.cf-schedules-toolbar{margin-bottom:14px}
+.cf-schedule-filters{
+  padding:3px;
+  border:1px solid #ffffff08;
+  border-radius:10px;
+  background:#ffffff03;
+}
+.cf-schedule-filters button,.cf-schedule-refresh{
+  min-height:32px;
+  padding:7px 11px;
+  border-radius:8px;
+  font-size:9px;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+}
+.cf-schedule-filters button.active{background:#ffffff0a}
+.cf-schedule-refresh{
+  border-color:#ffffff0c;
+  background:#ffffff02;
+}
+
+.cf-schedule-list{gap:7px}
+.cf-schedule-row{
+  gap:12px;
+  padding:12px;
+  border-color:#ffffff09;
+  border-radius:13px;
+  background:#ffffff02;
+  transition:border-color .18s ease,background .18s ease,transform .18s ease;
+}
+.cf-schedule-row:hover{
+  border-color:#ffffff13;
+  background:#ffffff04;
+  transform:translateY(-1px);
+}
+.cf-schedule-platform{
+  width:38px;height:38px;flex-basis:38px;
+  border-radius:10px;
+  background:#ffffff05;
+  color:#a6a6af;
+  font-size:9px;
+}
+.cf-schedule-title strong{font-size:11px}
+.cf-schedule-title span{font-size:8px;color:#62626c}
+.cf-schedule-date{min-width:62px}
+.cf-schedule-date strong{font-size:11px}
+.cf-schedule-date span{font-size:9px}
+.cf-schedule-status{
+  min-width:76px;
+  padding:6px 8px;
+  font-size:8px;
+}
+.cf-schedule-cancel{
+  min-height:30px;
+  margin-top:0;
+  width:auto;
+  padding:7px 10px;
+  border-color:#ffffff0d;
+  background:#ffffff02;
+  color:#7d7d87;
+  font-size:8px;
+}
+.cf-schedule-cancel:hover{
+  border-color:#ffffff18;
+  background:#ffffff06;
+  color:#e7e7eb;
+}
+.cf-schedule-empty{
+  min-height:220px;
+  border-color:#ffffff0b;
+  background:#ffffff02;
+}
+.cf-schedule-empty-icon{font-size:26px}
+.cf-schedule-empty strong{font-size:13px}
+.cf-schedule-empty span{font-size:10px;color:#666670}
+
+@media(max-width:720px){
+  .cf-schedules{padding:16px 13px;border-radius:17px}
+  .cf-schedules-head{gap:12px;margin-bottom:16px;padding-bottom:15px}
+  .cf-schedules-head h2{font-size:24px}
+  .cf-schedules-head p{font-size:9px}
+  .cf-schedules-count{min-width:60px;padding:9px}
+  .cf-schedules-toolbar{gap:8px}
+  .cf-schedule-row{padding:10px;gap:9px}
+  .cf-schedule-platform{width:34px;height:34px;flex-basis:34px}
+  .cf-schedule-main{gap:8px}
+}
