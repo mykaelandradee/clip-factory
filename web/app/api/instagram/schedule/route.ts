@@ -50,7 +50,7 @@ export async function POST(request:Request){
  const media=await fetch(getR2PublicClipUrl(jobId,file),{method:"HEAD",cache:"no-store"});
  if(!media.ok||!(media.headers.get("content-type")||"").toLowerCase().startsWith("video/"))return NextResponse.json({error:"O clip não está disponível no R2 para o agendamento."},{status:409,headers});
  const {data,error}=await admin.from("instagram_scheduled_posts").insert({user_id:user.id,job_id:jobId,file,caption,scheduled_at:date.toISOString(),status:"scheduled",attempts:0}).select("id,job_id,file,caption,scheduled_at,status").single();
- if(error){console.error("Instagram schedule creation failed:",error.message);return NextResponse.json({error:"Não foi possível criar o agendamento."},{status:500,headers});}
+ if(error){console.error("Instagram schedule creation failed:",{message:error.message,code:error.code,details:error.details,hint:error.hint});return NextResponse.json({error:"Não foi possível criar o agendamento.",detail:error.message,code:error.code||null},{status:500,headers});}
  return NextResponse.json({ok:true,scheduledPost:data},{headers});
 }
 export async function GET(request:Request){
