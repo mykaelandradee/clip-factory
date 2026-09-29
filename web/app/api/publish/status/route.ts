@@ -64,6 +64,29 @@ export async function GET(request: Request) {
   }
 
   const admin = createAdminClient();
+
+  if (platform === "youtube") {
+    const { data: scheduledPost } = await admin
+      .from("youtube_scheduled_posts")
+      .select("id,video_id,scheduled_at,status")
+      .eq("user_id", user.id)
+      .eq("job_id", jobId)
+      .eq("file", file)
+      .eq("status", "scheduled")
+      .order("scheduled_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (scheduledPost) {
+      return NextResponse.json({
+        status: "success",
+        message: "Publicação agendada com sucesso no YouTube.",
+        scheduledPostId: scheduledPost.id,
+        scheduledAt: scheduledPost.scheduled_at,
+      }, { headers: noStore });
+    }
+  }
+
   const { data: ownedJob } = await admin
     .from("clip_jobs")
     .select("id,user_id")
