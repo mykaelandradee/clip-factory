@@ -69,8 +69,26 @@ export async function DELETE(request: Request) {
 
     if (!response.ok) {
       const details = await response.text();
-      console.error("YouTube schedule cancellation failed:", response.status, details.slice(0, 500));
-      return NextResponse.json({ error: "Não foi possível cancelar o agendamento no YouTube." }, { status: 502, headers: noStore });
+      let apiError = "";
+      try {
+        const parsed = JSON.parse(details);
+        apiError = String(parsed?.error?.errors?.[0]?.reason || parsed?.error?.status || parsed?.error?.message || "");
+      } catch {}
+      console.error("YouTube schedule cancellation failed:", {
+        status: response.status,
+        reason: apiError,
+        details: details.slice(0, 500),
+      });
+      if (response.status === 401 || apiError === "authError" || apiError === "unauthorized") {
+        return NextResponse.json({ error: "A autorização do YouTube expirou ou não permite alterar vídeos. Reconecte o YouTube e tente novamente." }, { status: 401, headers: noStore });
+      }
+      if (response.status === 403 || apiError === "insufficientPermissions" || apiError === "forbidden") {
+        return NextResponse.json({ error: "A conexão do YouTube não possui permissão para cancelar agendamentos. Desconecte e reconecte o YouTube para renovar as permissões." }, { status: 403, headers: noStore });
+      }
+      if (response.status === 404 || apiError === "videoNotFound") {
+        return NextResponse.json({ error: "O vídeo agendado não foi encontrado no YouTube." }, { status: 404, headers: noStore });
+      }
+      return NextResponse.json({ error: "O YouTube recusou o cancelamento do agendamento." }, { status: 502, headers: noStore });
     }
 
     const { data: canceled, error } = await admin.from("youtube_scheduled_posts")
