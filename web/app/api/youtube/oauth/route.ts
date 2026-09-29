@@ -21,7 +21,7 @@ export async function GET(request: Request) {
     httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 600,
   });
 
-  const publicOrigin = (process.env.CLIP_FACTORY_WEB_URL || new URL(request.url).origin).replace(/\/$/, "");
+  const publicOrigin = new URL(request.url).origin;
   const redirectUri = `${publicOrigin}/api/youtube/callback`;
   const params = new URLSearchParams({
     client_id: clientId, redirect_uri: redirectUri, response_type: "code",
