@@ -158,6 +158,9 @@ create table if not exists public.youtube_scheduled_posts (
 create index if not exists youtube_scheduled_posts_user_id_idx
   on public.youtube_scheduled_posts(user_id);
 
+create unique index if not exists youtube_scheduled_posts_user_video_idx
+  on public.youtube_scheduled_posts(user_id, video_id);
+
 create index if not exists youtube_scheduled_posts_status_idx
   on public.youtube_scheduled_posts(status, scheduled_at);
 
