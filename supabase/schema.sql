@@ -138,3 +138,53 @@ begin
   end if;
 end;
 $do$;
+
+
+-- Scheduled Instagram publications.
+create table if not exists public.instagram_scheduled_posts (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  job_id uuid not null references public.clip_jobs(id) on delete cascade,
+  file text not null,
+  caption text not null,
+  scheduled_at timestamptz not null,
+  status text not null default 'scheduled'
+    check (status in ('scheduled', 'processing', 'published', 'failed', 'canceled')),
+  attempts integer not null default 0,
+  media_id text,
+  last_error text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists instagram_scheduled_posts_due_idx
+  on public.instagram_scheduled_posts(status, scheduled_at);
+
+create index if not exists instagram_scheduled_posts_user_id_idx
+  on public.instagram_scheduled_posts(user_id);
+
+alter table public.instagram_scheduled_posts enable row level security;
+
+drop policy if exists "Users can view their scheduled Instagram posts" on public.instagram_scheduled_posts;
+create policy "Users can view their scheduled Instagram posts"
+  on public.instagram_scheduled_posts
+  for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert their scheduled Instagram posts" on public.instagram_scheduled_posts;
+create policy "Users can insert their scheduled Instagram posts"
+  on public.instagram_scheduled_posts
+  for insert
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update their scheduled Instagram posts" on public.instagram_scheduled_posts;
+create policy "Users can update their scheduled Instagram posts"
+  on public.instagram_scheduled_posts
+  for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+drop trigger if exists instagram_scheduled_posts_updated_at on public.instagram_scheduled_posts;
+create trigger instagram_scheduled_posts_updated_at
+before update on public.instagram_scheduled_posts
+for each row execute function public.set_updated_at();
