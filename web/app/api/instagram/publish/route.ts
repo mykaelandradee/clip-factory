@@ -123,9 +123,10 @@ export async function POST(request: Request) {
   if (!connection) {
     return NextResponse.json({ error: "Conecte sua conta do Instagram antes de publicar." }, { status: 401 });
   }
-  const ownsAuthenticatedJob = ownedJob?.user_id === user.id;
+  const ownsAuthenticatedJob = Boolean(user && ownedJob?.user_id === user.id);
+  const ownsScheduledJob = isSchedulerRequest && Boolean(ownedJob?.user_id === effectiveUserId);
   const ownsAnonymousJob = ownedJob?.user_id == null && isAnonymousJobAccessValid(jobId, accessToken);
-  if (!ownedJob || (!ownsAuthenticatedJob && !ownsAnonymousJob)) {
+  if (!ownedJob || (!ownsAuthenticatedJob && !ownsScheduledJob && !ownsAnonymousJob)) {
     return NextResponse.json({ error: "Este processamento não pertence ao usuário autenticado." }, { status: 403 });
   }
   if (ownsAnonymousJob && user) {
