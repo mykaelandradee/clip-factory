@@ -247,7 +247,8 @@ export default function Home() {
   const publishTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const [publishDrafts, setPublishDrafts] = useState<Record<string, { title: string; description: string; publishAt: string; instagramPublishAt: string }>>({});
   const [previewClip, setPreviewClip] = useState<{ file: string; url: string; index: number; currentTime: number } | null>(null);
-  const [previewErrors, setPreviewErrors] = useState<Record<string, boolean>>({});\n  const [activeView, setActiveView] = useState<"generator" | "schedules">("generator");
+  const [previewErrors, setPreviewErrors] = useState<Record<string, boolean>>({});
+  const [activeView, setActiveView] = useState<"generator" | "schedules">("generator");
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const emptyResultRetries = useRef(0);
   const canceledJobId = useRef("");
