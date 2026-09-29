@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const publicOrigin = (process.env.CLIP_FACTORY_WEB_URL || url.origin).replace(/\/$/, "");
+  const publicOrigin = url.origin;
   const code = url.searchParams.get("code");
   const error = url.searchParams.get("error");
   const returnedState = url.searchParams.get("state");
