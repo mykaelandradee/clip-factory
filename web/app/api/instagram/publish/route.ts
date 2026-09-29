@@ -51,19 +51,53 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "A publicação do Instagram ainda não está configurada." }, { status: 503 });
   }
 
+  const schedulerSecret = process.env.CLIP_FACTORY_SCHEDULER_TOKEN || "";
+  const schedulerHeader = request.headers.get("x-clip-factory-scheduler-token") || "";
+  const isSchedulerRequest = Boolean(
+    schedulerSecret &&
+    schedulerHeader &&
+    schedulerHeader.length === schedulerSecret.length &&
+    timingSafeEqual(Buffer.from(schedulerHeader), Buffer.from(schedulerSecret)),
+  );
+
   const supabase = await createClient();
-  const rate = rateLimit(getClientKey(request), 5, 60 * 60 * 1000);
+  const rate = rateLimit(getClientKey(request), isSchedulerRequest ? 30 : 5, 60 * 60 * 1000);
   if (!rate.allowed) return NextResponse.json({ error: "Limite de publicações do Instagram atingido. Aguarde antes de publicar novamente." }, { status: 429, headers: { ...noStore, "Retry-After": String(rate.retryAfterSeconds) } });
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
+  if (!user && !isSchedulerRequest) {
     return NextResponse.json({ error: "Entre no Clip Factory antes de publicar." }, { status: 401 });
   }
 
   const body = await request.json().catch(() => null);
-  const jobId = typeof body?.jobId === "string" ? body.jobId : "";
-  const file = typeof body?.file === "string" ? body.file : "";
-  const caption = typeof body?.caption === "string" ? body.caption.trim() : "";
+  let jobId = typeof body?.jobId === "string" ? body.jobId : "";
+  let file = typeof body?.file === "string" ? body.file : "";
+  let caption = typeof body?.caption === "string" ? body.caption.trim() : "";
   const accessToken = typeof body?.accessToken === "string" ? body.accessToken : null;
+  const scheduledPostId = typeof body?.scheduledPostId === "string" ? body.scheduledPostId : "";
+  let effectiveUserId = user?.id || "";
+
+  const admin = createAdminClient();
+
+  if (isSchedulerRequest) {
+    if (!/^[0-9a-f-]{36}$/i.test(scheduledPostId)) {
+      return NextResponse.json({ error: "scheduledPostId inválido." }, { status: 400, headers: noStore });
+    }
+    const { data: scheduledPost, error: scheduledPostError } = await admin
+      .from("instagram_scheduled_posts")
+      .select("id,user_id,job_id,file,caption,status")
+      .eq("id", scheduledPostId)
+      .eq("status", "processing")
+      .maybeSingle();
+
+    if (scheduledPostError || !scheduledPost) {
+      return NextResponse.json({ error: "Agendamento não encontrado ou não está em processamento." }, { status: 404, headers: noStore });
+    }
+
+    effectiveUserId = scheduledPost.user_id;
+    jobId = scheduledPost.job_id;
+    file = scheduledPost.file;
+    caption = scheduledPost.caption;
+  }
 
   if (!jobId || !/^clip-\d{2}\.mp4$/.test(file) || !caption) {
     return NextResponse.json({ error: "jobId, file e caption são obrigatórios." }, { status: 400 });
@@ -72,18 +106,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "A legenda do Instagram pode ter no máximo 2.200 caracteres." }, { status: 400 });
   }
 
-  const admin = createAdminClient();
   const [{ data: connection }, { data: ownedJob }] = await Promise.all([
     admin
       .from("instagram_connections")
       .select("instagram_user_id, access_token_encrypted, expires_at")
-      .eq("user_id", user.id)
+      .eq("user_id", effectiveUserId)
       .maybeSingle(),
     admin
       .from("clip_jobs")
       .select("id,user_id")
       .eq("id", jobId)
-      .eq("user_id", user.id)
+      .eq("user_id", effectiveUserId)
       .maybeSingle(),
   ]);
 
@@ -95,7 +128,7 @@ export async function POST(request: Request) {
   if (!ownedJob || (!ownsAuthenticatedJob && !ownsAnonymousJob)) {
     return NextResponse.json({ error: "Este processamento não pertence ao usuário autenticado." }, { status: 403 });
   }
-  if (ownsAnonymousJob) {
+  if (ownsAnonymousJob && user) {
     const { error: claimError } = await admin.from("clip_jobs").update({ user_id: user.id }).eq("id", jobId).is("user_id", null);
     if (claimError) return NextResponse.json({ error: "Não foi possível vincular este processamento ao usuário autenticado." }, { status: 500 });
   }
@@ -130,7 +163,7 @@ export async function POST(request: Request) {
               expires_at: newExpiresAt,
               updated_at: new Date().toISOString(),
             })
-            .eq("user_id", user.id);
+            .eq("user_id", effectiveUserId);
 
           if (refreshSaveError) {
             console.error("Instagram refreshed token save failed:", refreshSaveError.message);
@@ -269,15 +302,39 @@ export async function POST(request: Request) {
       cleanupWarning = " Publicação concluída, mas o arquivo temporário permaneceu no R2.";
     }
 
+    if (isSchedulerRequest && scheduledPostId) {
+      await admin
+        .from("instagram_scheduled_posts")
+        .update({
+          status: "published",
+          media_id: String(publishData.id),
+          last_error: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", scheduledPostId)
+        .eq("status", "processing");
+    }
+
     return NextResponse.json({
       ok: true,
       mediaId: String(publishData.id),
       message: `Reel publicado com sucesso.${cleanupWarning}`,
     });
   } catch (error) {
+    const message = error instanceof Error ? error.message : "Erro ao publicar no Instagram.";
     console.error("Instagram publish error:", error);
-    return NextResponse.json({
-      error: error instanceof Error ? error.message : "Erro ao publicar no Instagram.",
-    }, { status: 502 });
+    if (isSchedulerRequest && scheduledPostId) {
+      await admin
+        .from("instagram_scheduled_posts")
+        .update({
+          status: "failed",
+          attempts: 1,
+          last_error: message.slice(0, 1000),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", scheduledPostId)
+        .eq("status", "processing");
+    }
+    return NextResponse.json({ error: message }, { status: 502 });
   }
 }
