@@ -408,7 +408,7 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
           scheduledAt
-            ? { jobId, file, caption, scheduledAt }
+            ? { jobId, file, caption, scheduledAt, accessToken: jobAccessToken || undefined }
             : { jobId, file, caption, accessToken: jobAccessToken || undefined },
         ),
       });
