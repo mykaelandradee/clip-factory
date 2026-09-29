@@ -2,8 +2,13 @@ name: Instagram Scheduler
 
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    - cron: "2-59/5 * * * *"
+      timezone: "America/Cuiaba"
   workflow_dispatch:
+
+concurrency:
+  group: instagram-scheduler
+  cancel-in-progress: false
 
 jobs:
   publish-scheduled-instagram:
@@ -17,7 +22,7 @@ jobs:
           set -euo pipefail
           test -n "$CLIP_FACTORY_WEB_URL"
           test -n "$CLIP_FACTORY_SCHEDULER_TOKEN"
-          curl --fail-with-body --silent --show-error \
+          curl --fail-with-body --silent --show-error --retry 2 --retry-delay 5 --connect-timeout 10 --max-time 120 \
             --request POST \
             --header "x-clip-factory-scheduler-token: $CLIP_FACTORY_SCHEDULER_TOKEN" \
             "$CLIP_FACTORY_WEB_URL/api/instagram/scheduler"
