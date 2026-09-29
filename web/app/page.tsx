@@ -412,7 +412,7 @@ export default function Home() {
             : { jobId, file, caption, accessToken: jobAccessToken || undefined },
         ),
       });
-      const data = await readJsonResponse<{ error?: string; message?: string }>(response);
+      const data = await readJsonResponse<{ error?: string; message?: string; scheduledPost?: { id?: string } }>(response);
       if (!response.ok) throw new Error(data.error || (scheduledAt ? "Não foi possível agendar o Reel no Instagram." : "Não foi possível publicar no Instagram."));
       setPublishStatuses((previous) => ({
         ...previous,
