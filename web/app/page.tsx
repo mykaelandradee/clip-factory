@@ -137,7 +137,7 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ jobId, accessToken: jobAccessToken || undefined }),
       });
-      const data = await readJsonResponse(response);
+      const data = await readJsonResponse<{ error?: string; message?: string }>(response);
       if (!response.ok) throw new Error(data.error || "Não foi possível tentar novamente.");
       pollStartedAt.current = Date.now();
       setJob({
