@@ -3,6 +3,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { createClient } from "../../../../lib/supabase/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
 import { getR2PublicClipUrl } from "../../../../lib/r2";
+import { getClientKey, rateLimit } from "../../../../lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -38,6 +39,14 @@ async function getCurrentUser() {
 }
 
 export async function GET(request: Request) {
+  const limit = rateLimit(getClientKey(request), 30, 10 * 60 * 1000);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "Muitos downloads em pouco tempo. Aguarde alguns minutos." },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds), "Cache-Control": "no-store" } },
+    );
+  }
+
   const params = new URL(request.url).searchParams;
   const jobId = params.get("jobId") || "";
   const file = params.get("file") || "";
