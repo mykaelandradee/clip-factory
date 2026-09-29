@@ -57,7 +57,7 @@ export async function DELETE(request: Request) {
   try {
     const refreshToken = decryptYouTubeRefreshToken(connection.refresh_token_encrypted);
     if (!refreshToken) {
-      return NextResponse.json({ error: "Não foi possível recuperar a conexão do YouTube." }, { status: 401, headers });
+      return NextResponse.json({ error: "Não foi possível recuperar a conexão do YouTube." }, { status: 401, headers: noStore });
     }
     const accessToken = await getAccessToken(refreshToken);
     const response = await fetch("https://www.googleapis.com/youtube/v3/videos?part=status", {
@@ -82,6 +82,6 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ ok: true, scheduledPost: canceled }, { headers: noStore });
   } catch (error) {
     console.error("YouTube schedule cancellation error:", error instanceof Error ? error.message : error);
-    return NextResponse.json({ error: "Não foi possível cancelar o agendamento no YouTube." }, { status: 502, headers: noStore });
+    return NextResponse.json({ error: "Não foi possível cancelar o agendamento do YouTube." }, { status: 502, headers: noStore });
   }
 }
