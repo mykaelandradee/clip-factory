@@ -44,12 +44,10 @@ function CaptionPreview({ id }: { id: string }) {
   }[id as keyof typeof idMap];
   return (
     <div className={`cf-template-preview accent-${id}`}>
-      <div className="cf-template-preview-stage">
-        <span className="preview-top">9:16 • PREVIEW</span>
-        <span className="preview-context">EXEMPLO DE LEGENDA</span>
-        <span className="preview-subtitle">{content}</span>
-        <span className="preview-style-mark">{id}</span>
-      </div>
+      <span className="preview-top">9:16 • PREVIEW</span>
+      <span className="preview-context">EXEMPLO DE LEGENDA</span>
+      <span className="preview-subtitle">{content}</span>
+      <span className="preview-style-mark">{id}</span>
     </div>
   );
 }
@@ -62,7 +60,7 @@ export default function Home() {
   const [duration, setDuration] = useState("30-60");
   const [subtitleLanguage, setSubtitleLanguage] = useState("original");
   const [captionStyle, setCaptionStyle] = useState("karaoke");
-  const [workerOnline, setWorkerOnline] = useState(true);
+  const [workerOnline, setWorkerOnline] = useState<boolean | null>(null);
   const [jobId, setJobId] = useState("");
   const [jobAccessToken, setJobAccessToken] = useState("");
   const [job, setJob] = useState<Job | null>(null);
@@ -86,7 +84,6 @@ export default function Home() {
   const emptyResultRetries = useRef(0);
   const canceledJobId = useRef("");
   const pollStartedAt = useRef(0);
-  const workerCheckFailures = useRef(0);
   const CLIENT_JOB_TIMEOUT_MS = 50 * 60 * 1000;
 
   async function readJsonResponse<T = Record<string, unknown>>(response: Response): Promise<T> {
@@ -181,13 +178,8 @@ export default function Home() {
 
   useEffect(() => {
     if (!GENERATION_ONLY_MODE) initAuth();
-    void checkWorker();
-    const healthTimer = setInterval(() => { void checkWorker(); }, 20000);
-    return () => {
-      clearInterval(healthTimer);
-      if (timer.current) clearInterval(timer.current);
-      if (publishTimer.current) clearInterval(publishTimer.current);
-    };
+    checkWorker();
+    return () => { if (timer.current) clearInterval(timer.current); if (publishTimer.current) clearInterval(publishTimer.current); };
   }, []);
 
   useEffect(() => {
@@ -420,7 +412,7 @@ export default function Home() {
             : { jobId, file, caption, accessToken: jobAccessToken || undefined },
         ),
       });
-      const data = await readJsonResponse<{ error?: string; message?: string; scheduledPost?: { id?: string } }>(response);
+      const data = await readJsonResponse<{ error?: string; message?: string }>(response);
       if (!response.ok) throw new Error(data.error || (scheduledAt ? "Não foi possível agendar o Reel no Instagram." : "Não foi possível publicar no Instagram."));
       setPublishStatuses((previous) => ({
         ...previous,
@@ -496,24 +488,8 @@ export default function Home() {
   async function checkWorker() {
     try {
       const response = await fetch("/api/health", { cache: "no-store" });
-      if (response.ok) {
-        workerCheckFailures.current = 0;
-        setWorkerOnline(true);
-        return;
-      }
-
-      workerCheckFailures.current += 1;
-      // A transient health-check failure should not make the whole interface
-      // look broken while the app is still usable.
-      if (workerCheckFailures.current >= 3) {
-        setWorkerOnline(false);
-      }
-    } catch {
-      workerCheckFailures.current += 1;
-      if (workerCheckFailures.current >= 3) {
-        setWorkerOnline(false);
-      }
-    }
+      setWorkerOnline(response.ok);
+    } catch { setWorkerOnline(false); }
   }
 
   async function poll(id: string, accessTokenOverride?: string) {
@@ -733,7 +709,7 @@ export default function Home() {
                 </>
               )}
             </>}
-            <div className={`cf-status-pill ${workerOnline === true ? "online" : workerOnline === false ? "offline" : "checking"}`}><span /> {workerOnline === true ? "Sistema online" : workerOnline === false ? "Sistema indisponível" : "Sistema online"}</div>
+            <div className={`cf-status-pill ${workerOnline === true ? "online" : workerOnline === false ? "offline" : "checking"}`}><span /> {workerOnline === true ? "Sistema online" : workerOnline === false ? "Sistema indisponível" : "Verificando sistema"}</div>
           </div>
         </header>
 
