@@ -1,0 +1,23 @@
+name: Instagram Scheduler
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  publish-scheduled-instagram:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Process scheduled Instagram posts
+        env:
+          CLIP_FACTORY_WEB_URL: ${{ secrets.CLIP_FACTORY_WEB_URL }}
+          CLIP_FACTORY_SCHEDULER_TOKEN: ${{ secrets.CLIP_FACTORY_SCHEDULER_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$CLIP_FACTORY_WEB_URL"
+          test -n "$CLIP_FACTORY_SCHEDULER_TOKEN"
+          curl --fail-with-body --silent --show-error \
+            --request POST \
+            --header "x-clip-factory-scheduler-token: $CLIP_FACTORY_SCHEDULER_TOKEN" \
+            "$CLIP_FACTORY_WEB_URL/api/instagram/scheduler"
