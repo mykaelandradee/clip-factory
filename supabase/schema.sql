@@ -140,6 +140,41 @@ end;
 $do$;
 
 
+-- Scheduled YouTube publications.
+create table if not exists public.youtube_scheduled_posts (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  job_id uuid not null references public.clip_jobs(id) on delete cascade,
+  file text not null,
+  video_id text not null,
+  title text not null,
+  scheduled_at timestamptz not null,
+  status text not null default 'scheduled'
+    check (status in ('scheduled', 'canceled')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists youtube_scheduled_posts_user_id_idx
+  on public.youtube_scheduled_posts(user_id);
+
+create index if not exists youtube_scheduled_posts_status_idx
+  on public.youtube_scheduled_posts(status, scheduled_at);
+
+alter table public.youtube_scheduled_posts enable row level security;
+
+drop policy if exists "Users can view their scheduled YouTube posts" on public.youtube_scheduled_posts;
+create policy "Users can view their scheduled YouTube posts"
+  on public.youtube_scheduled_posts
+  for select
+  using (auth.uid() = user_id);
+
+drop trigger if exists youtube_scheduled_posts_updated_at on public.youtube_scheduled_posts;
+create trigger youtube_scheduled_posts_updated_at
+before update on public.youtube_scheduled_posts
+for each row execute function public.set_updated_at();
+
+
 -- Scheduler HTTP support for automatic Instagram publications.
 create extension if not exists pg_net;
 
