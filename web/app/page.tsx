@@ -77,7 +77,7 @@ export default function Home() {
   const [publishMessage, setPublishMessage] = useState("");
   const [publishStatuses, setPublishStatuses] = useState<Record<string, { platform: "youtube" | "instagram"; status: "queued" | "running" | "success" | "failed"; message: string }>>({});
   const publishTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [publishDrafts, setPublishDrafts] = useState<Record<string, { title: string; description: string; publishAt: string }>>({});
+  const [publishDrafts, setPublishDrafts] = useState<Record<string, { title: string; description: string; publishAt: string; instagramPublishAt: string }>>({});
   const [previewClip, setPreviewClip] = useState<{ file: string; url: string; index: number; currentTime: number } | null>(null);
   const [previewErrors, setPreviewErrors] = useState<Record<string, boolean>>({});
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -316,10 +316,11 @@ export default function Home() {
       title: defaultPublishTitle(index),
       description: "Criado com o Clip Factory.",
       publishAt: "",
+      instagramPublishAt: "",
     };
   }
 
-  function updatePublishDraft(file: string, index: number, field: "title" | "description" | "publishAt", value: string) {
+  function updatePublishDraft(file: string, index: number, field: "title" | "description" | "publishAt" | "instagramPublishAt", value: string) {
     const current = getPublishDraft(file, index);
     setPublishDrafts((previous) => ({
       ...previous,
@@ -399,15 +400,30 @@ export default function Home() {
     setPublishStatuses((previous) => ({ ...previous, [file]: { platform: "instagram", status: "running", message: "Enviando o Reel para o Instagram..." } }));
     const draft = getPublishDraft(file, index);
     const caption = [draft.title.trim(), draft.description.trim()].filter(Boolean).join("\n");
+    const scheduledAt = draft.instagramPublishAt ? new Date(draft.instagramPublishAt).toISOString() : "";
     try {
-      const response = await fetch("/api/instagram/publish", {
+      const endpoint = scheduledAt ? "/api/instagram/schedule" : "/api/instagram/publish";
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jobId, file, caption, accessToken: jobAccessToken || undefined }),
+        body: JSON.stringify(
+          scheduledAt
+            ? { jobId, file, caption, scheduledAt }
+            : { jobId, file, caption, accessToken: jobAccessToken || undefined },
+        ),
       });
       const data = await readJsonResponse<{ error?: string; message?: string }>(response);
-      if (!response.ok) throw new Error(data.error || "Não foi possível publicar no Instagram.");
-      setPublishStatuses((previous) => ({ ...previous, [file]: { platform: "instagram", status: "success", message: data.message || "Reel publicado com sucesso no Instagram." } }));
+      if (!response.ok) throw new Error(data.error || (scheduledAt ? "Não foi possível agendar o Reel no Instagram." : "Não foi possível publicar no Instagram."));
+      setPublishStatuses((previous) => ({
+        ...previous,
+        [file]: {
+          platform: "instagram",
+          status: "success",
+          message: scheduledAt
+            ? `Reel agendado para ${new Date(scheduledAt).toLocaleString("pt-BR")}.`
+            : (data.message || "Reel publicado com sucesso no Instagram."),
+        },
+      }));
     } catch (err) {
       setPublishStatuses((previous) => ({ ...previous, [file]: { platform: "instagram", status: "failed", message: err instanceof Error ? err.message : "Erro ao publicar no Instagram." } }));
     } finally {
@@ -885,9 +901,21 @@ export default function Home() {
                                 type="datetime-local"
                                 value={getPublishDraft(file, index).publishAt}
                                 onChange={(e) => updatePublishDraft(file, index, "publishAt", e.target.value)}
+                                disabled={publishingTarget === `youtube:${file}`}
+                              />
+                              <small>Preencha data e horário e clique em “Agendar YouTube”. Deixe em branco para publicar imediatamente.</small>
+                            </label>
+                          )}
+                          {!GENERATION_ONLY_MODE && instagramConnected && (
+                            <label>
+                              <span>Agendar publicação no Instagram</span>
+                              <input
+                                type="datetime-local"
+                                value={getPublishDraft(file, index).instagramPublishAt}
+                                onChange={(e) => updatePublishDraft(file, index, "instagramPublishAt", e.target.value)}
                                 disabled={publishingTarget === `instagram:${file}`}
                               />
-                              <small>Preencha data e horário e clique em “Agendar YouTube”. Deixe em branco para publicar imediatamente. O agendamento nesta tela é exclusivo do YouTube.</small>
+                              <small>Preencha data e horário e clique em “Agendar Instagram”. Deixe em branco para publicar imediatamente.</small>
                             </label>
                           )}
                         </div>
@@ -915,9 +943,11 @@ export default function Home() {
                             type="button"
                             className="cf-download cf-publish-button"
                             onClick={() => publishToInstagram(file, index)}
-                            disabled={publishingTarget === `instagram:${file}` || !getPublishDraft(file, index).title.trim()}
+                            disabled={publishingTarget === `instagram:${file}` || publishingTarget === `youtube:${file}` || !getPublishDraft(file, index).title.trim()}
                           >
-                            {publishingTarget === `instagram:${file}` ? "Publicando…" : "Publicar Instagram ↗"}
+                            {publishingTarget === `instagram:${file}`
+                              ? (getPublishDraft(file, index).instagramPublishAt ? "Agendando…" : "Publicando…")
+                              : (getPublishDraft(file, index).instagramPublishAt ? "Agendar Instagram ↗" : "Publicar Instagram ↗")}
                           </button>
                         )}
                       </div>                    </div>
