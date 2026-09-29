@@ -572,7 +572,14 @@ export default function Home() {
       setJobId(data.jobId);
       setJobAccessToken(data.accessToken || "");
       pollStartedAt.current = Date.now();
-      setJob(data);
+      setJob({
+        status: data.status || "processing",
+        progress: typeof data.progress === "number" ? data.progress : 0,
+        stage: data.stage,
+        message: data.message || "Processamento iniciado.",
+        error: data.error,
+        result: data.result,
+      });
       timer.current = setInterval(() => poll(data.jobId!, data.accessToken || ""), 5000);
     } catch (err) {
       setSubmitting(false);
