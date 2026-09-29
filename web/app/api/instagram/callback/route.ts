@@ -13,7 +13,7 @@ function readCookie(request: Request, name: string) {
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const publicOrigin = url.origin;
+  const publicOrigin = process.env.CLIP_FACTORY_WEB_URL || url.origin;
   const code = url.searchParams.get("code");
   const returnedState = url.searchParams.get("state");
   const expectedState = readCookie(request, getInstagramOAuthStateCookieName());
@@ -35,7 +35,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const redirectUri = `${publicOrigin}/api/instagram/callback`;
+    const redirectUri = `${publicOrigin.replace(/\/$/, "")}/api/instagram/callback`;
     const tokenResponse = await fetch("https://api.instagram.com/oauth/access_token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
