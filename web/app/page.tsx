@@ -228,7 +228,8 @@ export default function Home() {
   const [duration, setDuration] = useState("30-60");
   const [subtitleLanguage, setSubtitleLanguage] = useState("original");
   const [captionStyle, setCaptionStyle] = useState("karaoke");
-  const [workerOnline, setWorkerOnline] = useState<boolean | null>(null);
+  const [workerOnline, setWorkerOnline] = useState(true);
+  const healthFailures = useRef(0);
   const [jobId, setJobId] = useState("");
   const [jobAccessToken, setJobAccessToken] = useState("");
   const [job, setJob] = useState<Job | null>(null);
@@ -658,8 +659,17 @@ export default function Home() {
   async function checkWorker() {
     try {
       const response = await fetch("/api/health", { cache: "no-store" });
-      setWorkerOnline(response.ok);
-    } catch { setWorkerOnline(false); }
+      if (response.ok) {
+        healthFailures.current = 0;
+        setWorkerOnline(true);
+        return;
+      }
+      healthFailures.current += 1;
+      if (healthFailures.current >= 3) setWorkerOnline(false);
+    } catch {
+      healthFailures.current += 1;
+      if (healthFailures.current >= 3) setWorkerOnline(false);
+    }
   }
 
   async function poll(id: string, accessTokenOverride?: string) {
@@ -879,7 +889,7 @@ export default function Home() {
                 </>
               )}
             </>}
-            <div className={`cf-status-pill ${workerOnline === true ? "online" : workerOnline === false ? "offline" : "checking"}`}><span /> {workerOnline === true ? "Sistema online" : workerOnline === false ? "Sistema indisponível" : "Verificando sistema"}</div>
+            <div className={`cf-status-pill ${workerOnline ? "online" : "offline"}`}><span /> {workerOnline ? "Sistema online" : "Sistema indisponível"}</div>
           </div>
         </header>
 
