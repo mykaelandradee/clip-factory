@@ -28,7 +28,7 @@ export async function GET(request: Request) {
   const file = params.get("file");
   const accessToken = params.get("accessToken");
 
-  if (!id || !file || !/^clip-\d{2}\.mp4$/i.test(file)) {
+  if (!id || !file || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id) || !/^clip-(?:0[1-9]|1[0-5])\.mp4$/i.test(file)) {
     return Response.json({ error: "Clip inválido." }, { status: 400 });
   }
 
