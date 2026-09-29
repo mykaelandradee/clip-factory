@@ -84,6 +84,7 @@ export default function Home() {
   const emptyResultRetries = useRef(0);
   const canceledJobId = useRef("");
   const pollStartedAt = useRef(0);
+  const workerCheckFailures = useRef(0);
   const CLIENT_JOB_TIMEOUT_MS = 50 * 60 * 1000;
 
   async function readJsonResponse<T = Record<string, unknown>>(response: Response): Promise<T> {
@@ -178,8 +179,13 @@ export default function Home() {
 
   useEffect(() => {
     if (!GENERATION_ONLY_MODE) initAuth();
-    checkWorker();
-    return () => { if (timer.current) clearInterval(timer.current); if (publishTimer.current) clearInterval(publishTimer.current); };
+    void checkWorker();
+    const healthTimer = setInterval(() => { void checkWorker(); }, 20000);
+    return () => {
+      clearInterval(healthTimer);
+      if (timer.current) clearInterval(timer.current);
+      if (publishTimer.current) clearInterval(publishTimer.current);
+    };
   }, []);
 
   useEffect(() => {
@@ -488,8 +494,24 @@ export default function Home() {
   async function checkWorker() {
     try {
       const response = await fetch("/api/health", { cache: "no-store" });
-      setWorkerOnline(response.ok);
-    } catch { setWorkerOnline(false); }
+      if (response.ok) {
+        workerCheckFailures.current = 0;
+        setWorkerOnline(true);
+        return;
+      }
+
+      workerCheckFailures.current += 1;
+      // A transient health-check failure should not make the whole interface
+      // look broken while the app is still usable.
+      if (workerCheckFailures.current >= 3) {
+        setWorkerOnline(false);
+      }
+    } catch {
+      workerCheckFailures.current += 1;
+      if (workerCheckFailures.current >= 3) {
+        setWorkerOnline(false);
+      }
+    }
   }
 
   async function poll(id: string, accessTokenOverride?: string) {
@@ -709,7 +731,7 @@ export default function Home() {
                 </>
               )}
             </>}
-            <div className={`cf-status-pill ${workerOnline === true ? "online" : workerOnline === false ? "offline" : "checking"}`}><span /> {workerOnline === true ? "Sistema online" : workerOnline === false ? "Sistema indisponível" : "Verificando sistema"}</div>
+            <div className={`cf-status-pill ${workerOnline === true ? "online" : workerOnline === false ? "offline" : "checking"}`}><span /> {workerOnline === true ? "Sistema online" : workerOnline === false ? "Conexão indisponível" : "Verificando conexão"}</div>
           </div>
         </header>
 
