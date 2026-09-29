@@ -60,7 +60,7 @@ export default function Home() {
   const [duration, setDuration] = useState("30-60");
   const [subtitleLanguage, setSubtitleLanguage] = useState("original");
   const [captionStyle, setCaptionStyle] = useState("karaoke");
-  const [workerOnline, setWorkerOnline] = useState<boolean | null>(null);
+  const [workerOnline, setWorkerOnline] = useState(true);
   const [jobId, setJobId] = useState("");
   const [jobAccessToken, setJobAccessToken] = useState("");
   const [job, setJob] = useState<Job | null>(null);
@@ -731,7 +731,7 @@ export default function Home() {
                 </>
               )}
             </>}
-            <div className={`cf-status-pill ${workerOnline === true ? "online" : workerOnline === false ? "offline" : "checking"}`}><span /> {workerOnline === true ? "Sistema online" : workerOnline === false ? "Conexão indisponível" : "Verificando conexão"}</div>
+            <div className={`cf-status-pill ${workerOnline === true ? "online" : workerOnline === false ? "offline" : "checking"}`}><span /> {workerOnline === true ? "Sistema online" : workerOnline === false ? "Sistema indisponível" : "Sistema online"}</div>
           </div>
         </header>
 
