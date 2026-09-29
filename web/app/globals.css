@@ -1279,3 +1279,103 @@ button{appearance:none}
 .cf-job-failure + .cf-results {
   margin-top:14px;
 }
+
+
+/* Final / 03 STYLE preview alignment with worker render presets. */
+.cf-template-preview {
+  align-items:flex-end !important;
+  justify-content:center !important;
+  padding:0 8px 38px !important;
+}
+.cf-template-preview .preview-subtitle {
+  width:100%;
+  margin:0 !important;
+  font-size:12.5px !important;
+  line-height:1.05 !important;
+  font-weight:900 !important;
+  letter-spacing:-.035em !important;
+  text-align:center !important;
+  text-transform:uppercase !important;
+}
+.cf-template-preview.accent-karaoke .preview-subtitle {
+  font-family:"DejaVu Sans",system-ui,sans-serif !important;
+}
+.cf-template-preview.accent-fire .preview-subtitle {
+  font-family:"DejaVu Sans Condensed",system-ui,sans-serif !important;
+}
+.cf-template-preview.accent-youshaei .preview-subtitle {
+  font-family:"DejaVu Sans",system-ui,sans-serif !important;
+}
+.cf-template-preview.accent-harmozi .preview-subtitle {
+  font-family:"DejaVu Sans Mono",monospace !important;
+}
+.cf-template-preview.accent-karaoke .preview-subtitle,
+.cf-template-preview.accent-fire .preview-subtitle,
+.cf-template-preview.accent-youshaei .preview-subtitle,
+.cf-template-preview.accent-harmozi .preview-subtitle {
+  color:#fff !important;
+  text-shadow:-1.5px -1.5px 0 #000,1.5px -1.5px 0 #000,-1.5px 1.5px 0 #000,1.5px 1.5px 0 #000 !important;
+}
+.cf-template-preview.accent-karaoke .preview-subtitle b { color:#FFE83B !important; }
+.cf-template-preview.accent-fire .preview-subtitle b { color:#FF8C00 !important; }
+.cf-template-preview.accent-youshaei .preview-subtitle b { color:#00BFFF !important; }
+.cf-template-preview.accent-harmozi .preview-subtitle b { color:#D8FF37 !important; }
+
+.cf-template-preview.accent-beasty .preview-subtitle {
+  font-family:"DejaVu Sans Mono",monospace !important;
+  font-size:12.8px !important;
+  font-weight:900 !important;
+  letter-spacing:-.02em !important;
+  color:#fff !important;
+  text-shadow:none !important;
+}
+.cf-template-preview.accent-beasty .preview-subtitle i {
+  font-style:normal !important;
+}
+.cf-template-preview.accent-beasty .preview-box-word {
+  display:inline-block !important;
+  padding:2px 5px !important;
+  background:#fff !important;
+  color:#000 !important;
+  text-shadow:none !important;
+}
+
+.cf-template-preview.accent-cinematic .preview-subtitle {
+  width:auto !important;
+  max-width:90% !important;
+  font-family:"DejaVu Serif",Georgia,serif !important;
+  font-size:9.5px !important;
+  font-weight:500 !important;
+  line-height:1.35 !important;
+  letter-spacing:.06em !important;
+  text-transform:uppercase !important;
+  color:#fff !important;
+  text-shadow:-1px -1px 0 #000,1px 1px 0 #000 !important;
+}
+.cf-template-preview.accent-cinematic .preview-subtitle i,
+.cf-template-preview.accent-cinematic .preview-subtitle b {
+  font-style:normal !important;
+  font-weight:500 !important;
+}
+.cf-template-preview.accent-cinematic .preview-subtitle b {
+  color:#fff !important;
+}
+
+.cf-schedule-cancel {
+  width:100%;
+  margin-top:7px;
+  min-height:32px;
+  border:1px solid #ff6b6b44;
+  border-radius:9px;
+  background:#ff6b6b0d;
+  color:#ffb0b0;
+  font-size:8px;
+  font-weight:900;
+  letter-spacing:.07em;
+  text-transform:uppercase;
+  cursor:pointer;
+}
+.cf-schedule-cancel:hover {
+  background:#ff6b6b18;
+  border-color:#ff6b6b66;
+}
