@@ -140,6 +140,9 @@ end;
 $do$;
 
 
+-- Scheduler HTTP support for automatic Instagram publications.
+create extension if not exists pg_net;
+
 -- Scheduled Instagram publications.
 create table if not exists public.instagram_scheduled_posts (
   id uuid primary key default gen_random_uuid(),
