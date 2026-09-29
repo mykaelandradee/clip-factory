@@ -115,5 +115,32 @@ jobs:
           )
           response = upload.execute()
           print("YouTube video uploaded:", response["id"])
+          with open("publish/video-id.txt", "w", encoding="utf-8") as file:
+              file.write(str(response["id"]))
           PY
           python publish_youtube.py
+
+      - name: Register scheduled YouTube publication
+        if: ${{ env.PUBLISH_AT != '' }}
+        run: |
+          set -euo pipefail
+          test -s publish/video-id.txt
+          VIDEO_ID="$(cat publish/video-id.txt)"
+          curl --fail-with-body --silent --show-error --retry 3 --retry-delay 5 \
+            --connect-timeout 10 --max-time 60 \
+            --request POST \
+            --header "Authorization: Bearer $CLIP_FACTORY_PUBLISH_API_KEY" \
+            --header "Content-Type: application/json" \
+            --data "$(python - <<'PY'
+          import json, os
+          print(json.dumps({
+              "job_id": os.environ["JOB_ID"],
+              "connection_id": os.environ["CONNECTION_ID"],
+              "file": os.environ["FILE"],
+              "video_id": open("publish/video-id.txt", encoding="utf-8").read().strip(),
+              "title": os.environ["VIDEO_TITLE"],
+              "scheduled_at": os.environ["PUBLISH_AT"],
+          }))
+          PY
+          )" \
+            "$CLIP_FACTORY_URL/api/youtube/schedule/complete"
