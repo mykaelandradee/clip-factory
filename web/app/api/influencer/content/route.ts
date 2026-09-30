@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   if (!user) return NextResponse.json({ error: "Entre no Clip Factory." }, { status: 401 });
   const profileId = new URL(request.url).searchParams.get("profileId") || "";
   if (!profileId) return NextResponse.json({ error: "Perfil inválido." }, { status: 400 });
-  const admin = createAdminClient();
+  if (!title) {\n    try {\n      const oembed = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(sourceUrl)}&format=json`, { cache: "no-store" });\n      if (oembed.ok) {\n        const metadata = await oembed.json().catch(() => ({}));\n        if (typeof metadata?.title === "string") title = metadata.title.trim().slice(0, 500);\n      }\n    } catch {\n      // O título original é opcional; o processamento continua mesmo se o oEmbed não responder.\n    }\n  }\n  const admin = createAdminClient();
   const { data, error } = await admin.from("influencer_content_items").select("*").eq("profile_id", profileId).eq("user_id", user.id).order("created_at", { ascending: false });
   if (error) return NextResponse.json({ error: "Não foi possível carregar a biblioteca." }, { status: 500 });
 
@@ -23,7 +23,7 @@ export async function GET(request: Request) {
   const processing = items.filter((item) => item.status === "processing" && item.clip_job_id);
   if (processing.length) {
     const cookie = request.headers.get("cookie") || "";
-    const origin = new URL(request.url).origin;
+    const origin = `http://127.0.0.1:${process.env.PORT || "3000"}`;
     await Promise.all(processing.map(async (item) => {
       try {
         const statusResponse = await fetch(
@@ -64,7 +64,7 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const profileId = typeof body?.profileId === "string" ? body.profileId : "";
   const sourceUrl = typeof body?.sourceUrl === "string" ? body.sourceUrl.trim() : "";
-  const title = typeof body?.title === "string" ? body.title.trim() : "";
+  let title = typeof body?.title === "string" ? body.title.trim().slice(0, 500) : "";
   if (!profileId || !sourceUrl || sourceUrl.length > 2048) return NextResponse.json({ error: "Informe o perfil e a URL do vídeo." }, { status: 400 });
   let parsed: URL;
   try { parsed = new URL(sourceUrl); } catch { return NextResponse.json({ error: "URL inválida." }, { status: 400 }); }
