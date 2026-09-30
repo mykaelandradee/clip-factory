@@ -60,9 +60,12 @@ export async function GET(request: Request) {
     const user = await getCurrentUser();
     const admin = createAdminClient();
     const query = admin.from("clip_jobs").select("id").eq("id", jobId);
+    const anonymousOwned = isValidAnonymousAccessToken(jobId, accessToken);
     const { data: ownedJob } = user
-      ? await query.eq("user_id", user.id).maybeSingle()
-      : isValidAnonymousAccessToken(jobId, accessToken)
+      ? anonymousOwned
+        ? await query.is("user_id", null).maybeSingle()
+        : await query.eq("user_id", user.id).maybeSingle()
+      : anonymousOwned
         ? await query.is("user_id", null).maybeSingle()
         : { data: null };
 
