@@ -1,0 +1,241 @@
+.cf-interactive-layer,
+.cf-interactive-layer *{transition-timing-function:cubic-bezier(.22,.8,.2,1)}
+
+/* Cursor-responsive feeling without JavaScript: surfaces react clearly to hover/focus. */
+.cf-card{
+  transition:transform .35s cubic-bezier(.22,.8,.2,1),border-color .3s,box-shadow .35s;
+}
+.cf-card:hover{
+  transform:translateY(-2px);
+  border-color:rgba(185,167,255,.16);
+  box-shadow:0 28px 90px rgba(0,0,0,.34),0 0 45px rgba(141,124,255,.035);
+}
+
+.cf-builder{
+  position:relative;
+  overflow:hidden;
+}
+.cf-builder:before{
+  content:"";
+  position:absolute;
+  width:260px;height:260px;
+  top:-170px;right:-100px;
+  border-radius:50%;
+  background:radial-gradient(circle,rgba(185,167,255,.12),transparent 68%);
+  opacity:.35;
+  transition:opacity .35s,transform .5s;
+  pointer-events:none;
+}
+.cf-builder:hover:before{
+  opacity:.8;
+  transform:translate(-35px,35px);
+}
+
+.cf-template{
+  isolation:isolate;
+}
+.cf-template:before{
+  content:"";
+  position:absolute;
+  inset:-1px;
+  border-radius:inherit;
+  background:linear-gradient(135deg,rgba(255,255,255,.12),transparent 35%,rgba(185,167,255,.10));
+  opacity:0;
+  z-index:-1;
+  transition:opacity .3s;
+  pointer-events:none;
+}
+.cf-template:hover:before,
+.cf-template:focus-visible:before{
+  opacity:1;
+}
+.cf-template-preview{
+  transition:transform .35s cubic-bezier(.22,.8,.2,1),filter .3s;
+}
+.cf-template:hover .cf-template-preview{
+  transform:scale(1.025);
+}
+.cf-template-info{
+  transition:transform .25s,color .25s;
+}
+.cf-template:hover .cf-template-info{
+  transform:translateX(2px);
+}
+.cf-template-info strong{
+  transition:color .2s;
+}
+.cf-template:hover .cf-template-info strong{
+  color:#fff;
+}
+
+.cf-duration{
+  isolation:isolate;
+}
+.cf-duration:before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:linear-gradient(110deg,transparent 25%,rgba(255,255,255,.055),transparent 70%);
+  transform:translateX(-120%);
+  transition:transform .55s;
+  pointer-events:none;
+}
+.cf-duration:hover:before,
+.cf-duration.selected:before{
+  transform:translateX(120%);
+}
+
+.cf-field input,.cf-field select{
+  transition:transform .2s,border-color .25s,box-shadow .25s,background-color .25s;
+}
+.cf-field input:hover,.cf-field select:hover{
+  transform:translateY(-1px);
+  background:#0e1014;
+}
+.cf-field input:focus,.cf-field select:focus{
+  transform:translateY(-2px) scale(1.003);
+}
+
+.cf-button{
+  position:relative;
+  overflow:hidden;
+}
+.cf-button:before{
+  content:"";
+  position:absolute;
+  top:0;bottom:0;left:-65%;
+  width:45%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.5),transparent);
+  transform:skewX(-18deg);
+  transition:left .55s;
+  pointer-events:none;
+}
+.cf-button:hover:before{
+  left:125%;
+}
+.cf-button b{
+  transition:transform .25s;
+}
+.cf-button:hover b{
+  transform:translateX(3px);
+}
+
+.cf-main-nav button,
+.cf-schedule-summary button,
+.cf-schedule-refresh,
+.cf-schedule-cancel{
+  position:relative;
+  overflow:hidden;
+}
+.cf-main-nav button:after,
+.cf-schedule-summary button:after{
+  content:"";
+  position:absolute;
+  left:50%;bottom:0;
+  width:0;height:2px;
+  border-radius:2px;
+  background:#b9a7ff;
+  transform:translateX(-50%);
+  transition:width .25s;
+}
+.cf-main-nav button:hover:after,
+.cf-main-nav button.active:after,
+.cf-schedule-summary button:hover:after,
+.cf-schedule-summary button.active:after{
+  width:35%;
+}
+
+.cf-result-card{
+  transition:transform .35s cubic-bezier(.22,.8,.2,1),border-color .3s,box-shadow .35s;
+}
+.cf-result-card:hover{
+  transform:translateY(-7px) scale(1.008);
+  border-color:rgba(185,167,255,.22);
+  box-shadow:0 30px 85px rgba(0,0,0,.5),0 0 35px rgba(141,124,255,.04);
+}
+.cf-result-card .cf-video-wrap video{
+  transition:transform .5s cubic-bezier(.22,.8,.2,1),filter .35s;
+}
+.cf-result-card:hover .cf-video-wrap video{
+  transform:scale(1.018);
+  filter:saturate(1.05) brightness(1.04);
+}
+
+.cf-schedule-row{
+  position:relative;
+  overflow:hidden;
+}
+.cf-schedule-row:before{
+  content:"";
+  position:absolute;
+  left:0;top:0;bottom:0;
+  width:2px;
+  background:#b9a7ff;
+  transform:scaleY(0);
+  transform-origin:center;
+  transition:transform .25s;
+}
+.cf-schedule-row:hover:before{
+  transform:scaleY(1);
+}
+
+.cf-hero-mark-wrap{
+  transition:transform .45s cubic-bezier(.22,.8,.2,1),filter .35s;
+}
+.cf-hero-mark-wrap:hover{
+  transform:scale(1.045) rotate(1deg);
+  filter:brightness(1.16);
+}
+.cf-hero-mark{
+  transition:box-shadow .35s,background .35s;
+}
+.cf-hero-mark-wrap:hover .cf-hero-mark{
+  box-shadow:0 0 85px rgba(141,124,255,.16),inset 0 0 45px rgba(255,255,255,.06);
+  background:radial-gradient(circle,#211f2c,#09090c 70%);
+}
+
+.cf-hero h2{
+  transition:letter-spacing .35s,transform .35s;
+}
+.cf-hero h2:hover{
+  letter-spacing:-.078em;
+  transform:translateX(2px);
+}
+.cf-hero-pills span{
+  transition:transform .22s,border-color .22s,background-color .22s,color .22s;
+}
+.cf-hero-pills span:hover{
+  transform:translateY(-2px);
+  border-color:rgba(185,167,255,.28);
+  background:rgba(185,167,255,.06);
+  color:#aaa3c7;
+}
+
+.cf-download{
+  transition:transform .2s,background-color .2s,border-color .2s,color .2s;
+}
+.cf-download:hover{
+  transform:translateY(-2px);
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible{
+  outline:2px solid rgba(185,167,255,.65);
+  outline-offset:3px;
+}
+
+@media(max-width:720px){
+  .cf-card:hover,.cf-result-card:hover{transform:none}
+  .cf-template:hover .cf-template-preview{transform:none}
+  .cf-hero h2:hover{transform:none}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .cf-card,.cf-template,.cf-template-preview,.cf-result-card,.cf-result-card .cf-video-wrap video,
+  .cf-button,.cf-hero-mark-wrap,.cf-hero h2,.cf-hero-pills span,.cf-download{
+    transition:none!important;
+  }
+}
