@@ -33,8 +33,10 @@ export async function POST(request: Request) {
   }).select("*").single();
   if (error) return NextResponse.json({ error: "Não foi possível criar o perfil." }, { status: 500 });
   const defaultCaptions = [
-    ["zh","今天真的太有意思了 😂"],["zh","这个瞬间真的太经典了。"],["zh","有时候真的不知道该说什么。"],["zh","生活中总有一些意想不到的瞬间。"],
-    ["ja","これは本当に面白すぎる 😂"],["ja","この瞬間は本当に最高です。"],["ja","何と言えばいいのかわからない。"],["ja","日常には予想できない瞬間があります。"]
+    ["zh","真的太离谱了 😂"],["zh","这个瞬间太精彩了。"],["zh","看到这里真的笑了。"],["zh","今天也遇到了这种瞬间。"],
+    ["zh","有时候现实比电影还精彩。"],["zh","这一幕真的值得看第二遍。"],["zh","完全没想到会这样。"],["zh","这也太有意思了吧。"],
+    ["ja","これは面白すぎる 😂"],["ja","この瞬間は最高すぎる。"],["ja","ここで本当に笑った。"],["ja","今日はこんな瞬間に出会った。"],
+    ["ja","現実は映画より面白い。"],["ja","これはもう一回見たくなる。"],["ja","まさかこんな展開になるとは。"],["ja","これは本当に面白い。"]
   ];
   const { error: captionsError } = await admin.from("influencer_captions").insert(
     defaultCaptions.map(([language, caption]) => ({ profile_id: data.id, language, caption }))
