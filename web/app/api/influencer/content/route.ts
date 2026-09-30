@@ -53,10 +53,55 @@ export async function POST(request:Request) {
   const {data:captionRows}=await admin.from("influencer_captions").select("id,language,caption").eq("profile_id",profileId).eq("active",true);
   const captions=captionRows||[];
   const caption= captions.length ? captions[Math.floor(Math.random()*captions.length)] : null;
-  const publishDescription=caption?.caption||null;
+
+  // Títulos curtos em chinês/japonês e descrições médias, com curiosidades/fatos
+  // aleatórios. O texto original do vídeo fica separado e nunca é usado como copy do Reel.
+  const reelTitles = {
+    zh: [
+      "你可能不知道的一个瞬间",
+      "这个细节真的很有意思",
+      "一个值得注意的小事实",
+      "原来还有这样的事情",
+      "很多人都忽略了这一点",
+      "这个瞬间背后有个细节",
+      "一个意外又有趣的发现",
+      "生活中容易错过的小知识",
+    ],
+    ja: [
+      "意外と知らない瞬間",
+      "この細かい部分が面白い",
+      "知っておきたい小さな事実",
+      "実はこんなことがあります",
+      "多くの人が見落とすポイント",
+      "この瞬間には秘密があります",
+      "意外で面白い小さな発見",
+      "日常で見逃しやすい豆知識",
+    ],
+  } as const;
+  const zhDescriptions = [
+    "你知道吗？很多看似普通的瞬间，其实都藏着一些有趣的细节。这个画面之所以特别，是因为我们平时很少注意到这些小变化。",
+    "有趣的是，人们往往只关注结果，却很少观察过程中的细节。类似的情况在日常生活中非常常见，也因此更容易让人产生共鸣。",
+    "这个瞬间看起来很简单，但背后其实有一个值得注意的小事实。很多人第一次看到时都会忽略这一点，直到再次观看才发现细节。",
+    "生活里有很多意想不到的瞬间，它们不一定复杂，却总能让人停下来多看几秒。这个画面就是一个很好的例子。",
+    "一个有意思的冷知识是，我们的大脑会自动忽略大量重复的信息，所以一些特别的小细节反而更容易被错过。这也是这个瞬间有趣的地方。",
+    "有时候最有趣的内容并不是发生了什么，而是事情发生的方式。仔细观察这个画面，会发现一个很容易被忽略的小细节。",
+  ];
+  const jaDescriptions = [
+    "知っていますか？一見すると普通の瞬間でも、よく見ると意外と面白い細かな部分が隠れています。普段は気づかない変化ほど印象に残ります。",
+    "面白いのは、人は結果ばかりに注目して途中の細かな動きを見落としやすいことです。日常でも同じようなことが意外とたくさんあります。",
+    "この瞬間はシンプルに見えますが、実はちょっとした豆知識につながるポイントがあります。最初は気づかなくても、もう一度見ると発見できます。",
+    "日常には予想していなかった瞬間がたくさんあります。特別に複雑ではなくても、少し視点を変えるだけで面白く見えることがあります。",
+    "人間の脳は繰り返される情報を自然に省略するため、小さな変化ほど見逃しやすいと言われています。だからこそ、この場面の細部が面白く感じられます。",
+    "面白いのは何が起きたかだけではなく、どのように起きたかという部分です。この動画を少し注意して見ると、見逃しやすい細かなポイントに気づけます。",
+  ];
+  const language = caption?.language === "ja" ? "ja" : "zh";
+  const titlePool = reelTitles[language];
+  const descriptionPool = language === "ja" ? jaDescriptions : zhDescriptions;
+  const publishTitle = titlePool[Math.floor(Math.random()*titlePool.length)];
+  const publishDescription = descriptionPool[Math.floor(Math.random()*descriptionPool.length)];
   const itemId=crypto.randomUUID();
   const {data:item,error}=await admin.from("influencer_content_items").insert({
-    id:itemId,profile_id:profileId,user_id:user.id,source_url:sourceUrl,title:title||null,source_type:"url",status:"processing",progress:5,stage:"queued",worker_job_id:itemId,publish_title:title||null,publish_description:publishDescription
+    id:itemId,profile_id:profileId,user_id:user.id,source_url:sourceUrl,title:title||null,source_type:"url",status:"processing",progress:5,stage:"queued",worker_job_id:itemId,publish_title:publishTitle,publish_description:publishDescription,source_description:null
   }).select("*").single();
   if(error){console.error("Influencer item creation failed:",error);return NextResponse.json({error:"Não foi possível adicionar o vídeo à biblioteca."},{status:500});}
   try{
