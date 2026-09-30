@@ -1765,7 +1765,7 @@ body{
   background:#0b0d10;
 }
 .cf-job-top{font-size:10px}
-.cf-job-steps{display:none}
+.cf-job-steps{display:flex;gap:4px}
 .cf-job small{font-size:8px}
 .cf-results{margin-top:28px}
 .cf-results-head h2{font-size:21px}
@@ -1936,4 +1936,41 @@ html,body,button,input,select,textarea{
 @media(max-width:430px){
   .cf-template-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .cf-template-preview{min-height:140px}
+}
+
+/* Processing stages — restore explicit percentage markers. */
+.cf-job-steps span{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:2px;
+  flex:1;
+  min-width:0;
+  text-align:center;
+  white-space:nowrap;
+}
+.cf-job-steps span b{
+  font-size:7px;
+  font-weight:800;
+  letter-spacing:.06em;
+  color:#5f626c;
+}
+.cf-job-steps span small{
+  font-size:7px;
+  line-height:1;
+  color:#4b4e57;
+}
+.cf-job-steps span.done b,
+.cf-job-steps span.done small{
+  color:#aeb0b8;
+}
+.cf-job-steps span.active b,
+.cf-job-steps span.active small{
+  color:#fff;
+}
+@media(max-width:720px){
+  .cf-job-steps{gap:2px}
+  .cf-job-steps span b{font-size:6px}
+  .cf-job-steps span small{font-size:6px}
 }
