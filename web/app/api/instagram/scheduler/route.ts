@@ -46,7 +46,24 @@ export async function POST(request: Request) {
     }
   }
 
-  return NextResponse.json({ok:true,processed:results.length,results},{headers:noStore});
+  let influencerResults: unknown[] = [];
+  try {
+    const influencerResponse = await fetch(origin + "/api/influencer/publish", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-clip-factory-scheduler-token": secret,
+      },
+      body: JSON.stringify({ action: "tick" }),
+      cache: "no-store",
+    });
+    const influencerData = await influencerResponse.json().catch(() => ({}));
+    influencerResults = Array.isArray(influencerData?.results) ? influencerData.results : [];
+  } catch (error) {
+    console.error("Influencer scheduler tick failed:", error);
+  }
+
+  return NextResponse.json({ok:true,processed:results.length,results,influencerResults},{headers:noStore});
 }
 
 export async function GET(request:Request) { return POST(request); }
