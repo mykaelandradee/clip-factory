@@ -74,19 +74,20 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Processamento não encontrado." }, { status: 404 });
     }
 
-    const files = Array.from({ length: 15 }, (_, index) => `clip-${String(index + 1).padStart(2, "0")}.mp4`);
-    const entries: Record<string, Uint8Array> = {};
-
-    for (const file of files) {
-      if (!FILE_PATTERN.test(file)) continue;
-      const upstream = await fetch(getR2PublicClipUrl(jobId, file), { cache: "no-store" });
-      if (upstream.status === 404) continue;
-      if (!upstream.ok) {
-        return NextResponse.json({ error: "Não foi possível obter todos os clips." }, { status: 502 });
-      }
-      const buffer = await upstream.arrayBuffer();
-      if (buffer.byteLength > 0) entries[file] = new Uint8Array(buffer);
-    }
+    const files = (await listR2ClipUrls(jobId)).filter(({ file }) => FILE_PATTERN.test(file));
+    const downloaded = await Promise.all(
+      files.map(async ({ file, url }) => {
+        const upstream = await fetch(url, { cache: "no-store" });
+        if (!upstream.ok) {
+          throw new Error(`Falha ao obter ${file}: HTTP ${upstream.status}`);
+        }
+        const buffer = await upstream.arrayBuffer();
+        return buffer.byteLength > 0 ? [file, new Uint8Array(buffer)] as const : null;
+      }),
+    );
+    const entries: Record<string, Uint8Array> = Object.fromEntries(
+      downloaded.filter((entry): entry is readonly [string, Uint8Array] => entry !== null),
+    );
 
     if (Object.keys(entries).length === 0) {
       return NextResponse.json({ error: "Nenhum clip disponível para download." }, { status: 404 });
