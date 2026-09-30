@@ -7,6 +7,18 @@ const GITHUB_API="https://api.github.com", OWNER="mykaelandradee", REPO="clip-fa
 
 function headers(){const token=process.env.CLIP_FACTORY_GITHUB_TOKEN;if(!token)throw new Error("CLIP_FACTORY_GITHUB_TOKEN não configurado.");return {Accept:"application/vnd.github+json",Authorization:`Bearer ${token}`,"X-GitHub-Api-Version":"2022-11-28"};}
 
+async function fetchSourceDescription(sourceUrl:string):Promise<string|null>{
+  try{
+    const response=await fetch(sourceUrl,{cache:"no-store",headers:{"User-Agent":"Mozilla/5.0 ClipFactory/1.0"}});
+    if(!response.ok)return null;
+    const html=(await response.text()).slice(0,2_000_000);
+    const match=html.match(/<meta[^>]+(?:name|property)=[\"'](?:description|og:description)[\"'][^>]+content=[\"']([^\"']*)[\"']/i)
+      || html.match(/<meta[^>]+content=[\"']([^\"']*)[\"'][^>]+(?:name|property)=[\"'](?:description|og:description)[\"']/i);
+    if(!match?.[1])return null;
+    return match[1].replace(/&quot;/g,'\"').replace(/&#39;/g,"'").replace(/&amp;/g,"&").trim().slice(0,5000)||null;
+  }catch{return null}
+}
+
 export async function GET(request:Request){
  const supabase=await createClient();const {data:{user}}=await supabase.auth.getUser();if(!user)return NextResponse.json({error:"Entre no Clip Factory."},{status:401});
  const id=new URL(request.url).searchParams.get("id")||"";if(!/^[0-9a-f-]{36}$/i.test(id))return NextResponse.json({error:"Conteúdo inválido."},{status:400});
@@ -33,7 +45,8 @@ export async function GET(request:Request){
    if(run.conclusion==="success"){
     const publicUrl=process.env.R2_PUBLIC_URL?.replace(/\/$/,"")||"";
     const resultUrl=publicUrl?`${publicUrl}/influencer/${user.id}/${item.profile_id}/${item.id}/video.mp4`:item.result_url;
-    const updated={status:"available",progress:100,stage:"ready",r2_key:`influencer/${user.id}/${item.profile_id}/${item.id}/video.mp4`,result_url:resultUrl,title:item.title||null,duration_seconds:item.duration_seconds||null,error_message:null,updated_at:new Date().toISOString()};
+    const sourceDescription = item.source_description || await fetchSourceDescription(item.source_url);
+    const updated={status:"available",progress:100,stage:"ready",r2_key:`influencer/${user.id}/${item.profile_id}/${item.id}/video.mp4`,result_url:resultUrl,title:item.title||null,source_description:sourceDescription,duration_seconds:item.duration_seconds||null,error_message:null,updated_at:new Date().toISOString()};
     const {data:done}=await admin.from("influencer_content_items").update(updated).eq("id",id).eq("user_id",user.id).select("*").single();
     return NextResponse.json({item:done||{...item,...updated}},{headers:{"Cache-Control":"no-store"}});
    }
