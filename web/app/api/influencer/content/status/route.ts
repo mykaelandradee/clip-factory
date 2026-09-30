@@ -33,7 +33,7 @@ export async function GET(request:Request){
    if(run.conclusion==="success"){
     const publicUrl=process.env.R2_PUBLIC_URL?.replace(/\/$/,"")||"";
     const resultUrl=publicUrl?`${publicUrl}/influencer/${user.id}/${item.profile_id}/${item.id}/video.mp4`:item.result_url;
-    const updated={status:"available",progress:100,stage:"ready",result_url:resultUrl,error_message:null,updated_at:new Date().toISOString()};
+    const updated={status:"available",progress:100,stage:"ready",r2_key:`influencer/${user.id}/${item.profile_id}/${item.id}/video.mp4`,result_url:resultUrl,title:item.title||null,duration_seconds:item.duration_seconds||null,error_message:null,updated_at:new Date().toISOString()};
     const {data:done}=await admin.from("influencer_content_items").update(updated).eq("id",id).eq("user_id",user.id).select("*").single();
     return NextResponse.json({item:done||{...item,...updated}},{headers:{"Cache-Control":"no-store"}});
    }
