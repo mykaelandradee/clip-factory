@@ -968,6 +968,9 @@ export default function Home() {
             <button type="button" className={activeView === "schedules" ? "active" : ""} onClick={() => setActiveView("schedules")}>
               <span>02</span> Agendamentos
             </button>
+            <a className="cf-main-nav-link" href="/influencer-manager">
+              <span>03</span> Influencer Manager
+            </a>
           </nav>
         )}
 
