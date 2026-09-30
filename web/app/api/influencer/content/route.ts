@@ -80,11 +80,12 @@ export async function POST(request: Request) {
   try {
     const cookie = request.headers.get("cookie") || "";
     const origin = new URL(request.url).origin;
-    const jobResponse = await fetch(`${origin}/api/jobs`, {
+    const jobResponse = await fetch(new URL("/api/jobs", request.url), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         ...(cookie ? { cookie } : {}),
+        "x-clip-factory-internal": "influencer-manager",
       },
       body: JSON.stringify({
         url: sourceUrl,
@@ -120,7 +121,7 @@ export async function POST(request: Request) {
       error_message: processingError instanceof Error ? processingError.message : "Erro ao iniciar processamento.",
       updated_at: new Date().toISOString(),
     }).eq("id", item.id).eq("user_id", user.id);
-    return NextResponse.json({ error: "Vídeo adicionado, mas não foi possível iniciar o processamento." }, { status: 502 });
+    return NextResponse.json({ error: processingError instanceof Error && processingError.message ? `Vídeo adicionado, mas não foi possível iniciar o processamento: ${processingError.message}` : "Vídeo adicionado, mas não foi possível iniciar o processamento." }, { status: 502 });
   }
 }
 
