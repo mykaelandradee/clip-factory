@@ -1837,3 +1837,103 @@ body{
   .cf-template-preview{height:142px}
   .cf-duration strong{font-size:10px}
 }
+
+
+/* UI refinement — modern typography, hover states, 3-column styles, schedules. */
+html,body,button,input,select,textarea{
+  font-family:"Geist","Geist Sans",Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
+.cf-brand,.cf-hero h2,.cf-builder-head h3,.cf-results-head h2,.cf-schedules-head h2,
+.cf-template-info strong,.cf-duration strong,.cf-button{
+  font-family:"Geist","Geist Sans",Inter,ui-sans-serif,system-ui,sans-serif;
+  font-feature-settings:"ss01" 1,"cv11" 1;
+}
+.cf-brand{font-weight:700;letter-spacing:-.035em}
+.cf-hero h2{font-weight:650}
+.cf-hero h2 em,.cf-hero h2 strong{
+  font-family:"Geist","Geist Sans",Inter,ui-sans-serif,system-ui,sans-serif;
+  font-style:normal;
+  font-weight:650;
+}
+.cf-template,.cf-duration,.cf-main-nav button,.cf-button,.cf-schedule-summary button,
+.cf-schedule-row,.cf-schedule-refresh,.cf-schedule-filters button{
+  transition:transform .18s ease,background-color .18s ease,border-color .18s ease,
+    box-shadow .18s ease,color .18s ease;
+}
+.cf-template:hover{
+  transform:translateY(-3px);
+  border-color:rgba(185,167,255,.32);
+  background:#0f1116;
+  box-shadow:0 12px 30px rgba(0,0,0,.22);
+}
+.cf-template:hover .cf-template-preview{
+  filter:brightness(1.07);
+}
+.cf-duration:hover{
+  transform:translateY(-2px);
+  border-color:rgba(185,167,255,.28);
+  background:#101218;
+}
+.cf-main-nav button:hover,.cf-schedule-filters button:hover{
+  background:rgba(255,255,255,.06);
+  color:#f5f5f7;
+}
+.cf-button:hover{
+  transform:translateY(-1px);
+  box-shadow:0 8px 24px rgba(0,0,0,.2);
+}
+.cf-field input:hover,.cf-field select:hover{
+  border-color:rgba(255,255,255,.18);
+}
+.cf-field input:focus,.cf-field select:focus{
+  border-color:rgba(185,167,255,.55);
+  box-shadow:0 0 0 3px rgba(185,167,255,.08);
+  outline:none;
+}
+
+/* Six style presets: three per row on desktop/tablet. */
+.cf-template-grid{
+  grid-template-columns:repeat(3,minmax(0,1fr));
+}
+.cf-template-preview{
+  min-height:170px;
+}
+@media(max-width:720px){
+  .cf-template-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .cf-template-preview{min-height:150px}
+}
+
+/* Scheduling follows the same compact product language. */
+.cf-schedules{
+  border:1px solid var(--cf-border);
+  box-shadow:0 20px 70px rgba(0,0,0,.24);
+}
+.cf-schedules-head h2{font-family:"Geist","Geist Sans",Inter,sans-serif;font-weight:650;letter-spacing:-.045em}
+.cf-schedule-summary button{
+  background:#0b0d10;
+  border-color:rgba(255,255,255,.07);
+}
+.cf-schedule-summary button:hover{
+  transform:translateY(-2px);
+  border-color:rgba(185,167,255,.25);
+  background:#101218;
+}
+.cf-schedule-summary button.active{
+  border-color:rgba(185,167,255,.38);
+  box-shadow:inset 0 0 0 1px rgba(185,167,255,.06);
+}
+.cf-schedule-row:hover{
+  transform:translateY(-2px);
+  border-color:rgba(185,167,255,.22);
+  background:#0e1014;
+  box-shadow:0 10px 28px rgba(0,0,0,.16);
+}
+.cf-schedule-open:hover,.cf-schedule-history:hover{color:#c8bcff}
+.cf-schedule-cancel:hover{
+  transform:translateY(-1px);
+  border-color:rgba(255,255,255,.18);
+}
+@media(max-width:430px){
+  .cf-template-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .cf-template-preview{min-height:140px}
+}
