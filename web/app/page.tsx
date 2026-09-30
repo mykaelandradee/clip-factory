@@ -1100,12 +1100,6 @@ export default function Home() {
           )}
 
           {error && <p className="cf-error">{error}</p>}
-          {job?.status === "canceled" && (
-            <div className="cf-job-canceled">
-              <strong>PROCESSAMENTO CANCELADO</strong>
-              <span>O processamento foi interrompido. Você pode alterar as opções e iniciar uma nova geração.</span>
-            </div>
-          )}
 
           {job?.status === "failed" && (
             <div className="cf-job-failure">
