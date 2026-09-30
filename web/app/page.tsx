@@ -430,7 +430,22 @@ export default function Home() {
       const params = new URLSearchParams(window.location.search);
       if (params.get("auth_error") === "session_required") setAuthModal("Entre no Clip Factory para conectar YouTube ou Instagram.");
       else if (params.get("auth_error")) setAuthModal("Não foi possível concluir a autenticação. Tente novamente.");
-      if (params.get("youtube_connected") === "1") setAuthModal("YouTube conectado com sucesso.");
+      if (params.get("youtube_connected") === "1") {
+        setAuthModal("YouTube conectado com sucesso.");
+        // O callback OAuth grava a conexão antes do redirect. Reconsulta algumas vezes
+        // para cobrir o pequeno intervalo entre o redirect e a leitura da sessão/DB.
+        void (async () => {
+          for (let attempt = 0; attempt < 4; attempt += 1) {
+            await new Promise((resolve) => setTimeout(resolve, attempt === 0 ? 250 : 750));
+            await checkYouTube();
+            const response = await fetch("/api/youtube/status", { cache: "no-store" });
+            if (response.ok) {
+              const status = await response.json().catch(() => ({}));
+              if (status.connected) break;
+            }
+          }
+        })();
+      }
       if (params.get("instagram_connected") === "1") setAuthModal("Instagram conectado com sucesso.");
       if (params.get("instagram_error")) setAuthModal("Não foi possível conectar o Instagram. Verifique a configuração e tente novamente.");
       if (["auth_error", "youtube_connected", "instagram_connected", "instagram_error"].some((key) => params.has(key))) {
