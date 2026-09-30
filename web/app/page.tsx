@@ -251,7 +251,9 @@ export default function Home() {
   const [submitting, setSubmitting] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [youtubeConnected, setYoutubeConnected] = useState(false);
+  const [youtubeAccountName, setYoutubeAccountName] = useState("");
   const [instagramConnected, setInstagramConnected] = useState(false);
+  const [instagramAccountName, setInstagramAccountName] = useState("");
   const [showAuthInfo, setShowAuthInfo] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -442,6 +444,8 @@ export default function Home() {
         } else {
           setYoutubeConnected(false);
           setInstagramConnected(false);
+          setInstagramAccountName("");
+          setYoutubeAccountName("");
         }
       });
     } catch {
@@ -459,6 +463,8 @@ export default function Home() {
       setActiveView("generator");
       setYoutubeConnected(false);
       setInstagramConnected(false);
+      setYoutubeAccountName("");
+      setInstagramAccountName("");
     } catch {
       setAuthModal("Não foi possível sair.");
     }
@@ -468,8 +474,9 @@ export default function Home() {
     try {
       const response = await fetch("/api/instagram/status", { cache: "no-store" });
       if (!response.ok) return;
-      const data = await readJsonResponse<{ connected?: boolean }>(response);
+      const data = await readJsonResponse<{ connected?: boolean; username?: string | null }>(response);
       setInstagramConnected(Boolean(data.connected));
+      setInstagramAccountName(data.username ? `@${data.username.replace(/^@/, "")}` : "");
     } catch {
       setInstagramConnected(false);
     }
@@ -479,8 +486,9 @@ export default function Home() {
     try {
       const response = await fetch("/api/youtube/status", { cache: "no-store" });
       if (!response.ok) return;
-      const data = await readJsonResponse<{ connected?: boolean }>(response);
+      const data = await readJsonResponse<{ connected?: boolean; channelName?: string | null }>(response);
       setYoutubeConnected(Boolean(data.connected));
+      setYoutubeAccountName(data.channelName || "");
     } catch {
       setYoutubeConnected(false);
     }
@@ -932,7 +940,7 @@ export default function Home() {
                   {youtubeConnected ? (
                     <button type="button" className="cf-youtube-button" onClick={disconnectYouTube} aria-label="Desconectar YouTube">
                       <span className="cf-yt-dot connected" />
-                      YouTube conectado
+                      <span className="cf-connected-label">YouTube conectado<small>{youtubeAccountName || "Conta conectada"}</small></span>
                     </button>
                   ) : (
                     <a className="cf-youtube-button" href="/api/youtube/oauth" aria-label="Conectar YouTube">
@@ -943,7 +951,7 @@ export default function Home() {
                   {instagramConnected ? (
                     <button type="button" className="cf-youtube-button" onClick={disconnectInstagram} aria-label="Desconectar Instagram">
                       <span className="cf-yt-dot connected" />
-                      Instagram conectado
+                      <span className="cf-connected-label">Instagram conectado<small>{instagramAccountName || "Conta conectada"}</small></span>
                     </button>
                   ) : (
                     <a className="cf-youtube-button" href="/api/instagram/oauth" aria-label="Conectar Instagram">
