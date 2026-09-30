@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   if (!user) return NextResponse.json({ error: "Entre no Clip Factory." }, { status: 401 });
   const profileId = new URL(request.url).searchParams.get("profileId") || "";
   if (!profileId) return NextResponse.json({ error: "Perfil inválido." }, { status: 400 });
-  if (!title) {\n    try {\n      const oembed = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(sourceUrl)}&format=json`, { cache: "no-store" });\n      if (oembed.ok) {\n        const metadata = await oembed.json().catch(() => ({}));\n        if (typeof metadata?.title === "string") title = metadata.title.trim().slice(0, 500);\n      }\n    } catch {\n      // O título original é opcional; o processamento continua mesmo se o oEmbed não responder.\n    }\n  }\n  const admin = createAdminClient();
+  const admin = createAdminClient();
   const { data, error } = await admin.from("influencer_content_items").select("*").eq("profile_id", profileId).eq("user_id", user.id).order("created_at", { ascending: false });
   if (error) return NextResponse.json({ error: "Não foi possível carregar a biblioteca." }, { status: 500 });
 
@@ -69,6 +69,17 @@ export async function POST(request: Request) {
   let parsed: URL;
   try { parsed = new URL(sourceUrl); } catch { return NextResponse.json({ error: "URL inválida." }, { status: 400 }); }
   if (parsed.protocol !== "https:") return NextResponse.json({ error: "A URL precisa usar HTTPS." }, { status: 400 });
+  if (!title) {
+    try {
+      const oembed = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(sourceUrl)}&format=json`, { cache: "no-store" });
+      if (oembed.ok) {
+        const metadata = await oembed.json().catch(() => ({}));
+        if (typeof metadata?.title === "string") title = metadata.title.trim().slice(0, 500);
+      }
+    } catch {
+      // O título original é opcional; o processamento continua mesmo se o oEmbed não responder.
+    }
+  }
   const admin = createAdminClient();
   const { data: profile } = await admin.from("influencer_profiles").select("id").eq("id", profileId).eq("user_id", user.id).maybeSingle();
   if (!profile) return NextResponse.json({ error: "Perfil não encontrado." }, { status: 404 });
