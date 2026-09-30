@@ -142,14 +142,16 @@ function ScheduleScreen() {
 
   const visible = items.filter((item) => filter === "all" || item.platform === filter);
   const activeCount = items.filter((item) => item.status === "scheduled").length;
+  const instagramCount = items.filter((item) => item.platform === "instagram" && item.status === "scheduled").length;
+  const youtubeCount = items.filter((item) => item.platform === "youtube" && item.status === "scheduled").length;
 
   return (
     <section className="cf-schedules">
       <div className="cf-schedules-head">
         <div>
           <span className="cf-kicker">02 / SCHEDULES</span>
-          <h2>Seus agendamentos</h2>
-          <p>Uma visão única das publicações programadas no Instagram e no YouTube.</p>
+          <h2>Agendamentos</h2>
+          <p>Gerencie em um só lugar as publicações programadas no Instagram e no YouTube.</p>
         </div>
         <div className="cf-schedules-count">
           <strong>{activeCount}</strong>
@@ -157,20 +159,26 @@ function ScheduleScreen() {
         </div>
       </div>
 
+      <div className="cf-schedule-summary">
+        <button type="button" className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>
+          <span>TODOS</span><strong>{activeCount}</strong>
+        </button>
+        <button type="button" className={filter === "instagram" ? "active" : ""} onClick={() => setFilter("instagram")}>
+          <span>INSTAGRAM</span><strong>{instagramCount}</strong>
+        </button>
+        <button type="button" className={filter === "youtube" ? "active" : ""} onClick={() => setFilter("youtube")}>
+          <span>YOUTUBE</span><strong>{youtubeCount}</strong>
+        </button>
+      </div>
+
       <div className="cf-schedules-toolbar">
-        <div className="cf-schedule-filters">
-          {[
-            ["all", "Todos"],
-            ["instagram", "Instagram"],
-            ["youtube", "YouTube"],
-          ].map(([id, label]) => (
-            <button key={id} type="button" className={filter === id ? "active" : ""} onClick={() => setFilter(id as typeof filter)}>
-              {label}
-            </button>
-          ))}
+        <div className="cf-schedule-filter-label">
+          <span>PUBLICAÇÕES PROGRAMADAS</span>
+          <strong>{visible.length} {visible.length === 1 ? "item" : "itens"}</strong>
         </div>
         <button type="button" className="cf-schedule-refresh" onClick={() => void loadSchedules()} disabled={loading}>
-          {loading ? "Atualizando…" : "Atualizar"}
+          <span>{loading ? "Atualizando…" : "Atualizar"}</span>
+          <b>↻</b>
         </button>
       </div>
 
@@ -181,8 +189,8 @@ function ScheduleScreen() {
       ) : visible.length === 0 ? (
         <div className="cf-schedule-empty">
           <div className="cf-schedule-empty-icon">◷</div>
-          <strong>Nenhum agendamento encontrado</strong>
-          <span>Quando você programar um Reel ou vídeo, ele aparecerá aqui.</span>
+          <strong>{filter === "all" ? "Nenhum agendamento encontrado" : `Nenhum agendamento no ${filter === "instagram" ? "Instagram" : "YouTube"}`}</strong>
+          <span>Quando você programar uma publicação, ela aparecerá aqui.</span>
         </div>
       ) : (
         <div className="cf-schedule-list">
@@ -190,6 +198,8 @@ function ScheduleScreen() {
             const date = new Date(item.scheduledAt);
             const platformLabel = item.platform === "instagram" ? "Instagram Reel" : "YouTube";
             const statusLabel = item.status === "scheduled" ? "Agendado" : item.status === "processing" ? "Publicando" : item.status === "published" ? "Publicado" : item.status === "failed" ? "Falhou" : "Cancelado";
+            const dateLabel = date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }).replace(".", "");
+            const timeLabel = date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
             return (
               <article className="cf-schedule-row" key={`${item.platform}-${item.id}`}>
                 <div className={`cf-schedule-platform ${item.platform}`}>
@@ -199,17 +209,22 @@ function ScheduleScreen() {
                   <div className="cf-schedule-title">
                     <strong>{item.title}</strong>
                     <span>{platformLabel} · {item.file.replace(".mp4", "").toUpperCase()}</span>
+                    {item.lastError && item.status === "failed" && <small>{item.lastError}</small>}
                   </div>
                   <div className="cf-schedule-date">
-                    <strong>{date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }).replace(".", "")}</strong>
-                    <span>{date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
+                    <strong>{dateLabel}</strong>
+                    <span>{timeLabel}</span>
                   </div>
                   <span className={`cf-schedule-status ${item.status}`}>{statusLabel}</span>
-                  {item.status === "scheduled" && (
+                  {item.status === "scheduled" ? (
                     <button type="button" className="cf-schedule-cancel" onClick={() => void cancel(item)} disabled={canceling === item.id}>
                       {canceling === item.id ? "Cancelando…" : "Cancelar"}
                     </button>
-                  )}
+                  ) : item.platform === "youtube" && item.videoId ? (
+                    <a className="cf-schedule-open" href={`https://www.youtube.com/watch?v=${encodeURIComponent(item.videoId)}`} target="_blank" rel="noreferrer">
+                      Abrir vídeo ↗
+                    </a>
+                  ) : <span className="cf-schedule-history">Histórico</span>}
                 </div>
               </article>
             );
@@ -219,7 +234,6 @@ function ScheduleScreen() {
     </section>
   );
 }
-
 export default function Home() {
   const [url, setUrl] = useState("");
   const [videoInfo, setVideoInfo] = useState<{title:string;author:string;thumbnail:string}|null>(null);
@@ -1026,9 +1040,9 @@ export default function Home() {
               <div className="cf-job-top"><div><span className="cf-job-live">{job.status === "canceled" ? "PROCESSAMENTO CANCELADO" : job.status === "failed" ? "PROCESSAMENTO INTERROMPIDO" : "PROCESSAMENTO AO VIVO"}</span><strong>{job.status === "canceled" ? "Cancelado" : job.progress >= 100 ? "Concluído" : getProgressStage(job.progress, job.stage)}</strong></div><span className="cf-job-percent">{job.status === "canceled" ? "CANCELADO" : `${job.progress}%`}</span></div>
               <div className={`cf-progress ${job.status === "canceled" ? "canceled" : ""}`} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={job.progress} aria-label={job.status === "canceled" ? "Processamento cancelado" : "Progresso da geração"}><div style={{ width: `${job.progress}%` }} /></div>
               <div className="cf-job-steps">
-                {[[20, "ANÁLISE"], [45, "TRANSCRIÇÃO"], [70, "MOMENTOS"], [90, "RENDER"], [100, "PRONTO"]].map(([threshold, label]) => <span key={label} className={job.progress >= Number(threshold) ? "done" : ""}>{label}</span>)}
+                {[[10, "DOWNLOAD"], [25, "TRANSCRIÇÃO"], [45, "MOMENTOS"], [60, "TRADUÇÃO"], [78, "RENDER"], [100, "PRONTO"]].map(([threshold, label]) => <span key={label} className={job.progress >= Number(threshold) ? "done" : ""}>{label}</span>)}
               </div>
-              <small>{job.status === "canceled" ? "Processamento cancelado" : job.status === "failed" ? "Processamento interrompido. Os clips já gerados foram preservados." : getProgressStage(job.progress, job.stage)}{job.status !== "completed" && job.message && !/install system dependencies|install dependencies|github actions|r2|job [a-f0-9-]{8,}/i.test(job.message) ? ` · ${job.message}` : ""}</small>
+              <small>{job.status === "canceled" ? "Processamento cancelado" : job.status === "failed" ? "Processamento interrompido. Os clips já gerados foram preservados." : getProgressStage(job.progress, job.stage)}{job.result?.files?.length ? ` · ${job.result.files.length} clip${job.result.files.length === 1 ? "" : "s"} já disponível${job.result.files.length === 1 ? "" : "eis"}` : ""}{job.status !== "completed" && job.message && !/install system dependencies|install dependencies|github actions|r2|job [a-f0-9-]{8,}/i.test(job.message) ? ` · ${job.message}` : ""}</small>
             </div>
           )}
 
@@ -1115,7 +1129,7 @@ export default function Home() {
                     <div className="cf-result-info">
                       <div className="cf-result-heading">
                         <div className="cf-result-title-row"><strong>Clip {String(index + 1).padStart(2, "0")}</strong><span className="cf-ready-dot">PRONTO · PREVIEW</span></div>
-                        <span>{duration === "15-30" ? "15–30s" : duration === "45-90" ? "45–90s" : "30–60s"} · 9:16 · SHORT</span>
+                        <span>{duration === "15-30" ? "15–30s" : duration === "45-90" ? "45–90s" : "30–60s"} · 9:16 · SHORT</span><small>Arquivo final · MP4</small>
                       </div>
                       {!GENERATION_ONLY_MODE && (youtubeConnected || instagramConnected) && (
                         <div className="cf-publish-fields">
