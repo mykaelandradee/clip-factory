@@ -42,6 +42,8 @@ export async function POST(request:Request) {
   const profileId=typeof body?.profileId==="string"?body.profileId:"";
   const sourceUrl=typeof body?.sourceUrl==="string"?body.sourceUrl.trim():"";
   let title=typeof body?.title==="string"?body.title.trim().slice(0,500):"";
+  const publishTitle=typeof body?.publishTitle==="string"?body.publishTitle.trim().slice(0,500):"";
+  const publishDescription=typeof body?.publishDescription==="string"?body.publishDescription.trim().slice(0,5000):"";
   if(!profileId||!sourceUrl||sourceUrl.length>2048) return NextResponse.json({error:"Informe o perfil e a URL do vídeo."},{status:400});
   let parsed:URL;
   try{parsed=new URL(sourceUrl);}catch{return NextResponse.json({error:"URL inválida."},{status:400});}
@@ -52,7 +54,7 @@ export async function POST(request:Request) {
   if(!title){try{const o=await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(sourceUrl)}&format=json`,{cache:"no-store"});if(o.ok){const m=await o.json().catch(()=>({}));if(typeof m?.title==="string")title=m.title.trim().slice(0,500);}}catch{}}
   const itemId=crypto.randomUUID();
   const {data:item,error}=await admin.from("influencer_content_items").insert({
-    id:itemId,profile_id:profileId,user_id:user.id,source_url:sourceUrl,title:title||null,source_type:"url",status:"processing",progress:5,stage:"queued",worker_job_id:itemId
+    id:itemId,profile_id:profileId,user_id:user.id,source_url:sourceUrl,title:title||null,source_type:"url",status:"processing",progress:5,stage:"queued",worker_job_id:itemId,publish_title:publishTitle||title||null,publish_description:publishDescription||null
   }).select("*").single();
   if(error){console.error("Influencer item creation failed:",error);return NextResponse.json({error:"Não foi possível adicionar o vídeo à biblioteca."},{status:500});}
   try{
@@ -79,12 +81,22 @@ export async function DELETE(request:Request) {
   const id=new URL(request.url).searchParams.get("id")||"";
   if(!id) return NextResponse.json({error:"Conteúdo inválido."},{status:400});
   const admin=createAdminClient();
-  const {data:item}=await admin.from("influencer_content_items").select("id,status,worker_run_id").eq("id",id).eq("user_id",user.id).maybeSingle();
+  const {data:item}=await admin.from("influencer_content_items").select("id,status,worker_run_id,r2_key").eq("id",id).eq("user_id",user.id).maybeSingle();
   if(!item) return NextResponse.json({error:"Conteúdo não encontrado."},{status:404});
   if(item.status==="processing"&&item.worker_run_id){
     try{await githubFetch(`/repos/${OWNER}/${REPO}/actions/runs/${item.worker_run_id}/cancel`,{method:"POST"});}catch(error){console.warn("Influencer worker cancel failed:",error);}
   }
-  const {error}=await admin.from("influencer_content_items").update({status:item.status==="processing"?"failed":"archived",stage:item.status==="processing"?"canceled":"archived",error_message:item.status==="processing"?"Processamento cancelado.":null,updated_at:new Date().toISOString()}).eq("id",id).eq("user_id",user.id);
-  if(error)return NextResponse.json({error:"Não foi possível atualizar o conteúdo."},{status:500});
+  if(item.r2_key){
+    try{
+      const {S3Client,DeleteObjectCommand}=await import("@aws-sdk/client-s3");
+      const accountId=process.env.R2_ACCOUNT_ID, bucket=process.env.R2_BUCKET_NAME, accessKeyId=process.env.R2_ACCESS_KEY_ID, secretAccessKey=process.env.R2_SECRET_ACCESS_KEY;
+      if(accountId&&bucket&&accessKeyId&&secretAccessKey){
+        const client=new S3Client({region:"auto",endpoint:`https://${accountId}.r2.cloudflarestorage.com`,credentials:{accessKeyId,secretAccessKey}});
+        await client.send(new DeleteObjectCommand({Bucket:bucket,Key:item.r2_key}));
+      }
+    }catch(error){console.warn("Influencer R2 cleanup failed:",error);}
+  }
+  const {error}=await admin.from("influencer_content_items").delete().eq("id",id).eq("user_id",user.id);
+  if(error)return NextResponse.json({error:"Não foi possível excluir o conteúdo."},{status:500});
   return NextResponse.json({ok:true});
 }
