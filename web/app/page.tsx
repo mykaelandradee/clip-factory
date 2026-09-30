@@ -268,6 +268,7 @@ export default function Home() {
   const emptyResultRetries = useRef(0);
   const canceledJobId = useRef("");
   const pollStartedAt = useRef(0);
+  const pollInFlight = useRef(false);
   const CLIENT_JOB_TIMEOUT_MS = 50 * 60 * 1000;
 
   async function readJsonResponse<T = Record<string, unknown>>(response: Response): Promise<T> {
@@ -363,8 +364,23 @@ export default function Home() {
   useEffect(() => {
     if (!GENERATION_ONLY_MODE) initAuth();
     checkWorker();
-    return () => { if (timer.current) clearInterval(timer.current); if (publishTimer.current) clearInterval(publishTimer.current); };
-  }, []);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible" && jobId && submitting && canceledJobId.current !== jobId) {
+        void poll(jobId, jobAccessToken);
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("online", handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("online", handleVisibilityChange);
+      if (timer.current) clearInterval(timer.current);
+      if (publishTimer.current) clearInterval(publishTimer.current);
+    };
+  }, [jobId, jobAccessToken, submitting]);
 
   useEffect(() => {
     setVideoInfo(null);
@@ -687,7 +703,8 @@ export default function Home() {
   }
 
   async function poll(id: string, accessTokenOverride?: string) {
-    if (canceledJobId.current === id) return;
+    if (canceledJobId.current === id || pollInFlight.current) return;
+    pollInFlight.current = true;
     try {
       if (pollStartedAt.current && Date.now() - pollStartedAt.current > CLIENT_JOB_TIMEOUT_MS) {
         if (timer.current) clearInterval(timer.current);
@@ -736,7 +753,14 @@ export default function Home() {
         emptyResultRetries.current = 0;
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao consultar o processamento.");
+      // Mobile browsers can suspend network requests while the tab is in the
+      // background. Keep polling and avoid turning a transient wake-up/network
+      // failure into a persistent user-facing error.
+      if (document.visibilityState === "visible" && navigator.onLine !== false) {
+        console.warn("Clip job polling temporarily unavailable:", err);
+      }
+    } finally {
+      pollInFlight.current = false;
     }
   }
 
