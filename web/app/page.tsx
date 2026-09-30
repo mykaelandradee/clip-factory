@@ -768,10 +768,26 @@ export default function Home() {
   }
 
   async function downloadAllClips() {
-    const files = job?.result?.files ?? [];
-    for (const item of files) {
-      await downloadClip(item.file);
-      await new Promise((resolve) => window.setTimeout(resolve, 250));
+    if (!jobId || !job?.result?.files?.length) return;
+    try {
+      const params = new URLSearchParams({ jobId });
+      if (jobAccessToken) params.set("accessToken", jobAccessToken);
+      const response = await fetch(`/api/jobs/download-all?${params.toString()}`, { cache: "no-store" });
+      if (!response.ok) {
+        const data = await readJsonResponse<{ error?: string }>(response).catch(() => null);
+        throw new Error(data?.error || "Não foi possível gerar o ZIP dos clips.");
+      }
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = `clip-factory-${jobId.slice(0, 8)}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível baixar os clips.");
     }
   }
 
