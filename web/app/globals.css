@@ -78,24 +78,26 @@ button{appearance:none}
 .cf-template-preview span{position:relative;z-index:2;text-align:center}
 .cf-template-preview .preview-top{position:absolute;top:10px;left:10px;color:#5b5b65;font-size:6px;font-weight:800;letter-spacing:.1em}
 .cf-template-preview .preview-context{position:absolute;top:45px;left:10px;right:10px;color:#60606a;font-size:6px;font-weight:700;letter-spacing:.14em}
-.cf-template-preview .preview-subtitle{display:block;margin-top:18px;color:#fff;font-size:11px;line-height:1.05;font-weight:900;letter-spacing:-.03em;text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000}
+.cf-template-preview .preview-subtitle{display:block;width:100%;margin-top:18px;color:#fff;font-size:11px;line-height:1.05;font-weight:950;letter-spacing:-.03em;text-align:center;text-transform:uppercase;text-shadow:-1.5px -1.5px 0 #000,1.5px -1.5px 0 #000,-1.5px 1.5px 0 #000,1.5px 1.5px 0 #000}
 .cf-template-preview .preview-subtitle i,.cf-template-preview .preview-subtitle b{font-style:normal;font-weight:950;text-transform:uppercase}
 .cf-template-preview .preview-box-word{display:inline-block;padding:2px 5px;background:#fff;color:#09090c;font-weight:950;text-shadow:none}
 .cf-template-preview .preview-style-mark{position:absolute;right:9px;top:10px;color:#ffffff18;font-size:6px;text-transform:uppercase;letter-spacing:.12em}
+
+/* Karaoke, Fire, Youshaei and Harmozi share the exact same visual structure. */
 .cf-template-preview.accent-karaoke .preview-subtitle{font-family:"DejaVu Sans",Arial,sans-serif}
-.cf-template-preview.accent-karaoke .preview-subtitle b{color:#ffe83b}
 .cf-template-preview.accent-fire .preview-subtitle{font-family:"DejaVu Sans Condensed",Arial,sans-serif}
-.cf-template-preview.accent-fire .preview-subtitle b{color:#ff8c00}
 .cf-template-preview.accent-youshaei .preview-subtitle{font-family:"DejaVu Sans",Arial,sans-serif}
-.cf-template-preview.accent-youshaei .preview-subtitle b{color:#0066ff}
-.cf-template-preview.accent-harmozi .preview-subtitle{font-family:"DejaVu Sans Mono",monospace;font-weight:700;letter-spacing:0;text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000}
-.cf-template-preview.accent-harmozi .preview-subtitle b{color:#D8FF37;font-weight:700}
-.cf-template-preview.accent-beasty .preview-subtitle{font-family:"DejaVu Sans Mono",monospace}
+.cf-template-preview.accent-harmozi .preview-subtitle{font-family:"DejaVu Sans Mono",monospace}
+.cf-template-preview.accent-karaoke .preview-subtitle b{color:#FFE83B}
+.cf-template-preview.accent-fire .preview-subtitle b{color:#FF8C00}
+.cf-template-preview.accent-youshaei .preview-subtitle b{color:#00BFFF}
+.cf-template-preview.accent-harmozi .preview-subtitle b{color:#D8FF37}
+
+.cf-template-preview.accent-beasty .preview-subtitle{font-family:"DejaVu Sans Mono",monospace;font-size:11px;font-weight:950;letter-spacing:-.02em;text-shadow:none}
 .cf-template-preview.accent-beasty .preview-subtitle i{font-style:normal}
 .cf-template-preview.accent-beasty .preview-box-word{background:#fff;color:#09090c}
-.cf-template-preview.accent-cinematic .preview-subtitle{max-width:150px;font-family:"DejaVu Serif",Georgia,serif;font-size:8px;font-weight:500;line-height:1.45;letter-spacing:.08em;text-transform:uppercase}
-.cf-template-preview.accent-cinematic .preview-subtitle b{font-weight:500}
-.cf-template-info{display:flex;flex-direction:column;gap:4px;padding:12px 11px 13px}.cf-template-info strong{font-size:11px}.cf-template-info span{color:#62626d;font-size:8px;line-height:1.35}
+.cf-template-preview.accent-cinematic .preview-subtitle{max-width:150px;width:auto;font-family:"DejaVu Serif",Georgia,serif;font-size:8px;font-weight:500;line-height:1.45;letter-spacing:.08em;text-transform:uppercase;text-shadow:-1px -1px 0 #000,1px 1px 0 #000}
+.cf-template-preview.accent-cinematic .preview-subtitle b{font-weight:500}.cf-template-info{display:flex;flex-direction:column;gap:4px;padding:12px 11px 13px}.cf-template-info strong{font-size:11px}.cf-template-info span{color:#62626d;font-size:8px;line-height:1.35}
 .cf-check{position:absolute;top:8px;right:8px;width:20px;height:20px;display:grid;place-items:center;border-radius:50%;background:#fff;color:#09090b;font-size:11px;font-weight:900;box-shadow:0 5px 18px #000}
 
 .cf-style-detail{display:flex;align-items:center;gap:12px;margin-top:12px;padding:12px 14px;border:1px solid #ffffff0d;border-radius:14px;background:#0a0a0e;transition:.25s;position:relative;overflow:hidden}
@@ -1551,4 +1553,43 @@ button{appearance:none}
   .cf-schedule-row{padding:10px;gap:9px}
   .cf-schedule-platform{width:34px;height:34px;flex-basis:34px}
   .cf-schedule-main{gap:8px}
+}
+
+
+/* UX polish — schedules, processing and output. */
+.cf-schedule-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:14px}
+.cf-schedule-summary button{display:flex;align-items:center;justify-content:space-between;min-height:48px;padding:9px 12px;border:1px solid #ffffff09;border-radius:12px;background:#ffffff02;color:#777781;cursor:pointer;transition:.18s}
+.cf-schedule-summary button:hover{background:#ffffff04;border-color:#ffffff12;color:#aaaab2}
+.cf-schedule-summary button.active{background:#ffffff07;border-color:#ffffff14;color:#f4f4f6}
+.cf-schedule-summary span{font-size:8px;font-weight:850;letter-spacing:.08em}
+.cf-schedule-summary strong{font-size:15px;font-weight:850;color:inherit}
+.cf-schedule-filter-label{display:flex;align-items:baseline;gap:8px;color:#5d5d67}
+.cf-schedule-filter-label span{font-size:8px;font-weight:850;letter-spacing:.1em}
+.cf-schedule-filter-label strong{font-size:9px;color:#888892;font-weight:700}
+.cf-schedule-refresh{display:inline-flex;align-items:center;gap:8px}
+.cf-schedule-refresh b{font-size:13px;font-weight:500}
+.cf-schedule-title small{display:block;margin-top:5px;color:#c98f8f;font-size:8px;line-height:1.35}
+.cf-schedule-open,.cf-schedule-history{white-space:nowrap;font-size:8px;font-weight:800;text-decoration:none}
+.cf-schedule-open{color:#9d9aff}
+.cf-schedule-open:hover{color:#fff}
+.cf-schedule-history{color:#494952;text-transform:uppercase;letter-spacing:.06em}
+
+.cf-job-steps{gap:4px}
+.cf-job-steps span{flex:1;text-align:center;white-space:nowrap}
+.cf-job small{line-height:1.45}
+.cf-results-head-actions{display:flex;align-items:center;gap:8px}
+.cf-results-head-actions .cf-button{min-height:38px;padding:0 13px;gap:10px;border-radius:10px;font-size:9px}
+.cf-output-badge{white-space:nowrap}
+.cf-result-heading small{display:block;color:#4f4f59;font-size:8px}
+.cf-result-actions{gap:7px}
+.cf-result-actions .cf-download{min-height:34px;padding:0 10px;border:1px solid #ffffff0d;border-radius:9px;background:#ffffff02;display:inline-flex;align-items:center;justify-content:center}
+.cf-result-actions .cf-download:hover{background:#ffffff06;border-color:#ffffff15}
+@media(max-width:720px){
+  .cf-schedule-summary{gap:5px}
+  .cf-schedule-summary button{min-height:44px;padding:8px 9px}
+  .cf-schedule-summary span{font-size:7px}
+  .cf-schedule-summary strong{font-size:13px}
+  .cf-schedule-filter-label{flex-direction:column;gap:2px}
+  .cf-results-head-actions{width:100%;flex-wrap:wrap}
+  .cf-results-head-actions .cf-button{flex:1}
 }
