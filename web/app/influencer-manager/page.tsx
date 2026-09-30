@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 type Profile = { id:string; name:string; instagram_username:string|null; posts_per_day:number; posting_times:string[]; caption_mode:string; auto_publish:boolean; repeat_when_exhausted:boolean; };
-type Item = { id:string; source_url:string; title:string|null; status:string; created_at:string; };
+type Item = { id:string; source_url:string; title:string|null; status:string; created_at:string; result_url?:string|null; };
 const STATUS:Record<string,string>={queued:"Na fila",processing:"Processando",available:"Disponível",scheduled:"Agendado",published:"Publicado",failed:"Erro",archived:"Arquivado"};
 
 export default function InfluencerManagerPage(){
