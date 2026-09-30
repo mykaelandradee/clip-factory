@@ -42,8 +42,6 @@ export async function POST(request:Request) {
   const profileId=typeof body?.profileId==="string"?body.profileId:"";
   const sourceUrl=typeof body?.sourceUrl==="string"?body.sourceUrl.trim():"";
   let title=typeof body?.title==="string"?body.title.trim().slice(0,500):"";
-  const publishTitle=typeof body?.publishTitle==="string"?body.publishTitle.trim().slice(0,500):"";
-  const publishDescription=typeof body?.publishDescription==="string"?body.publishDescription.trim().slice(0,5000):"";
   if(!profileId||!sourceUrl||sourceUrl.length>2048) return NextResponse.json({error:"Informe o perfil e a URL do vídeo."},{status:400});
   let parsed:URL;
   try{parsed=new URL(sourceUrl);}catch{return NextResponse.json({error:"URL inválida."},{status:400});}
@@ -52,9 +50,13 @@ export async function POST(request:Request) {
   const {data:profile}=await admin.from("influencer_profiles").select("id").eq("id",profileId).eq("user_id",user.id).maybeSingle();
   if(!profile) return NextResponse.json({error:"Perfil não encontrado."},{status:404});
   if(!title){try{const o=await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(sourceUrl)}&format=json`,{cache:"no-store"});if(o.ok){const m=await o.json().catch(()=>({}));if(typeof m?.title==="string")title=m.title.trim().slice(0,500);}}catch{}}
+  const {data:captionRows}=await admin.from("influencer_captions").select("id,language,caption").eq("profile_id",profileId).eq("active",true);
+  const captions=captionRows||[];
+  const caption= captions.length ? captions[Math.floor(Math.random()*captions.length)] : null;
+  const publishDescription=caption?.caption||null;
   const itemId=crypto.randomUUID();
   const {data:item,error}=await admin.from("influencer_content_items").insert({
-    id:itemId,profile_id:profileId,user_id:user.id,source_url:sourceUrl,title:title||null,source_type:"url",status:"processing",progress:5,stage:"queued",worker_job_id:itemId,publish_title:publishTitle||title||null,publish_description:publishDescription||null
+    id:itemId,profile_id:profileId,user_id:user.id,source_url:sourceUrl,title:title||null,source_type:"url",status:"processing",progress:5,stage:"queued",worker_job_id:itemId,publish_title:title||null,publish_description:publishDescription
   }).select("*").single();
   if(error){console.error("Influencer item creation failed:",error);return NextResponse.json({error:"Não foi possível adicionar o vídeo à biblioteca."},{status:500});}
   try{
