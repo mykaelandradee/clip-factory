@@ -116,7 +116,8 @@ export default function InfluencerManagerPage(){
        {item.status==="processing"&&<div className="im-progress"><div><span style={{width:(item.progress||5)+"%"}} /></div><small>{item.progress||5}% · {item.stage==="download"?"Baixando":item.stage==="render"?"Convertendo para 9:16":item.stage==="upload"?"Enviando para R2":"Preparando worker"}</small></div>}
        {item.error_message&&<small className="im-error-text">{item.error_message}</small>}
        {item.result_url&&<video className="im-video-preview" src={item.result_url} controls preload="metadata" />}
-       {item.publish_description&&<div className="im-reel-copy"><label>Nome do Reel<strong>{item.publish_title||item.title||"Vídeo"}</strong></label><label>Descrição gerada<strong>{item.publish_description}</strong></label></div>}
+       {(item.publish_title||item.publish_description)&&<div className="im-reel-copy"><label>Nome do Reel<strong>{item.publish_title||"—"}</strong></label><label>Descrição para publicação<strong>{item.publish_description||"—"}</strong></label></div>}
+       {item.source_description&&<div className="im-source-copy"><label>Descrição original do vídeo</label><p>{item.source_description}</p></div>}
       </div><div className="im-item-actions"><span className={"im-status "+item.status}>{STATUS[item.status]||item.status}</span>{item.status==="processing"?<button className="im-ghost" onClick={()=>void removeItem(item.id)}>Cancelar</button>:item.result_url?<a className="im-ghost" href={item.result_url} target="_blank" rel="noreferrer">Abrir vídeo</a>:null}{item.status!=="processing"&&item.status!=="published"&&<button className="im-ghost" onClick={()=>void removeItem(item.id)}>Excluir</button>}</div></article>)}</div>}
     </div>
    </>}</section>
