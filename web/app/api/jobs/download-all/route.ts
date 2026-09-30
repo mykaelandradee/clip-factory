@@ -3,10 +3,11 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { zipSync } from "fflate";
 import { createClient } from "../../../../lib/supabase/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
-import { getR2PublicClipUrl } from "../../../../lib/r2";
+import { listR2ClipUrls } from "../../../../lib/r2";
 import { getClientKey, rateLimit } from "../../../../lib/rate-limit";
 
 export const runtime = "nodejs";
+export const maxDuration = 300;
 
 const JOB_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const FILE_PATTERN = /^clip-(?:0[1-9]|1[0-5])\.mp4$/i;
