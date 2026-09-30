@@ -32,6 +32,16 @@ export async function POST(request: Request) {
     auto_publish: false, repeat_when_exhausted: false
   }).select("*").single();
   if (error) return NextResponse.json({ error: "Não foi possível criar o perfil." }, { status: 500 });
+  const defaultCaptions = [
+    ["zh","今天真的太有意思了 😂"],["zh","这个瞬间真的太经典了。"],["zh","有时候真的不知道该说什么。"],["zh","生活中总有一些意想不到的瞬间。"],
+    ["ja","これは本当に面白すぎる 😂"],["ja","この瞬間は本当に最高です。"],["ja","何と言えばいいのかわからない。"],["ja","日常には予想できない瞬間があります。"]
+  ];
+  const { error: captionsError } = await admin.from("influencer_captions").insert(
+    defaultCaptions.map(([language, caption]) => ({ profile_id: data.id, language, caption }))
+  );
+  if (captionsError) {
+    console.error("Influencer default captions creation failed:", captionsError);
+  }
   return NextResponse.json({ profile: data }, { status: 201 });
 }
 
