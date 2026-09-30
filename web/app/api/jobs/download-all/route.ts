@@ -75,19 +75,22 @@ export async function GET(request: Request) {
     }
 
     const files = (await listR2ClipUrls(jobId)).filter(({ file }) => FILE_PATTERN.test(file));
-    const downloaded = await Promise.all(
-      files.map(async ({ file, url }) => {
+    const downloaded: Array<readonly [string, Uint8Array] | null> = await Promise.all(
+      files.map(async ({ file, url }): Promise<readonly [string, Uint8Array] | null> => {
         const upstream = await fetch(url, { cache: "no-store" });
         if (!upstream.ok) {
           throw new Error(`Falha ao obter ${file}: HTTP ${upstream.status}`);
         }
         const buffer = await upstream.arrayBuffer();
-        return buffer.byteLength > 0 ? [file, new Uint8Array(buffer)] as const : null;
+        return buffer.byteLength > 0 ? [file, new Uint8Array(buffer)] : null;
       }),
     );
-    const entries: Record<string, Uint8Array> = Object.fromEntries(
-      downloaded.filter((entry): entry is readonly [string, Uint8Array] => entry !== null),
-    );
+    const entries: Record<string, Uint8Array> = {};
+    for (const entry of downloaded) {
+      if (entry !== null) {
+        entries[entry[0]] = entry[1];
+      }
+    }
 
     if (Object.keys(entries).length === 0) {
       return NextResponse.json({ error: "Nenhum clip disponível para download." }, { status: 404 });
