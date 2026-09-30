@@ -2057,3 +2057,6 @@ html,body,button,input,select,textarea{
 .cf-main-nav-link{display:inline-flex;align-items:center;justify-content:center;min-height:32px;padding:7px 12px;border-radius:9px;color:#777782;text-decoration:none;font-size:8px;letter-spacing:.08em;text-transform:uppercase;transition:background .18s ease,color .18s ease,transform .18s ease}
 .cf-main-nav-link span{font-size:8px;margin-right:6px;color:#565660}
 .cf-main-nav-link:hover{background:rgba(255,255,255,.06);color:#f5f5f7;transform:translateY(-1px)}
+
+.cf-connected-label{display:inline-flex;flex-direction:column;align-items:flex-start;justify-content:center;line-height:1.05;text-align:left}
+.cf-connected-label small{display:block;max-width:120px;margin-top:3px;color:#777b86;font-size:7px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
