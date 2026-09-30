@@ -1098,7 +1098,7 @@ export default function Home() {
                   const nextValue = index < steps.length - 1 ? Number(steps[index + 1][0]) : 101;
                   const isDone = job.progress >= value;
                   const isActive = job.status === "processing" && job.progress >= value && job.progress < nextValue;
-                  return <span key={label} className={(isDone ? "done " : "") + (isActive ? "active" : "")}>{label}</span>;
+                  return <span key={label} className={(isDone ? "done " : "") + (isActive ? "active" : "")}><b>{label}</b><small>{value}%</small></span>;
                 })}
               </div>
               <small>{job.status === "canceled" ? "Processamento cancelado" : job.status === "failed" ? "Processamento interrompido. Os clips já gerados foram preservados." : getProgressStage(job.progress, job.stage)}{job.result?.files?.length ? ` · ${job.result.files.length} clip${job.result.files.length === 1 ? "" : "s"} já disponível${job.result.files.length === 1 ? "" : "eis"}` : ""}{job.status !== "completed" && job.message && !/install system dependencies|install dependencies|github actions|r2|job [a-f0-9-]{8,}/i.test(job.message) ? ` · ${job.message}` : ""}</small>
