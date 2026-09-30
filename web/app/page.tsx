@@ -431,17 +431,24 @@ export default function Home() {
       if (params.get("auth_error") === "session_required") setAuthModal("Entre no Clip Factory para conectar YouTube ou Instagram.");
       else if (params.get("auth_error")) setAuthModal("Não foi possível concluir a autenticação. Tente novamente.");
       if (params.get("youtube_connected") === "1") {
+        // O callback confirmou a gravação da conexão. Mantemos o estado conectado
+        // imediatamente e usamos as consultas seguintes apenas para preencher o nome.
+        setYoutubeConnected(true);
         setAuthModal("YouTube conectado com sucesso.");
-        // O callback OAuth grava a conexão antes do redirect. Reconsulta algumas vezes
-        // para cobrir o pequeno intervalo entre o redirect e a leitura da sessão/DB.
         void (async () => {
-          for (let attempt = 0; attempt < 4; attempt += 1) {
+          for (let attempt = 0; attempt < 5; attempt += 1) {
             await new Promise((resolve) => setTimeout(resolve, attempt === 0 ? 250 : 750));
-            await checkYouTube();
-            const response = await fetch("/api/youtube/status", { cache: "no-store" });
-            if (response.ok) {
+            try {
+              const response = await fetch("/api/youtube/status", { cache: "no-store" });
+              if (!response.ok) continue;
               const status = await response.json().catch(() => ({}));
-              if (status.connected) break;
+              if (status.connected) {
+                setYoutubeConnected(true);
+                setYoutubeAccountName(status.channelName || "");
+                break;
+              }
+            } catch {
+              // O próximo ciclo tenta novamente sem apagar a conexão confirmada.
             }
           }
         })();
@@ -502,10 +509,15 @@ export default function Home() {
       const response = await fetch("/api/youtube/status", { cache: "no-store" });
       if (!response.ok) return;
       const data = await readJsonResponse<{ connected?: boolean; channelName?: string | null }>(response);
-      setYoutubeConnected(Boolean(data.connected));
-      setYoutubeAccountName(data.channelName || "");
+      if (data.connected) {
+        setYoutubeConnected(true);
+        setYoutubeAccountName(data.channelName || "");
+      } else {
+        setYoutubeConnected(false);
+        setYoutubeAccountName("");
+      }
     } catch {
-      setYoutubeConnected(false);
+      // Não derruba um estado de conexão já confirmado por um erro transitório de rede.
     }
   }
 
