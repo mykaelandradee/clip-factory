@@ -22,6 +22,8 @@ create table if not exists public.influencer_content_items (
   source_type text not null default 'url' check (source_type in ('url','upload')),
   status text not null default 'queued' check (status in ('queued','processing','available','scheduled','published','failed','archived')),
   r2_key text,
+  result_url text,
+  clip_job_id uuid references public.clip_jobs(id) on delete set null,
   duration_seconds numeric,
   published_at timestamptz,
   scheduled_at timestamptz,
@@ -90,3 +92,6 @@ from (values
   ('ja','日常には予想できない瞬間があります。')
 ) as v(language,caption)
 where false;
+
+
+create index if not exists influencer_content_clip_job_idx on public.influencer_content_items(clip_job_id);
