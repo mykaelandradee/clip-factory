@@ -98,10 +98,25 @@ jobs:
           echo "YouTube cookie file installed for this job"
           echo "YOUTUBE_COOKIE_FILE=$COOKIE_FILE" >> "$GITHUB_ENV"
 
-      - name: Install Deno
-        uses: denoland/setup-deno@v2
+      - name: Cache Deno runtime
+        uses: actions/cache@v4
         with:
-          deno-version: v2.9.7
+          path: ~/.deno
+          key: clip-factory-deno-${{ runner.os }}-x64-v2.9.7
+          restore-keys: |
+            clip-factory-deno-${{ runner.os }}-x64-
+
+      - name: Install Deno
+        run: |
+          set -euo pipefail
+          export DENO_INSTALL="$HOME/.deno"
+          if [ ! -x "$DENO_INSTALL/bin/deno" ]; then
+            curl -fsSL https://github.com/denoland/deno/releases/download/v2.9.7/deno-x86_64-unknown-linux-gnu.zip -o "$RUNNER_TEMP/deno.zip"
+            unzip -q -o "$RUNNER_TEMP/deno.zip" -d "$DENO_INSTALL/bin"
+            chmod +x "$DENO_INSTALL/bin/deno"
+            rm -f "$RUNNER_TEMP/deno.zip"
+          fi
+          echo "$DENO_INSTALL/bin" >> "$GITHUB_PATH"
 
       - name: Verify Deno
         run: |
