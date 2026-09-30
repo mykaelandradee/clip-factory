@@ -1603,3 +1603,237 @@ button{appearance:none}
 .cf-legal-page ul{padding-left:22px}
 .cf-legal-updated{margin:0 0 34px!important;font-size:13px!important}
 .cf-legal-note{margin-top:48px;padding:16px;border:1px solid rgba(255,255,255,.12);border-radius:12px;font-size:13px!important}
+
+
+/* Minimal redesign — 2026-09-30
+   Visual-only pass: compact hierarchy, editorial typography, fewer boxes,
+   restrained accent, clearer controls. Previous UI is preserved in
+   backup/ui-before-minimal-redesign.
+*/
+:root{
+  --cf-bg:#08090b;
+  --cf-surface:#101216;
+  --cf-surface-2:#15171c;
+  --cf-border:rgba(255,255,255,.085);
+  --cf-text:#f5f5f7;
+  --cf-muted:#8b8e98;
+  --cf-faint:#5f626c;
+  --cf-accent:#b9a7ff;
+}
+body{
+  font-family:Inter,"Geist Sans",ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  background:var(--cf-bg);
+}
+.cf-shell{
+  padding:14px 18px 70px;
+  background:
+    radial-gradient(circle at 50% -18%,rgba(139,124,255,.10),transparent 34rem),
+    linear-gradient(180deg,#0b0c10 0,#08090b 55%,#07080a 100%);
+}
+.cf-shell:before{display:none}
+.cf-bg-orb{opacity:.06;filter:blur(110px)}
+.cf-container{max-width:1040px}
+.cf-header{
+  height:52px;
+  border-bottom:1px solid var(--cf-border);
+}
+.cf-brand{font-family:"Geist Sans",Inter,ui-sans-serif;font-size:13px;letter-spacing:-.025em}
+.cf-logo{
+  width:30px;height:30px;border-radius:9px;
+  background:#111318;border-color:var(--cf-border);
+  box-shadow:none;
+}
+.cf-header-meta{gap:8px}
+.cf-live-label{display:none}
+.cf-status-pill{font-size:8px;letter-spacing:.1em}
+.cf-status-pill span{width:6px;height:6px}
+.cf-main-nav{
+  margin:12px 0 14px;
+  padding:2px;
+  border:1px solid var(--cf-border);
+  border-radius:10px;
+  background:rgba(255,255,255,.025);
+}
+.cf-main-nav button{
+  min-height:32px;
+  padding:7px 12px;
+  font-size:8px;
+  letter-spacing:.08em;
+}
+.cf-hero{
+  min-height:250px;
+  padding:48px 2px 34px;
+}
+.cf-hero-copy{max-width:700px}
+.cf-hero-label{font-size:8px;letter-spacing:.18em}
+.cf-hero-label span{width:5px;height:5px}
+.cf-hero h2{
+  margin:13px 0 12px;
+  font-size:clamp(42px,6vw,72px);
+  line-height:.92;
+  letter-spacing:-.07em;
+}
+.cf-hero p{display:none}
+.cf-hero-pills{margin-top:16px;gap:5px}
+.cf-hero-pills span{
+  padding:5px 8px;
+  font-size:7px;
+  letter-spacing:.1em;
+  color:#686b75;
+  border-color:rgba(255,255,255,.07);
+}
+.cf-hero-mark-wrap{width:150px;height:150px;margin-right:6px;opacity:.55}
+.cf-hero-mark{inset:22px;width:106px;height:106px}
+.cf-hero-mark strong{font-size:22px}
+.cf-card{
+  border-radius:18px;
+  border-color:var(--cf-border);
+  background:rgba(15,17,21,.92);
+  box-shadow:0 20px 70px rgba(0,0,0,.28);
+}
+.cf-builder{padding:20px}
+.cf-builder-head{margin-bottom:12px}
+.cf-builder-head h3{font-size:14px}
+.cf-kicker,.cf-section-note{font-size:7px}
+.cf-section-head{
+  margin-top:22px;
+  padding-top:18px;
+}
+.cf-section-note{color:#5e616b}
+.cf-grid{gap:8px}
+.cf-field label{
+  margin-bottom:6px;
+  font-size:8px;
+  letter-spacing:.1em;
+}
+.cf-field input,.cf-field select{
+  height:44px;
+  border-radius:10px;
+  background:#0b0d10;
+  border-color:var(--cf-border);
+  padding:0 12px;
+}
+.cf-field small{display:none}
+.cf-video-info{
+  margin-top:8px;
+  padding:8px;
+  border-radius:11px;
+  background:#0b0d10;
+}
+.cf-video-info img{width:96px;height:54px;border-radius:7px}
+.cf-video-info strong{font-size:10px}
+.cf-video-info span{font-size:8px}
+.cf-video-ready{font-size:6px!important}
+.cf-duration-grid{gap:7px}
+.cf-duration{
+  grid-template-columns:24px 1fr;
+  padding:11px 12px;
+  border-radius:10px;
+  background:#0b0d10;
+}
+.cf-duration-num{font-size:8px}
+.cf-duration strong{font-size:12px}
+.cf-duration>span:last-child{display:none}
+.cf-template-grid{gap:8px}
+.cf-template{border-radius:12px;background:#0b0d10}
+.cf-template-preview{height:158px}
+.cf-template-info{padding:9px 10px 10px}
+.cf-template-info strong{font-size:10px}
+.cf-template-info span{display:none}
+.cf-selected-label{display:none!important}
+.cf-check{width:18px;height:18px;font-size:9px}
+.cf-style-detail{display:none}
+.cf-actions{
+  margin-top:16px;
+  padding-top:14px;
+  border-top:1px solid rgba(255,255,255,.06);
+}
+.cf-button{
+  min-height:46px;
+  border-radius:10px;
+  padding:0 17px;
+  font-size:9px;
+  letter-spacing:.06em;
+}
+.cf-cancel-button{
+  font-size:8px!important;
+}
+.cf-job{
+  margin-top:10px;
+  padding:12px;
+  border-radius:11px;
+  background:#0b0d10;
+}
+.cf-job-top{font-size:10px}
+.cf-job-steps{display:none}
+.cf-job small{font-size:8px}
+.cf-results{margin-top:28px}
+.cf-results-head h2{font-size:21px}
+.cf-results-head p{font-size:9px}
+.cf-results-head p strong{color:#aeb0b8}
+.cf-results-head-actions{gap:6px}
+.cf-output-badge{font-size:7px}
+.cf-results-head-actions .cf-button{min-height:34px;font-size:8px}
+.cf-results-new{font-size:8px!important}
+.cf-results-grid{gap:9px}
+.cf-result-card{border-radius:14px}
+.cf-result-info{padding:10px}
+.cf-result-heading{margin-bottom:8px}
+.cf-result-heading strong{font-size:10px}
+.cf-result-heading span{font-size:8px}
+.cf-result-heading small{display:none}
+.cf-publish-fields label>span{font-size:7px}
+.cf-publish-fields small{display:none}
+.cf-result-actions .cf-download{
+  min-height:32px;
+  border-radius:8px;
+  padding:0 9px;
+  font-size:8px;
+}
+.cf-partial-output{
+  margin-top:8px!important;
+  padding:8px 10px!important;
+  border-radius:9px!important;
+}
+.cf-partial-output span{font-size:8px!important}
+.cf-schedules{
+  margin:0 0 36px;
+  padding:18px;
+  border-radius:17px;
+  background:rgba(15,17,21,.8);
+}
+.cf-schedules-head{margin-bottom:15px;padding-bottom:14px}
+.cf-schedules-head p{display:none}
+.cf-schedules-head h2{font-size:26px}
+.cf-schedule-summary{gap:5px}
+.cf-schedule-summary button{min-height:42px}
+.cf-schedule-filter-label span{font-size:7px}
+.cf-schedule-filter-label strong{font-size:8px}
+.cf-schedule-row{padding:10px;border-radius:11px}
+.cf-schedule-title strong{font-size:10px}
+.cf-schedule-title span{font-size:7px}
+.cf-schedule-status{font-size:7px}
+.cf-schedule-open,.cf-schedule-history{font-size:7px}
+@media(max-width:720px){
+  .cf-shell{padding:9px 9px 46px}
+  .cf-header{height:48px}
+  .cf-hero{padding:34px 1px 26px}
+  .cf-hero h2{font-size:clamp(40px,12.5vw,56px)}
+  .cf-hero-pills{display:none}
+  .cf-builder{padding:13px}
+  .cf-builder-head h3{font-size:13px}
+  .cf-section-note{display:none}
+  .cf-template-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .cf-template-preview{height:150px}
+  .cf-duration-grid{grid-template-columns:repeat(3,1fr)}
+  .cf-duration{grid-template-columns:1fr;padding:11px;text-align:center}
+  .cf-duration-num{display:none}
+  .cf-duration strong{font-size:11px}
+  .cf-results-head-actions{gap:6px}
+  .cf-output-badge{order:3;width:100%}
+}
+@media(max-width:430px){
+  .cf-template-grid{grid-template-columns:1fr 1fr}
+  .cf-template-preview{height:142px}
+  .cf-duration strong{font-size:10px}
+}
