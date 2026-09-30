@@ -101,7 +101,9 @@ jobs:
       - name: Cache Deno runtime
         uses: actions/cache@v4
         with:
-          path: ~/.deno
+          path: |
+            ~/.deno
+            ~/.cache/deno
           key: clip-factory-deno-${{ runner.os }}-x64-v2.9.7
           restore-keys: |
             clip-factory-deno-${{ runner.os }}-x64-
@@ -163,11 +165,24 @@ jobs:
           cache: pip
           cache-dependency-path: worker/requirements.txt
 
+      - name: Cache Python environment
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: clip-factory-venv-${{ runner.os }}-py311-${{ hashFiles('worker/requirements.txt') }}-yt2026.8.19-bgutil2.0.0-v1
+
       - name: Install Python dependencies
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r worker/requirements.txt
-          python -m pip install -U "yt-dlp[default]" yt-dlp-ejs "bgutil-ytdlp-pot-provider==2.0.0"
+          set -euo pipefail
+          if [ ! -x "$GITHUB_WORKSPACE/.venv/bin/python" ]; then
+            python -m venv "$GITHUB_WORKSPACE/.venv"
+            "$GITHUB_WORKSPACE/.venv/bin/python" -m pip install --upgrade pip
+            "$GITHUB_WORKSPACE/.venv/bin/python" -m pip install -r worker/requirements.txt
+            "$GITHUB_WORKSPACE/.venv/bin/python" -m pip install -U "yt-dlp[default]" yt-dlp-ejs "bgutil-ytdlp-pot-provider==2.0.0"
+          else
+            echo "Python environment cache hit; skipping dependency installation"
+          fi
+          echo "$GITHUB_WORKSPACE/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Verify yt-dlp and PO token provider
         run: |
