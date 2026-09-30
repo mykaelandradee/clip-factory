@@ -18,7 +18,44 @@ export async function GET(request: Request) {
   const admin = createAdminClient();
   const { data, error } = await admin.from("influencer_content_items").select("*").eq("profile_id", profileId).eq("user_id", user.id).order("created_at", { ascending: false });
   if (error) return NextResponse.json({ error: "Não foi possível carregar a biblioteca." }, { status: 500 });
-  return NextResponse.json({ items: data || [] }, { headers: { "Cache-Control": "no-store" } });
+
+  const items = data || [];
+  const processing = items.filter((item) => item.status === "processing" && item.clip_job_id);
+  if (processing.length) {
+    const cookie = request.headers.get("cookie") || "";
+    const origin = new URL(request.url).origin;
+    await Promise.all(processing.map(async (item) => {
+      try {
+        const statusResponse = await fetch(
+          `${origin}/api/jobs?id=${encodeURIComponent(String(item.clip_job_id))}`,
+          { headers: cookie ? { cookie } : undefined, cache: "no-store" },
+        );
+        const status = await statusResponse.json().catch(() => ({}));
+        if (statusResponse.ok && status.status === "completed" && status.result?.files?.[0]?.url) {
+          await admin.from("influencer_content_items").update({
+            status: "available",
+            result_url: status.result.files[0].url,
+            error_message: null,
+            updated_at: new Date().toISOString(),
+          }).eq("id", item.id).eq("user_id", user.id);
+          item.status = "available";
+          item.result_url = status.result.files[0].url;
+        } else if (statusResponse.ok && ["failed", "canceled"].includes(status.status)) {
+          await admin.from("influencer_content_items").update({
+            status: "failed",
+            error_message: status.error || status.message || "O processamento falhou.",
+            updated_at: new Date().toISOString(),
+          }).eq("id", item.id).eq("user_id", user.id);
+          item.status = "failed";
+          item.error_message = status.error || status.message || "O processamento falhou.";
+        }
+      } catch (syncError) {
+        console.warn("Influencer content job sync failed:", syncError);
+      }
+    }));
+  }
+
+  return NextResponse.json({ items }, { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function POST(request: Request) {
@@ -39,7 +76,52 @@ export async function POST(request: Request) {
     profile_id: profileId, user_id: user.id, source_url: sourceUrl, title: title || null, source_type: "url", status: "queued"
   }).select("*").single();
   if (error) return NextResponse.json({ error: "Não foi possível adicionar o vídeo à biblioteca." }, { status: 500 });
-  return NextResponse.json({ item }, { status: 201 });
+
+  try {
+    const cookie = request.headers.get("cookie") || "";
+    const origin = new URL(request.url).origin;
+    const jobResponse = await fetch(`${origin}/api/jobs`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(cookie ? { cookie } : {}),
+      },
+      body: JSON.stringify({
+        url: sourceUrl,
+        source_title: title || undefined,
+        count: 1,
+        min_duration: 5,
+        max_duration: 60,
+        subtitle_language: "original",
+        caption_style: "karaoke",
+      }),
+      cache: "no-store",
+    });
+    const jobData = await jobResponse.json().catch(() => ({}));
+    if (!jobResponse.ok || !jobData.jobId) {
+      await admin.from("influencer_content_items").update({
+        status: "failed",
+        error_message: jobData.error || "Não foi possível iniciar o processamento.",
+        updated_at: new Date().toISOString(),
+      }).eq("id", item.id).eq("user_id", user.id);
+      return NextResponse.json({ error: jobData.error || "Não foi possível iniciar o processamento do vídeo." }, { status: 502 });
+    }
+
+    const { data: updatedItem, error: updateError } = await admin.from("influencer_content_items").update({
+      status: "processing",
+      clip_job_id: jobData.jobId,
+      updated_at: new Date().toISOString(),
+    }).eq("id", item.id).eq("user_id", user.id).select("*").single();
+    if (updateError) throw updateError;
+    return NextResponse.json({ item: updatedItem }, { status: 202 });
+  } catch (processingError) {
+    await admin.from("influencer_content_items").update({
+      status: "failed",
+      error_message: processingError instanceof Error ? processingError.message : "Erro ao iniciar processamento.",
+      updated_at: new Date().toISOString(),
+    }).eq("id", item.id).eq("user_id", user.id);
+    return NextResponse.json({ error: "Vídeo adicionado, mas não foi possível iniciar o processamento." }, { status: 502 });
+  }
 }
 
 export async function DELETE(request: Request) {
