@@ -1093,7 +1093,13 @@ export default function Home() {
               <div className="cf-job-top"><div><span className="cf-job-live">{job.status === "canceled" ? "PROCESSAMENTO CANCELADO" : job.status === "failed" ? "PROCESSAMENTO INTERROMPIDO" : "PROCESSAMENTO AO VIVO"}</span><strong>{job.status === "canceled" ? "Cancelado" : job.progress >= 100 ? "Concluído" : getProgressStage(job.progress, job.stage)}</strong></div><span className="cf-job-percent">{job.status === "canceled" ? "CANCELADO" : `${job.progress}%`}</span></div>
               <div className={`cf-progress ${job.status === "canceled" ? "canceled" : ""}`} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={job.progress} aria-label={job.status === "canceled" ? "Processamento cancelado" : "Progresso da geração"}><div style={{ width: `${job.progress}%` }} /></div>
               <div className="cf-job-steps">
-                {[[10, "DOWNLOAD"], [25, "TRANSCRIÇÃO"], [45, "MOMENTOS"], [60, "TRADUÇÃO"], [78, "RENDER"], [100, "PRONTO"]].map(([threshold, label]) => <span key={label} className={job.progress >= Number(threshold) ? "done" : ""}>{label}</span>)}
+                {[[10, "DOWNLOAD"], [25, "TRANSCRIÇÃO"], [45, "MOMENTOS"], [60, "TRADUÇÃO"], [78, "RENDER"], [100, "PRONTO"]].map(([threshold, label], index, steps) => {
+                  const value = Number(threshold);
+                  const nextValue = index < steps.length - 1 ? Number(steps[index + 1][0]) : 101;
+                  const isDone = job.progress >= value;
+                  const isActive = job.status === "processing" && job.progress >= value && job.progress < nextValue;
+                  return <span key={label} className={(isDone ? "done " : "") + (isActive ? "active" : "")}>{label}</span>;
+                })}
               </div>
               <small>{job.status === "canceled" ? "Processamento cancelado" : job.status === "failed" ? "Processamento interrompido. Os clips já gerados foram preservados." : getProgressStage(job.progress, job.stage)}{job.result?.files?.length ? ` · ${job.result.files.length} clip${job.result.files.length === 1 ? "" : "s"} já disponível${job.result.files.length === 1 ? "" : "eis"}` : ""}{job.status !== "completed" && job.message && !/install system dependencies|install dependencies|github actions|r2|job [a-f0-9-]{8,}/i.test(job.message) ? ` · ${job.message}` : ""}</small>
             </div>
