@@ -90,8 +90,8 @@ export async function POST(request: Request) {
 
   try {
     const cookie = request.headers.get("cookie") || "";
-    const origin = new URL(request.url).origin;
-    const jobResponse = await fetch(new URL("/api/jobs", request.url), {
+    const origin = `http://127.0.0.1:${process.env.PORT || "3000"}`;
+    const jobResponse = await fetch(`${origin}/api/jobs`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
