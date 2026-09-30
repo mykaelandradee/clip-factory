@@ -269,6 +269,9 @@ export default function Home() {
   const canceledJobId = useRef("");
   const pollStartedAt = useRef(0);
   const pollInFlight = useRef(false);
+  const jobIdRef = useRef("");
+  const jobAccessTokenRef = useRef("");
+  const submittingRef = useRef(false);
   const CLIENT_JOB_TIMEOUT_MS = 50 * 60 * 1000;
 
   async function readJsonResponse<T = Record<string, unknown>>(response: Response): Promise<T> {
@@ -361,13 +364,23 @@ export default function Home() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  jobIdRef.current = jobId;
+  jobAccessTokenRef.current = jobAccessToken;
+  submittingRef.current = submitting;
+
   useEffect(() => {
     if (!GENERATION_ONLY_MODE) initAuth();
     checkWorker();
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible" && jobId && submitting && canceledJobId.current !== jobId) {
-        void poll(jobId, jobAccessToken);
+      const currentJobId = jobIdRef.current;
+      if (
+        document.visibilityState === "visible" &&
+        currentJobId &&
+        submittingRef.current &&
+        canceledJobId.current !== currentJobId
+      ) {
+        void poll(currentJobId, jobAccessTokenRef.current);
       }
     };
 
@@ -380,7 +393,7 @@ export default function Home() {
       if (timer.current) clearInterval(timer.current);
       if (publishTimer.current) clearInterval(publishTimer.current);
     };
-  }, [jobId, jobAccessToken, submitting]);
+  }, []);
 
   useEffect(() => {
     setVideoInfo(null);
