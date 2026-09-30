@@ -27,7 +27,7 @@ export async function GET(request: Request) {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("youtube_connections")
-    .select("id, channel_title, channel_id")
+    .select("id")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -41,8 +41,8 @@ export async function GET(request: Request) {
   return NextResponse.json({
     configured: true,
     connected: Boolean(data),
-    channelName: data?.channel_title ?? null,
-    channelId: data?.channel_id ?? null,
+    channelName: null,
+    channelId: null,
     authenticated: true,
     scope: "https://www.googleapis.com/auth/youtube.upload",
     message: data ? "YouTube conectado." : "Conecte sua conta do YouTube para publicar.",
