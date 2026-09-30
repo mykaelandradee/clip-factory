@@ -75,6 +75,22 @@ export async function POST(request:Request) {
   }
 }
 
+export async function PATCH(request:Request) {
+  const user=await auth();
+  if(!user) return NextResponse.json({error:"Entre no Clip Factory."},{status:401});
+  const body=await request.json().catch(()=>null);
+  const id=typeof body?.id==="string"?body.id:"";
+  if(!id) return NextResponse.json({error:"Conteúdo inválido."},{status:400});
+  const allowed:Record<string,unknown>={};
+  if(typeof body?.publishTitle==="string") allowed.publish_title=body.publishTitle.trim().slice(0,500)||null;
+  if(typeof body?.publishDescription==="string") allowed.publish_description=body.publishDescription.trim().slice(0,5000)||null;
+  if(!Object.keys(allowed).length) return NextResponse.json({error:"Nenhuma alteração informada."},{status:400});
+  const admin=createAdminClient();
+  const {data,error}=await admin.from("influencer_content_items").update({...allowed,updated_at:new Date().toISOString()}).eq("id",id).eq("user_id",user.id).select("*").single();
+  if(error) return NextResponse.json({error:"Não foi possível salvar os dados do Reel."},{status:500});
+  return NextResponse.json({item:data});
+}
+
 export async function DELETE(request:Request) {
   const user=await auth();
   if(!user) return NextResponse.json({error:"Entre no Clip Factory."},{status:401});
