@@ -1938,39 +1938,100 @@ html,body,button,input,select,textarea{
   .cf-template-preview{min-height:140px}
 }
 
-/* Processing stages — restore explicit percentage markers. */
-.cf-job-steps span{
+/* Processing stages — compact live timeline without redundant percentages. */
+.cf-job{
+  position:relative;
+  overflow:hidden;
+  background:
+    radial-gradient(circle at 12% 0%,rgba(156,153,255,.08),transparent 34%),
+    #09090d;
+}
+.cf-job::before{
+  content:"";
+  position:absolute;
+  left:0;
+  top:0;
+  width:100%;
+  height:1px;
+  background:linear-gradient(90deg,transparent,#9c99ff,transparent);
+  opacity:.55;
+}
+.cf-job-top strong{font-size:12px;color:#f2f2f5;letter-spacing:-.01em}
+.cf-job-percent{font-variant-numeric:tabular-nums}
+.cf-progress{
+  position:relative;
+  height:7px;
+  margin-top:11px;
+  overflow:hidden;
+  border:1px solid rgba(255,255,255,.06);
+  border-radius:999px;
+  background:#111118;
+}
+.cf-progress > div{
+  position:relative;
+  height:100%;
+  border-radius:inherit;
+  background:linear-gradient(90deg,#7470d9,#9c99ff);
+  transition:width .6s cubic-bezier(.22,1,.36,1);
+}
+.cf-progress > div::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);
+  transform:translateX(-100%);
+  animation:cf-progress-shine 1.8s linear infinite;
+}
+.cf-job-steps{
   display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  gap:2px;
+  gap:3px;
+  margin-top:13px;
+  padding:0 1px;
+}
+.cf-job-steps span{
+  position:relative;
+  display:flex;
   flex:1;
   min-width:0;
+  align-items:center;
+  justify-content:center;
+  padding:5px 2px;
+  border-radius:5px;
   text-align:center;
   white-space:nowrap;
+  transition:color .25s ease,background .25s ease,transform .25s ease;
 }
 .cf-job-steps span b{
   font-size:7px;
-  font-weight:800;
-  letter-spacing:.06em;
-  color:#5f626c;
+  font-weight:850;
+  letter-spacing:.07em;
+  color:#555761;
 }
-.cf-job-steps span small{
-  font-size:7px;
-  line-height:1;
-  color:#4b4e57;
+.cf-job-steps span.done b{color:#aeb0b8}
+.cf-job-steps span.active{
+  background:rgba(156,153,255,.1);
+  transform:translateY(-1px);
 }
-.cf-job-steps span.done b,
-.cf-job-steps span.done small{
-  color:#aeb0b8;
+.cf-job-steps span.active b{color:#fff}
+.cf-job-steps span.active::after{
+  content:"";
+  position:absolute;
+  left:18%;
+  right:18%;
+  bottom:-1px;
+  height:2px;
+  border-radius:99px;
+  background:#9c99ff;
+  box-shadow:0 0 10px rgba(156,153,255,.65);
+  animation:cf-step-pulse 1.2s ease-in-out infinite;
 }
-.cf-job-steps span.active b,
-.cf-job-steps span.active small{
-  color:#fff;
+@keyframes cf-progress-shine{
+  to{transform:translateX(100%)}
 }
 @media(max-width:720px){
-  .cf-job-steps{gap:2px}
-  .cf-job-steps span b{font-size:6px}
-  .cf-job-steps span small{font-size:6px}
+  .cf-job{padding:13px}
+  .cf-job-top strong{font-size:11px}
+  .cf-job-steps{gap:2px;margin-top:11px}
+  .cf-job-steps span{padding:5px 1px}
+  .cf-job-steps span b{font-size:6px;letter-spacing:.04em}
 }
