@@ -1,0 +1,127 @@
+name: Influencer Manager Worker
+
+run-name: Influencer Manager ${{ github.event.client_payload.item_id || github.run_id }}
+
+on:
+  repository_dispatch:
+    types: [influencer-manager-job]
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: influencer-manager-worker-${{ github.event.client_payload.item_id || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  process:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CLIP_FACTORY_DATA_DIR: ${{ github.workspace }}/worker/data
+      VIDEO_URL: ${{ github.event.client_payload.url }}
+      ITEM_ID: ${{ github.event.client_payload.item_id }}
+      PROFILE_ID: ${{ github.event.client_payload.profile_id }}
+      USER_ID: ${{ github.event.client_payload.user_id }}
+      BGUTIL_POT_URL: http://127.0.0.1:4416
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+      R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+      R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg curl unzip ca-certificates openssl
+
+      - name: Install YouTube cookie file
+        env:
+          YOUTUBE_COOKIES_PASSWORD: ${{ secrets.YOUTUBE_COOKIES_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "${YOUTUBE_COOKIES_PASSWORD:-}"
+          test -f secrets/youtube_cookies.enc.b64
+          base64 --decode secrets/youtube_cookies.enc.b64 > "$RUNNER_TEMP/youtube_cookies.enc"
+          mkdir -p "$RUNNER_TEMP/clip-factory-secrets"
+          COOKIE_FILE="$RUNNER_TEMP/clip-factory-secrets/youtube_cookies.txt"
+          printf '%s' "$YOUTUBE_COOKIES_PASSWORD" | openssl enc -d -aes-256-cbc -pbkdf2 -pass stdin -in "$RUNNER_TEMP/youtube_cookies.enc" -out "$COOKIE_FILE"
+          chmod 600 "$COOKIE_FILE"
+          echo "YOUTUBE_COOKIE_FILE=$COOKIE_FILE" >> "$GITHUB_ENV"
+
+      - name: Cache Deno
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.deno
+            ~/.cache/deno
+          key: influencer-deno-${{ runner.os }}-x64-v2.9.7
+          restore-keys: influencer-deno-${{ runner.os }}-x64-
+
+      - name: Install Deno
+        run: |
+          set -euo pipefail
+          export DENO_INSTALL="$HOME/.deno"
+          mkdir -p "$DENO_INSTALL/bin"
+          if [ ! -x "$DENO_INSTALL/bin/deno" ]; then
+            curl -fsSL https://github.com/denoland/deno/releases/download/v2.9.7/deno-x86_64-unknown-linux-gnu.zip -o "$RUNNER_TEMP/deno.zip"
+            unzip -q -o "$RUNNER_TEMP/deno.zip" -d "$DENO_INSTALL/bin"
+            chmod +x "$DENO_INSTALL/bin/deno"
+          fi
+          echo "$DENO_INSTALL/bin" >> "$GITHUB_PATH"
+
+      - name: Install YouTube PO token provider
+        run: |
+          set -e
+          git clone --depth 1 --branch 2.0.0 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git "$RUNNER_TEMP/bgutil-ytdlp-pot-provider"
+          cd "$RUNNER_TEMP/bgutil-ytdlp-pot-provider/server"
+          deno install --allow-scripts=npm:canvas --frozen
+          nohup deno run --allow-env --allow-net --allow-ffi=. --allow-read=. src/main.ts --host 127.0.0.1 --port 4416 > "$RUNNER_TEMP/bgutil-provider.log" 2>&1 &
+          for i in {1..30}; do curl -fsS "$BGUTIL_POT_URL/ping" >/dev/null 2>&1 && break; [ "$i" -eq 30 ] && exit 1; sleep 1; done
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: worker/requirements.txt
+
+      - name: Cache Python environment
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: influencer-venv-${{ runner.os }}-py311-${{ hashFiles('worker/requirements.txt') }}-v1
+          restore-keys: influencer-venv-${{ runner.os }}-py311-
+
+      - name: Install Python dependencies
+        run: |
+          set -euo pipefail
+          if [ ! -x "$GITHUB_WORKSPACE/.venv/bin/python" ]; then
+            python -m venv "$GITHUB_WORKSPACE/.venv"
+            "$GITHUB_WORKSPACE/.venv/bin/python" -m pip install --upgrade pip
+            "$GITHUB_WORKSPACE/.venv/bin/python" -m pip install -r worker/requirements.txt
+            "$GITHUB_WORKSPACE/.venv/bin/python" -m pip install -U "yt-dlp[default]" yt-dlp-ejs "bgutil-ytdlp-pot-provider==2.0.0"
+          fi
+          echo "$GITHUB_WORKSPACE/.venv/bin" >> "$GITHUB_PATH"
+
+      - name: Download original video and upload to R2
+        working-directory: worker
+        env:
+          YOUTUBE_COOKIES_FILE: ${{ env.YOUTUBE_COOKIE_FILE }}
+        run: python influencer_worker.py "$VIDEO_URL" --item-id "$ITEM_ID" --profile-id "$PROFILE_ID" --user-id "$USER_ID"
+
+      - name: Cleanup cookies
+        if: always()
+        run: rm -f "${YOUTUBE_COOKIE_FILE:-}" && rm -rf "$RUNNER_TEMP/clip-factory-secrets"
+
+      - name: Upload result artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: influencer-manager-${{ env.ITEM_ID }}
+          path: worker/data/influencer-result.json
+          if-no-files-found: warn
+          retention-days: 3
