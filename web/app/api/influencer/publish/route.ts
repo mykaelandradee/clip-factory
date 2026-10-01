@@ -32,9 +32,9 @@ function localToUtc(year:number,month:number,day:number,hour:number,minute:numbe
   }
   return new Date(guess);
 }
-function nextSlot(times:string[], from=new Date()) {
+function nextSlot(times:string[], from=new Date(), postsPerDay=3) {
   const valid=times.filter(v=>/^([01]\d|2[0-3]):[0-5]\d$/.test(v)).sort();
-  if(!valid.length)return new Date(from.getTime()+5*60*1000);
+  if(!valid.length){\n    const fallback=["09:00","11:30","14:00","16:30","19:00","21:30","23:00","08:00","12:00"].slice(0,Math.max(1,Math.min(9,postsPerDay)));\n    valid.push(...fallback);\n  }
   const local=localParts(from);
   const base=Date.UTC(local.year,local.month-1,local.day);
   for(const value of valid){
@@ -50,7 +50,7 @@ function nextSlot(times:string[], from=new Date()) {
 
 async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId: string, userId: string, itemId?: string) {
   const { data: profile } = await admin.from("influencer_profiles")
-    .select("id,user_id,posting_times,next_publish_at,publishing_enabled,cover_r2_key,share_to_feed,fixed_publish_title,fixed_publish_description")
+    .select("id,user_id,posting_times,posts_per_day,next_publish_at,publishing_enabled,cover_r2_key,share_to_feed,fixed_publish_title,fixed_publish_description")
     .eq("id",profileId).eq("user_id",userId).maybeSingle();
   if (!profile || (!itemId && !profile.publishing_enabled)) return { status:"stopped" };
 
@@ -147,7 +147,7 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
     const publishData=await publishResponse.json().catch(()=>({}));
     if(!publishResponse.ok || !publishData.id) throw new Error(publishData?.error?.message || "O Instagram não conseguiu publicar o Reel.");
 
-    const next=nextSlot((profile.posting_times||[]) as string[]);
+    const next=nextSlot((profile.posting_times||[]) as string[],new Date(),Number(profile.posts_per_day)||3);
     if (shareId) await admin.from("influencer_content_shares").update({status:"published",published_at:new Date().toISOString(),scheduled_at:null,error_message:null}).eq("id",shareId).eq("user_id",userId);
     else await admin.from("influencer_content_items").update({status:"published",published_at:new Date().toISOString(),scheduled_at:null,error_message:null,updated_at:new Date().toISOString()}).eq("id",item.id).eq("user_id",userId);
     await admin.from("influencer_profiles").update({next_publish_at:next.toISOString(),updated_at:new Date().toISOString()}).eq("id",profileId).eq("user_id",userId);
@@ -193,7 +193,7 @@ export async function POST(request:Request) {
   }
 
   if(action==="enable-auto"){
-    const next = nextSlot((await admin.from("influencer_profiles").select("posting_times").eq("id",profileId).single()).data?.posting_times || []);
+    const profileSchedule=(await admin.from("influencer_profiles").select("posting_times,posts_per_day").eq("id",profileId).eq("user_id",userId).single()).data;\n    const next = nextSlot((profileSchedule?.posting_times || []) as string[],new Date(),Number(profileSchedule?.posts_per_day)||3);
     await admin.from("influencer_profiles").update({auto_publish:true,publishing_enabled:true,next_publish_at:next.toISOString(),updated_at:new Date().toISOString()}).eq("id",profileId).eq("user_id",userId);
     return NextResponse.json({ok:true,publishingEnabled:true,nextPublishAt:next.toISOString()});
   }
