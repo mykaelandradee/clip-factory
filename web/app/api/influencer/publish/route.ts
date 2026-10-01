@@ -144,7 +144,7 @@ export async function POST(request:Request) {
   const admin=createAdminClient();
 
   if(isScheduler){
-    const {data:profiles}=await admin.from("influencer_profiles").select("id,user_id,next_publish_at").eq("publishing_enabled",true).lte("next_publish_at",new Date().toISOString()).limit(20);
+    const {data:profiles}=await admin.from("influencer_profiles").select("id,user_id,next_publish_at").eq("auto_publish",true).eq("publishing_enabled",true).lte("next_publish_at",new Date().toISOString()).limit(20);
     const results=[];
     for(const p of profiles||[]) results.push({profileId:p.id,userId:p.user_id,...await publishOne(admin,p.id,p.user_id)});
     return NextResponse.json({ok:true,results},{headers:{"Cache-Control":"no-store"}});
@@ -169,7 +169,7 @@ export async function POST(request:Request) {
     return NextResponse.json({ok:true,publishingEnabled:false});
   }
 
-  await admin.from("influencer_profiles").update({publishing_enabled:true,next_publish_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq("id",profileId).eq("user_id",userId);
+  await admin.from("influencer_profiles").update({auto_publish:true,publishing_enabled:true,next_publish_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq("id",profileId).eq("user_id",userId);
   const result=await publishOne(admin,profileId,userId);
   if(result.status==="error") return NextResponse.json({ok:false,publishingEnabled:true,...result},{status:502});
   return NextResponse.json({ok:true,publishingEnabled:true,...result});
