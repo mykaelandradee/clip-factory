@@ -209,19 +209,85 @@ export default function InfluencerManagerPage(){
      <form className="im-url-form" onSubmit={addUrl}><input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..." required /><button className="im-primary" disabled={adding}>{adding?"Processando…":"Adicionar vídeo"}</button></form>
     </div>
 
-    <div className="im-card im-library"><div className="im-card-head"><div><span className="im-kicker">BIBLIOTECA</span><h2>Biblioteca de conteúdo</h2><p>Conteúdo próprio e bibliotecas compartilhadas ficam separados. Só o perfil proprietário pode alterar ou excluir o vídeo original.</p></div><div className="im-library-head-actions"><span className="im-count">{items.length}</span><button className="im-ghost" onClick={()=>{setShareOpen(true);setShareTargets([])}} disabled={profiles.length<2}>Gerenciar compartilhamento</button></div></div>
-     {items.length===0?<div className="im-empty">Nenhum vídeo cadastrado.</div>:<>
-      {items.filter(item=>!item.shared).length>0&&<><div className="im-library-section-title"><span>MEU CONTEÚDO</span><small>{items.filter(item=>!item.shared).length} vídeos criados por {selected.name}</small></div><div className="im-items">{items.filter(item=>!item.shared).map(item=><article className="im-item" key={item.id}><div className="im-item-main">
-       <strong>{item.title||"Vídeo sem título"}</strong><span>{item.source_url}</span>
-       {item.status==="processing"&&<div className="im-progress"><div><span style={{width:(item.progress||5)+"%"}} /></div><small>{item.progress||5}% · {item.stage==="download"?"Baixando":item.stage==="render"?"Convertendo para 9:16":item.stage==="upload"?"Enviando para R2":"Preparando worker"}</small></div>}
-       {item.error_message&&<small className="im-error-text">{item.error_message}</small>}
-       {item.result_url&&<video className="im-video-preview" src={item.result_url} controls preload="metadata" />}
-       {(item.publish_title||item.publish_description)&&<div className="im-reel-copy"><label>Nome do Reel<strong>{item.publish_title||"—"}</strong></label><label>Descrição para publicação<strong>{item.publish_description||"—"}</strong></label></div>}
-       {item.source_description&&<div className="im-source-copy"><label>Descrição original do vídeo</label><p>{item.source_description}</p></div>}
-      </div><div className="im-item-actions"><span className={"im-status "+item.status}>{item.shared?"COMPARTILHADO":STATUS[item.status]||item.status}</span>{item.status==="processing"?<button className="im-ghost" onClick={()=>void removeItem(item.id)}>Cancelar</button>:item.result_url?<a className="im-ghost" href={item.result_url} target="_blank" rel="noreferrer">Abrir vídeo</a>:null}{item.status!=="processing"&&item.status!=="failed"&&<button className="im-ghost" disabled={randomizingItem===item.id} onClick={()=>void randomizeCopy(item.id)}>{randomizingItem===item.id?"Gerando…":"↻ Nome + descrição"}</button>}{item.status==="available"&&<button className="im-primary im-publish-item" disabled={publishingItem===item.id} onClick={()=>void publishItem(item.id)}>{publishingItem===item.id?"Publicando…":"Publicar Reel"}</button>}
-       {item.status!=="processing"&&item.status!=="published"&&<button className="im-ghost" onClick={()=>void removeItem(item.id)}>Excluir</button>}</div></article>)}</div></>}
+    <div className="im-card im-library">
+      <div className="im-card-head">
+        <div>
+          <span className="im-kicker">BIBLIOTECA</span>
+          <h2>Biblioteca de conteúdo</h2>
+          <p>Conteúdo próprio e bibliotecas compartilhadas ficam separados. Só o perfil proprietário pode alterar ou excluir o vídeo original.</p>
+        </div>
+        <div className="im-library-head-actions">
+          <span className="im-count">{items.length}</span>
+          <button className="im-ghost" onClick={() => { setShareOpen(true); setShareTargets([]); }} disabled={profiles.length < 2}>Gerenciar compartilhamento</button>
+        </div>
+      </div>
+      {items.length === 0 ? (
+        <div className="im-empty">Nenhum vídeo cadastrado.</div>
+      ) : (
+        <>
+          {items.filter(item => !item.shared).length > 0 && (
+            <>
+              <div className="im-library-section-title">
+                <span>MEU CONTEÚDO</span>
+                <small>{items.filter(item => !item.shared).length} vídeos criados por {selected.name}</small>
+              </div>
+              <div className="im-items">
+                {items.filter(item => !item.shared).map(item => (
+                  <article className="im-item" key={item.id}>
+                    <div className="im-item-main">
+                      <strong>{item.title || "Vídeo sem título"}</strong>
+                      <span>{item.source_url}</span>
+                      {item.status === "processing" && (
+                        <div className="im-progress">
+                          <div><span style={{ width: (item.progress || 5) + "%" }} /></div>
+                          <small>{item.progress || 5}% · {item.stage === "download" ? "Baixando" : item.stage === "render" ? "Convertendo para 9:16" : item.stage === "upload" ? "Enviando para R2" : "Preparando worker"}</small>
+                        </div>
+                      )}
+                      {item.error_message && <small className="im-error-text">{item.error_message}</small>}
+                      {item.result_url && <video className="im-video-preview" src={item.result_url} controls preload="metadata" />}
+                      {(item.publish_title || item.publish_description) && (
+                        <div className="im-reel-copy">
+                          <label>Nome do Reel<strong>{item.publish_title || "—"}</strong></label>
+                          <label>Descrição para publicação<strong>{item.publish_description || "—"}</strong></label>
+                        </div>
+                      )}
+                      {item.source_description && (
+                        <div className="im-source-copy">
+                          <label>Descrição original do vídeo</label>
+                          <p>{item.source_description}</p>
+                        </div>
+                      )}
+                    </div>
+                    <div className="im-item-actions">
+                      <span className={"im-status " + item.status}>{item.shared ? "COMPARTILHADO" : STATUS[item.status] || item.status}</span>
+                      {item.status === "processing" ? (
+                        <button className="im-ghost" onClick={() => void removeItem(item.id)}>Cancelar</button>
+                      ) : item.result_url ? (
+                        <a className="im-ghost" href={item.result_url} target="_blank" rel="noreferrer">Abrir vídeo</a>
+                      ) : null}
+                      {item.status !== "processing" && item.status !== "failed" && (
+                        <button className="im-ghost" disabled={randomizingItem === item.id} onClick={() => void randomizeCopy(item.id)}>
+                          {randomizingItem === item.id ? "Gerando…" : "↻ Nome + descrição"}
+                        </button>
+                      )}
+                      {item.status === "available" && (
+                        <button className="im-primary im-publish-item" disabled={publishingItem === item.id} onClick={() => void publishItem(item.id)}>
+                          {publishingItem === item.id ? "Publicando…" : "Publicar Reel"}
+                        </button>
+                      )}
+                      {item.status !== "processing" && item.status !== "published" && (
+                        <button className="im-ghost" onClick={() => void removeItem(item.id)}>Excluir</button>
+                      )}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </>
+          )}
+        </>
+      )}
     </div>
-   </>}
+>}
   </section>
   </section>
   {shareOpen&&<div className="im-modal-backdrop" role="dialog" aria-modal="true"><div className="im-modal"><div className="im-card-head"><div><span className="im-kicker">BIBLIOTECA COMPARTILHADA</span><h2>Compartilhar biblioteca</h2><p>Todos os vídeos desta biblioteca serão disponibilizados nos perfis selecionados. Não é necessário escolher vídeo por vídeo.</p></div><button className="im-ghost" onClick={()=>setShareOpen(false)}>Fechar</button></div><div className="im-share-list">{profiles.filter(p=>p.id!==selected?.id).map(p=><label key={p.id} className="im-check"><input type="checkbox" checked={shareTargets.includes(p.id)} onChange={e=>setShareTargets(v=>e.target.checked?[...v,p.id]:v.filter(id=>id!==p.id))}/><span>{p.name} {p.instagram_username?("· @"+p.instagram_username.replace(/^@/,"")):""}</span></label>)}</div><div className="im-share-current"><strong>Bibliotecas atualmente compartilhadas</strong>{profiles.filter(p=>p.id!==selected?.id).map(p=><div key={"current-"+p.id} className="im-share-current-row"><span>{p.name}</span><button className="im-ghost" onClick={async()=>{setSharing(true);setError("");try{const r=await fetch("/api/influencer/content",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"unshare-library",profileId:selected?.id,targetProfileId:p.id})});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível descompartilhar a biblioteca.");await loadItems(selected!.id);}catch(e){setError(e instanceof Error?e.message:"Erro ao descompartilhar.");}finally{setSharing(false);}}}>Descompartilhar</button></div>)}</div><div className="im-modal-actions"><button className="im-primary" disabled={sharing||!shareTargets.length} onClick={()=>void shareLibrary()}>{sharing?"Compartilhando…":"Compartilhar biblioteca"}</button></div></div></div>} </main>);
