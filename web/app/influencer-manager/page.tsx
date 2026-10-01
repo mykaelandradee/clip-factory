@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 type Profile={
-  id:string; name:string; instagram_username:string|null; posts_per_day:number;
+  id:string; name:string; description?:string|null; instagram_username:string|null; posts_per_day:number;
   posting_times:string[]; caption_mode:string; auto_publish:boolean;
   repeat_when_exhausted:boolean; cover_r2_key?:string|null; fixed_publish_title?:string|null; fixed_publish_description?:string|null; share_to_feed?:boolean; publishing_enabled?:boolean; next_publish_at?:string|null;
 };
@@ -18,7 +18,7 @@ const STATUS:Record<string,string>={queued:"Na fila",processing:"Processando",av
 export default function InfluencerManagerPage(){
  const [profiles,setProfiles]=useState<Profile[]>([]),[selected,setSelected]=useState<Profile|null>(null),[items,setItems]=useState<Item[]>([]);
  const [loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[error,setError]=useState("");
- const [showNew,setShowNew]=useState(false),[name,setName]=useState(""),[instagram,setInstagram]=useState(""),[posts,setPosts]=useState("3");
+ const [showNew,setShowNew]=useState(false),[name,setName]=useState(""),[profileDescription,setProfileDescription]=useState(""),[instagram,setInstagram]=useState(""),[posts,setPosts]=useState("3");
  const [url,setUrl]=useState(""),[adding,setAdding]=useState(false),[publishing,setPublishing]=useState(false),[publishingItem,setPublishingItem]=useState<string|null>(null),[randomizingItem,setRandomizingItem]=useState<string|null>(null),[coverFile,setCoverFile]=useState<File|null>(null),[uploadingCover,setUploadingCover]=useState(false);
  const [coverPreviewKey,setCoverPreviewKey]=useState("");
  const [localCoverPreview,setLocalCoverPreview]=useState("");
@@ -62,9 +62,9 @@ export default function InfluencerManagerPage(){
  async function createProfile(e:FormEvent){
   e.preventDefault();setSaving(true);setError("");
   try{const r=await fetch("/api/influencer/profiles",{method:"POST",headers:{"Content-Type":"application/json"},
-   body:JSON.stringify({name,instagramUsername:"",postsPerDay:3,postingTimes:[],captionMode:"zh_ja_random",fixedPublishTitle:"",fixedPublishDescription:"",shareToFeed:true})}),d=await r.json().catch(()=>({}));
+   body:JSON.stringify({name,description:profileDescription,instagramUsername:"",postsPerDay:Number(posts)||3,postingTimes:[],captionMode:"zh_ja_random",fixedPublishTitle:name,fixedPublishDescription:profileDescription,shareToFeed:true})}),d=await r.json().catch(()=>({}));
    if(!r.ok)throw new Error(d.error||"Não foi possível criar o perfil.");
-   setProfiles(p=>[...p,d.profile]);setSelected(d.profile);setName("");setInstagram("");setPosts("3");setShowNew(false); window.location.href="/api/influencer/instagram/oauth?profileId="+encodeURIComponent(d.profile.id);
+   setProfiles(p=>[...p,d.profile]);setSelected(d.profile);setName("");setProfileDescription("");setInstagram("");setPosts("3");setShowNew(false); window.location.href="/api/influencer/instagram/oauth?profileId="+encodeURIComponent(d.profile.id);
   }catch(e){setError(e instanceof Error?e.message:"Erro ao criar perfil.");}finally{setSaving(false);}
  }
  async function addUrl(e:FormEvent){
@@ -175,7 +175,7 @@ export default function InfluencerManagerPage(){
   <header className="im-header"><div><a className="im-back" href="/">← Clip Factory</a><span className="im-kicker">INFLUENCER MANAGER</span><h1>Influencer Manager</h1><p>Biblioteca, vídeos 9:16 e automação de publicação.</p></div><button className="im-primary" onClick={()=>setShowNew(true)}>+ Novo perfil</button></header>
   {error&&<div className="im-alert">{error}</div>}
   {showNew&&<section className="im-card im-form-card"><div className="im-card-head"><div><span className="im-kicker">NOVO PERFIL</span><h2>Criar perfil</h2></div><button className="im-ghost" onClick={()=>setShowNew(false)}>Fechar</button></div>
-   <form className="im-form" onSubmit={createProfile}><label>Nome do perfil<input value={name} onChange={e=>setName(e.target.value)} placeholder="Memes BR" required /></label><label>Instagram<span className="im-field-help">A conta será conectada agora e ficará vinculada a este perfil.</span></label><button className="im-primary" disabled={saving}>{saving?"Criando e conectando…":"Criar perfil e conectar Instagram"}</button></form>
+   <form className="im-form" onSubmit={createProfile}><label>Nome do perfil<input value={name} onChange={e=>setName(e.target.value)} placeholder="Memes BR" required /></label><label>Descrição do perfil<textarea rows={3} value={profileDescription} onChange={e=>setProfileDescription(e.target.value)} placeholder="Ex.: Memes brasileiros para publicação diária." required /></label><label>Reels por dia<select value={posts} onChange={e=>setPosts(e.target.value)}>{[1,2,3,4,5,6,7,8,9].map(n=><option key={n}>{n}</option>)}</select></label><label>Instagram<span className="im-field-help">A conta será conectada agora e ficará vinculada a este perfil.</span></label><button className="im-primary" disabled={saving}>{saving?"Criando e conectando…":"Criar perfil e conectar Instagram"}</button></form>
   </section>}
   <section className="im-layout">
    <aside className="im-sidebar"><div className="im-side-head"><span>SEUS PERFIS</span><strong>{profiles.length}</strong></div>{loading?<div className="im-empty">Carregando…</div>:profiles.length===0?<div className="im-empty">Crie seu primeiro perfil para começar.</div>:profiles.map(p=><button key={p.id} className={"im-profile "+(selected?.id===p.id?"active":"")} onClick={()=>setSelected(p)}><span className="im-avatar">{p.name.slice(0,1).toUpperCase()}</span><span><strong>{p.name}</strong><small>{p.instagram_username?"@"+p.instagram_username:"Instagram não conectado"}</small></span><b>{p.posts_per_day}/dia</b></button>)}</aside>
@@ -193,7 +193,7 @@ export default function InfluencerManagerPage(){
       </div>
     </div>
 
-    <div className="im-card im-identity-copy"><div className="im-card-head"><div><span className="im-kicker">IDENTIDADE DO REEL</span><h2>Identidade do Reel</h2><p>Defina o que será fixo. Se um campo ficar vazio, o sistema gera automaticamente em chinês ou japonês.</p></div><span className="im-cover-ok">FLEXÍVEL</span></div><div className="im-fixed-copy"><label>Nome do Reel <span className="im-field-help">Deixe vazio para gerar automaticamente.</span><input value={selected.fixed_publish_title||""} onChange={e=>void updateProfile({fixed_publish_title:e.target.value})} placeholder="Automático" /></label><label>Descrição <span className="im-field-help">Deixe vazio para gerar automaticamente em chinês/japonês.</span><textarea rows={5} value={selected.fixed_publish_description||""} onChange={e=>void updateProfile({fixed_publish_description:e.target.value})} placeholder="Automática em chinês/japonês" /></label></div><label className="im-check"><input type="checkbox" checked={selected.share_to_feed!==false} onChange={e=>void updateProfile({share_to_feed:e.target.checked})}/><span>Publicar também na Grade Principal do Instagram</span></label></div>
+    <div className="im-card im-identity-copy"><div className="im-card-head"><div><span className="im-kicker">IDENTIDADE DO REEL</span><h2>Identidade do Reel</h2><p>Defina o que será fixo. Se um campo ficar vazio, o sistema gera automaticamente em chinês ou japonês.</p></div><span className="im-cover-ok">{selected.fixed_publish_title&&selected.fixed_publish_description?"FIXO":"FLEXÍVEL"}</span></div><div className="im-fixed-copy"><label>Nome do Reel <span className="im-field-help">Deixe vazio para gerar automaticamente.</span><input value={selected.fixed_publish_title||""} onChange={e=>void updateProfile({fixed_publish_title:e.target.value})} placeholder="Automático" /></label><label>Descrição <span className="im-field-help">Deixe vazio para gerar automaticamente em chinês/japonês.</span><textarea rows={5} value={selected.fixed_publish_description||""} onChange={e=>void updateProfile({fixed_publish_description:e.target.value})} placeholder="Automática em chinês/japonês" /></label></div><label className="im-check"><input type="checkbox" checked={selected.share_to_feed!==false} onChange={e=>void updateProfile({share_to_feed:e.target.checked})}/><span>Publicar também na Grade Principal do Instagram</span></label></div>
 
     <div className="im-card im-settings"><div className="im-card-head"><div><span className="im-kicker">PUBLICAÇÃO</span><h2>Controle da publicação</h2><p>Automática: publica nos horários definidos. Manual: use “Publicar Reel” em um vídeo disponível.</p></div>
       <span className={"im-status "+(selected.publishing_enabled?"available":"archived")}>{selected.publishing_enabled?"EXECUTANDO":"PARADA"}</span></div>
