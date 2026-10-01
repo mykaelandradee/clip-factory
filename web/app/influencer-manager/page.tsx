@@ -21,6 +21,7 @@ export default function InfluencerManagerPage(){
  const [showNew,setShowNew]=useState(false),[name,setName]=useState(""),[instagram,setInstagram]=useState(""),[posts,setPosts]=useState("3");
  const [url,setUrl]=useState(""),[adding,setAdding]=useState(false),[publishing,setPublishing]=useState(false),[coverFile,setCoverFile]=useState<File|null>(null),[uploadingCover,setUploadingCover]=useState(false);
  const [coverPreviewKey,setCoverPreviewKey]=useState("");
+ const coverPreviewUrl=selected?.cover_r2_key ? `/api/influencer/cover?profileId=${encodeURIComponent(selected.id)}&v=${encodeURIComponent(selected.cover_r2_key)}` : "";
 
  async function loadProfiles(){
   setLoading(true);setError("");
@@ -71,7 +72,12 @@ export default function InfluencerManagerPage(){
   setUploadingCover(true);setError("");
   try{
    const form=new FormData();form.append("profileId",selected.id);form.append("file",coverFile);
-   const r=await fetch("/api/influencer/cover",{method:"POST",body:form});
+   const controller=new AbortController();
+   const timeout=window.setTimeout(()=>controller.abort(),45000);
+   let r:Response;
+   try { r=await fetch("/api/influencer/cover",{method:"POST",body:form,signal:controller.signal}); }
+   catch(err) { throw new Error(err instanceof DOMException && err.name==="AbortError" ? "O envio da capa demorou mais de 45 segundos. Verifique o bucket influencer-covers no Supabase." : "Não foi possível enviar a capa."); }
+   finally { window.clearTimeout(timeout); }
    const d=await r.json().catch(()=>({}));
    if(!r.ok)throw new Error([d.error,d.code ? `Código: ${d.code}` : "",d.hint || ""].filter(Boolean).join(" "));
    setSelected(d.profile);setProfiles(all=>all.map(p=>p.id===d.profile.id?d.profile:p));setCoverFile(null);setCoverPreviewKey(d.profile.cover_r2_key||"");
@@ -129,9 +135,9 @@ export default function InfluencerManagerPage(){
     <div className="im-card im-cover-card">
       <div className="im-card-head"><div><span className="im-kicker">IDENTIDADE</span><h2>Capa do perfil</h2><p>Uma única capa fixa será reutilizada nos Reels publicados por este perfil.</p></div><span className={selected.cover_r2_key?"im-cover-ok":"im-status archived"}>{selected.cover_r2_key?"CONFIGURADA":"NÃO CONFIGURADA"}</span></div>
       <div className="im-cover-upload">
-        <label>Capa fixa<input type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setCoverFile(e.target.files?.[0]||null)} /></label>
-        <div className="im-cover-row"><span>{coverFile?coverFile.name:selected.cover_r2_key?"Capa salva no perfil":"Nenhuma capa selecionada"}</span><button type="button" className="im-primary" disabled={!coverFile||uploadingCover} onClick={()=>void uploadCover()}>{uploadingCover?"Enviando…":"Salvar capa"}</button></div>
-        <small>JPG, PNG ou WEBP · máximo 5 MB.</small>
+        <label>Capa fixa<input key={selected.id} type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setCoverFile(e.target.files?.[0]||null)} /></label>
+        <div className="im-cover-row">{coverPreviewUrl?<img className="im-cover-preview" src={coverPreviewUrl} alt={`Capa de ${selected.name}`} />:null}<span>{coverFile?coverFile.name:selected.cover_r2_key?"Capa salva neste perfil":"Nenhuma capa selecionada"}</span><button type="button" className="im-primary" disabled={!coverFile||uploadingCover} onClick={()=>void uploadCover()}>{uploadingCover?"Enviando…":"Salvar capa"}</button></div>
+        <small>JPG, PNG ou WEBP · máximo 5 MB. A capa é exclusiva deste perfil.</small>
       </div>
     </div>
 
