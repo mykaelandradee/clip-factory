@@ -35,7 +35,7 @@ function nextSlot(times: string[], from = new Date()) {
 
 async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId: string, userId: string) {
   const { data: profile } = await admin.from("influencer_profiles")
-    .select("id,user_id,posting_times,next_publish_at,publishing_enabled")
+    .select("id,user_id,posting_times,next_publish_at,publishing_enabled,cover_r2_key")
     .eq("id",profileId).eq("user_id",userId).maybeSingle();
   if (!profile || !profile.publishing_enabled) return { status:"stopped" };
 
@@ -80,10 +80,13 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
 
   try {
     const caption = (item.publish_description || "").trim() || "✨";
+    const coverUrl = profile.cover_r2_key && publicUrl ? `${publicUrl}/${profile.cover_r2_key}` : "";
+    const mediaParams = new URLSearchParams({ media_type:"REELS", video_url:videoUrl, caption, share_to_feed:"false", access_token:accessToken });
+    if (coverUrl) mediaParams.set("cover_url", coverUrl);
     const containerResponse = await fetch(`${GRAPH}/me/media`,{
       method:"POST",
       headers:{"Content-Type":"application/x-www-form-urlencoded"},
-      body:new URLSearchParams({media_type:"REELS",video_url:videoUrl,caption,share_to_feed:"false",access_token:accessToken}),
+      body:mediaParams,
       cache:"no-store"
     });
     const containerData = await containerResponse.json().catch(()=>({}));
