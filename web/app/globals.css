@@ -2386,3 +2386,131 @@ html,body,button,input,select,textarea{
   .im-header-actions{gap:5px}
   .im-header-actions .im-ghost,.im-header-actions .im-primary{font-size:7px;padding:0 8px}
 }
+
+
+/* Influencer Manager — responsive layout reset */
+.im-page{
+  width:100%;
+  max-width:none;
+  min-height:100vh;
+  box-sizing:border-box;
+  padding:28px clamp(16px,3vw,48px) 72px;
+  overflow-x:hidden;
+}
+.im-header,
+.im-layout,
+.im-alert,
+.im-form-card{
+  width:100%;
+  max-width:1280px;
+  margin-left:auto;
+  margin-right:auto;
+}
+.im-header{
+  min-height:260px;
+  padding:34px 0 28px;
+}
+.im-header-copy{max-width:760px}
+.im-header h1{
+  max-width:760px;
+  font-size:clamp(42px,6vw,76px);
+  line-height:.94;
+}
+.im-header p{
+  max-width:620px;
+  font-size:13px;
+}
+.im-layout{
+  grid-template-columns:minmax(220px,250px) minmax(0,1fr);
+  gap:18px;
+  align-items:start;
+}
+.im-main{min-width:0}
+.im-card{
+  width:100%;
+  box-sizing:border-box;
+  padding:20px;
+  border-radius:16px;
+}
+.im-card-head h2{font-size:19px}
+.im-card-head p{font-size:11px}
+.im-kicker{font-size:9px}
+.im-stats{gap:8px}
+.im-stats div{min-width:76px;padding:10px 12px}
+.im-stats strong{font-size:18px}
+.im-stats span{font-size:8px}
+.im-account-row strong{font-size:13px}
+.im-settings-grid{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+}
+.im-settings-grid label{font-size:9px}
+.im-settings-grid select{font-size:10px;height:38px}
+.im-fixed-copy{grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:16px}
+.im-fixed-copy label{font-size:9px}
+.im-fixed-copy input,.im-fixed-copy textarea{font-size:11px}
+.im-time-grid input{width:92px;height:34px;font-size:10px}
+.im-url-form{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:10px;
+}
+.im-url-form input{width:100%;min-width:0;height:42px;font-size:11px}
+.im-primary,.im-ghost{min-height:38px;font-size:9px;padding:0 13px}
+.im-item{
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:14px;
+  padding:12px;
+}
+.im-item strong{font-size:10px}
+.im-item div span{font-size:8px;max-width:100%}
+.im-item-actions{flex-wrap:wrap}
+.im-item-actions .im-status{font-size:8px}
+.im-item-actions .im-ghost{min-height:32px;font-size:8px}
+.im-field-help{font-size:9px}
+.im-auto-note,.im-stock-warning{font-size:9px}
+.im-queue-row{grid-template-columns:82px 72px minmax(0,1fr);padding:11px 12px}
+.im-queue-row span{font-size:8px}
+.im-queue-row strong{font-size:12px}
+.im-queue-row small{font-size:10px}
+@media(max-width:900px){
+  .im-page{padding:20px 16px 56px}
+  .im-header{padding:28px 0 84px}
+  .im-layout{grid-template-columns:1fr}
+  .im-sidebar{display:none}
+  .im-mobile-profile-trigger{display:flex}
+  .im-stats{position:static;width:100%;margin-top:16px}
+  .im-overview{display:block}
+  .im-overview-actions{margin-top:12px}
+}
+@media(max-width:680px){
+  .im-page{padding:14px 12px 48px}
+  .im-header{padding:22px 0 86px}
+  .im-header h1{font-size:clamp(36px,11vw,52px)}
+  .im-header p{font-size:11px}
+  .im-hero-mark-wrap{opacity:.3;transform:scale(.55);right:-25px;top:12px}
+  .im-header-actions{gap:7px}
+  .im-header-actions>*{min-width:0}
+  .im-card{padding:16px;border-radius:14px}
+  .im-settings-grid,.im-fixed-copy{grid-template-columns:1fr}
+  .im-url-form{grid-template-columns:1fr}
+  .im-url-form .im-primary{width:100%}
+  .im-cover-row{align-items:flex-start;flex-wrap:wrap}
+  .im-cover-row .im-primary{width:100%}
+  .im-item{grid-template-columns:1fr}
+  .im-item-actions{justify-content:flex-start}
+  .im-item-actions>*{max-width:100%}
+  .im-account-row{align-items:stretch}
+  .im-account-row .im-ghost{width:100%}
+  .im-queue-row{grid-template-columns:64px 58px minmax(0,1fr);gap:8px}
+}
+@media(max-width:430px){
+  .im-page{padding-left:10px;padding-right:10px}
+  .im-header-actions .im-ghost,.im-header-actions .im-primary{font-size:8px;padding:0 9px}
+  .im-card{padding:13px}
+  .im-stats{display:grid;grid-template-columns:repeat(3,1fr)}
+  .im-stats div{min-width:0;padding:9px 7px}
+  .im-stats strong{font-size:16px}
+  .im-time-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .im-time-grid input{width:100%}
+}
