@@ -58,9 +58,9 @@ export default function InfluencerManagerPage(){
  async function createProfile(e:FormEvent){
   e.preventDefault();setSaving(true);setError("");
   try{const r=await fetch("/api/influencer/profiles",{method:"POST",headers:{"Content-Type":"application/json"},
-   body:JSON.stringify({name,instagramUsername:instagram||instagramAccount.replace(/^@/,""),postsPerDay:Number(posts),postingTimes:[],captionMode:"zh_ja_random"})}),d=await r.json().catch(()=>({}));
+   body:JSON.stringify({name,instagramUsername:"",postsPerDay:3,postingTimes:[],captionMode:"zh_ja_random"})}),d=await r.json().catch(()=>({}));
    if(!r.ok)throw new Error(d.error||"Não foi possível criar o perfil.");
-   setProfiles(p=>[...p,d.profile]);setSelected(d.profile);setName("");setInstagram("");setPosts("3");setShowNew(false);
+   setProfiles(p=>[...p,d.profile]);setSelected(d.profile);setName("");setInstagram("");setPosts("3");setShowNew(false); window.location.href="/api/influencer/instagram/oauth?profileId="+encodeURIComponent(d.profile.id);
   }catch(e){setError(e instanceof Error?e.message:"Erro ao criar perfil.");}finally{setSaving(false);}
  }
  async function addUrl(e:FormEvent){
@@ -119,7 +119,7 @@ export default function InfluencerManagerPage(){
   <header className="im-header"><div><a className="im-back" href="/">← Clip Factory</a><span className="im-kicker">INFLUENCER MANAGER</span><h1>Influencer Manager</h1><p>Biblioteca, vídeos 9:16 e automação de publicação.</p></div><button className="im-primary" onClick={()=>setShowNew(true)}>+ Novo perfil</button></header>
   {error&&<div className="im-alert">{error}</div>}
   {showNew&&<section className="im-card im-form-card"><div className="im-card-head"><div><span className="im-kicker">NOVO PERFIL</span><h2>Criar perfil</h2></div><button className="im-ghost" onClick={()=>setShowNew(false)}>Fechar</button></div>
-   <form className="im-form" onSubmit={createProfile}><label>Nome do perfil<input value={name} onChange={e=>setName(e.target.value)} placeholder="Memes BR" required /></label><label>Instagram<input value={instagram} onChange={e=>setInstagram(e.target.value)} placeholder="@meuperfil" /></label><label>Reels por dia<input type="number" min="1" max="9" value={posts} onChange={e=>setPosts(e.target.value)} /></label><button className="im-primary" disabled={saving}>{saving?"Criando…":"Criar perfil"}</button></form>
+   <form className="im-form" onSubmit={createProfile}><label>Nome do perfil<input value={name} onChange={e=>setName(e.target.value)} placeholder="Memes BR" required /></label><label>Instagram<span className="im-field-help">A conta será conectada agora e ficará vinculada a este perfil.</span></label><button className="im-primary" disabled={saving}>{saving?"Criando e conectando…":"Criar perfil e conectar Instagram"}</button></form>
   </section>}
   <section className="im-layout">
    <aside className="im-sidebar"><div className="im-side-head"><span>SEUS PERFIS</span><strong>{profiles.length}</strong></div>{loading?<div className="im-empty">Carregando…</div>:profiles.length===0?<div className="im-empty">Crie seu primeiro perfil para começar.</div>:profiles.map(p=><button key={p.id} className={"im-profile "+(selected?.id===p.id?"active":"")} onClick={()=>setSelected(p)}><span className="im-avatar">{p.name.slice(0,1).toUpperCase()}</span><span><strong>{p.name}</strong><small>{p.instagram_username?"@"+p.instagram_username:"Instagram não conectado"}</small></span><b>{p.posts_per_day}/dia</b></button>)}</aside>
