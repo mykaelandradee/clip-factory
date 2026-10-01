@@ -47,7 +47,16 @@ export async function GET(request:Request) {
   const admin=createAdminClient();
   const {data,error}=await admin.from("influencer_content_items").select("*").eq("profile_id",profileId).eq("user_id",user.id).order("created_at",{ascending:false});
   if(error) return NextResponse.json({error:"Não foi possível carregar a biblioteca."},{status:500});
-  return NextResponse.json({items:data||[]},{headers:{"Cache-Control":"no-store"}});
+  const {data:shares}=await admin.from("influencer_content_shares").select("id,item_id,profile_id,status,scheduled_at,published_at,error_message,created_at").eq("profile_id",profileId).eq("user_id",user.id).order("created_at",{ascending:false});
+  let sharedItems:any[]=[];
+  if(shares?.length){
+    const ids=shares.map((share:any)=>share.item_id);
+    const {data:sourceItems}=await admin.from("influencer_content_items").select("*").in("id",ids).eq("user_id",user.id);
+    const byId=new Map((sourceItems||[]).map((item:any)=>[item.id,item]));
+    sharedItems=shares.map((share:any)=>{const item=byId.get(share.item_id);return item?{...item,id:item.id,profile_id:profileId,share_id:share.id,shared:true,status:share.status,scheduled_at:share.scheduled_at,published_at:share.published_at,error_message:share.error_message}:null}).filter(Boolean);
+  }
+  const ownIds=new Set((data||[]).map((item:any)=>item.id));
+  return NextResponse.json({items:[...(data||[]),...sharedItems.filter((item:any)=>!ownIds.has(item.id))].sort((a:any,b:any)=>String(b.created_at).localeCompare(String(a.created_at)))},{headers:{"Cache-Control":"no-store"}});
 }
 
 export async function POST(request:Request) {
@@ -55,6 +64,23 @@ export async function POST(request:Request) {
   if(!user) return NextResponse.json({error:"Entre no Clip Factory."},{status:401});
   const body=await request.json().catch(()=>null);
   const profileId=typeof body?.profileId==="string"?body.profileId:"";
+
+  if(body?.action==="share"){
+    const itemId=typeof body?.itemId==="string"?body.itemId:"";
+    const targetProfileIds=Array.isArray(body?.targetProfileIds)?body.targetProfileIds.filter((v:unknown)=>typeof v==="string"): [];
+    if(!itemId||!targetProfileIds.length) return NextResponse.json({error:"Informe o conteúdo e pelo menos um perfil de destino."},{status:400});
+    const admin=createAdminClient();
+    const {data:item}=await admin.from("influencer_content_items").select("id,profile_id,user_id,status").eq("id",itemId).eq("user_id",user.id).maybeSingle();
+    if(!item) return NextResponse.json({error:"Conteúdo não encontrado."},{status:404});
+    const uniqueTargets=[...new Set(targetProfileIds)].filter((id:string)=>id!==item.profile_id);
+    if(!uniqueTargets.length) return NextResponse.json({error:"Escolha um perfil diferente do perfil atual."},{status:400});
+    const {data:profiles}=await admin.from("influencer_profiles").select("id").in("id",uniqueTargets).eq("user_id",user.id);
+    if((profiles||[]).length!==uniqueTargets.length) return NextResponse.json({error:"Um ou mais perfis de destino não pertencem à sua conta."},{status:403});
+    const rows=uniqueTargets.map((targetId:string)=>({item_id:item.id,profile_id:targetId,user_id:user.id,status:item.status==="available"?"available":"queued"}));
+    const {data:shares,error}=await admin.from("influencer_content_shares").upsert(rows,{onConflict:"item_id,profile_id"}).select("*");
+    if(error){console.error("Influencer library share failed:",error);return NextResponse.json({error:"Não foi possível compartilhar a biblioteca."},{status:500});}
+    return NextResponse.json({ok:true,shares:shares||[]},{status:201});
+  }
   const sourceUrl=typeof body?.sourceUrl==="string"?body.sourceUrl.trim():"";
   let title=typeof body?.title==="string"?body.title.trim().slice(0,500):"";
   if(!profileId||!sourceUrl||sourceUrl.length>2048) return NextResponse.json({error:"Informe o perfil e a URL do vídeo."},{status:400});
