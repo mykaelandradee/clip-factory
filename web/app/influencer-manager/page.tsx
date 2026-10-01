@@ -8,7 +8,7 @@ type Profile={
   repeat_when_exhausted:boolean; cover_r2_key?:string|null; publishing_enabled?:boolean; next_publish_at?:string|null;
 };
 type Item={
-  id:string; source_url:string; title:string|null; status:string; created_at:string;
+  id:string; source_url:string; title:string|null; status:string; created_at:string; share_id?:string|null; shared?:boolean;
   r2_key?:string|null; result_url?:string|null; publish_title?:string|null;
   publish_description?:string|null; source_description?:string|null;
   error_message?:string|null; progress?:number; stage?:string|null;
@@ -165,7 +165,7 @@ export default function InfluencerManagerPage(){
  async function removeItem(id:string){
   const item=items.find(i=>i.id===id);if(!item)return;
   if(!window.confirm(item.status==="processing"?"Cancelar o processamento deste vídeo?":"Remover este vídeo da biblioteca?"))return;
-  const r=await fetch("/api/influencer/content?id="+encodeURIComponent(id),{method:"DELETE"}),d=await r.json().catch(()=>({}));
+  const r=await fetch("/api/influencer/content?id="+encodeURIComponent(id)+(item.share_id?"&shareId="+encodeURIComponent(item.share_id):""),{method:"DELETE"}),d=await r.json().catch(()=>({}));
   if(r.ok)setItems(v=>v.filter(i=>i.id!==id));else setError(d.error||"Não foi possível excluir o conteúdo.");
  }
  const available=useMemo(()=>items.filter(i=>i.status==="available").length,[items]);
