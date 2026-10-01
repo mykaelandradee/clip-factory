@@ -111,7 +111,7 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
   }
 
   const originalStatus=item.status;
-  if (shareId) await admin.from("influencer_content_shares").update({status:"scheduled",scheduled_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq("id",shareId).eq("user_id",userId);
+  if (shareId) await admin.from("influencer_content_shares").update({status:"scheduled",scheduled_at:new Date().toISOString(),}).eq("id",shareId).eq("user_id",userId);
   else await admin.from("influencer_content_items").update({status:"scheduled",scheduled_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq("id",item.id).eq("user_id",userId);
 
   try {
