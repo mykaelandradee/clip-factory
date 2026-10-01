@@ -42,7 +42,11 @@ export async function POST(request: Request) {
     console.error("Influencer profile creation failed:", { code: error.code, message: error.message, details: error.details });
     const message = error.code === "42P01"
       ? "O banco do Influencer Manager ainda não foi configurado no Supabase. Execute a migration 20260930_influencer_manager.sql."
-      : "Não foi possível criar o perfil.";
+      : error.code === "42703"
+        ? `O banco do Influencer Manager está desatualizado: a coluna "${error.message.match(/column [^ ]+/i)?.[0]?.replace(/^column /i, "") || "necessária"}" não existe. Execute novamente a migration 20260930_influencer_manager.sql no Supabase.`
+        : error.code === "23502"
+          ? "O banco do Influencer Manager está com uma coluna obrigatória ausente. Execute novamente a migration no Supabase."
+          : "Não foi possível criar o perfil. Código do banco: " + (error.code || "desconhecido");
     return NextResponse.json({ error: message }, { status: 500 });
   }
   const defaultCaptions = [
