@@ -36,9 +36,9 @@ export default function InfluencerManagerPage(){
    if(!r.ok)throw new Error(d.error||"Não foi possível carregar a biblioteca.");setItems(d.items||[]);
   }catch(e){setError(e instanceof Error?e.message:"Erro ao carregar a biblioteca.");}
  }
- useEffect(()=>{void loadProfiles();void loadInstagramConnection();},[]);
- async function loadInstagramConnection(){
-  try{const r=await fetch("/api/instagram/status",{cache:"no-store"}),d=await r.json().catch(()=>({}));
+ useEffect(()=>{void loadProfiles();},[]);
+ async function loadInstagramConnection(profileId:string){
+  try{const r=await fetch("/api/influencer/instagram/status?profileId="+encodeURIComponent(profileId),{cache:"no-store"}),d=await r.json().catch(()=>({}));
    setInstagramConnected(Boolean(r.ok&&d.connected));
    setInstagramAccount(typeof d.username==="string"&&d.username?`@${d.username.replace(/^@/,"")}`:"");
   }catch{setInstagramConnected(false);setInstagramAccount("");}
@@ -46,7 +46,7 @@ export default function InfluencerManagerPage(){
  useEffect(()=>{
   setCoverFile(null);
   setCoverPreviewKey(selected?.cover_r2_key||"");
-  if(selected)void loadItems(selected.id);else setItems([]);
+  if(selected){void loadItems(selected.id);void loadInstagramConnection(selected.id);}else{setItems([]);setInstagramConnected(false);setInstagramAccount("");}
  },[selected?.id,selected?.cover_r2_key]);
  useEffect(()=>{if(!selected||!items.some(i=>i.status==="processing"))return;
   const timer=window.setInterval(()=>{void Promise.all(items.filter(i=>i.status==="processing").map(async item=>{
@@ -130,7 +130,7 @@ export default function InfluencerManagerPage(){
      <form className="im-url-form" onSubmit={addUrl}><input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..." required /><button className="im-primary" disabled={adding}>{adding?"Processando…":"Adicionar vídeo"}</button></form>
     </div>
 
-    <div className="im-card im-account"><div className="im-card-head"><div><span className="im-kicker">CONTA VINCULADA</span><h2>Instagram</h2><p>A publicação automática usa a conta Instagram conectada ao seu usuário do Clip Factory.</p></div><span className={"im-status "+(instagramConnected?"available":"archived")}>{instagramConnected?"CONECTADO":"NÃO CONECTADO"}</span></div><div className="im-account-row"><strong>{instagramAccount||"Nenhuma conta Instagram conectada"}</strong>{!instagramConnected&&<a className="im-ghost" href="/api/instagram/oauth">Conectar Instagram</a>}</div></div>
+    <div className="im-card im-account"><div className="im-card-head"><div><span className="im-kicker">CONTA VINCULADA</span><h2>Instagram</h2><p>Esta conta pertence somente a este perfil e é independente do Instagram conectado na tela principal.</p></div><span className={"im-status "+(instagramConnected?"available":"archived")}>{instagramConnected?"CONECTADO":"NÃO CONECTADO"}</span></div><div className="im-account-row"><strong>{instagramAccount||"Nenhuma conta Instagram conectada"}</strong>{!instagramConnected&&<a className="im-ghost" href={"/api/influencer/instagram/oauth?profileId="+encodeURIComponent(selected.id)}>Conectar Instagram</a>}</div></div>
 
     <div className="im-card im-settings"><div className="im-card-head"><div><span className="im-kicker">PUBLICAÇÃO</span><h2>Controle da publicação</h2><p>Execute para começar a publicar a biblioteca. Pare para interromper a fila.</p></div>
       <span className={"im-status "+(selected.publishing_enabled?"available":"archived")}>{selected.publishing_enabled?"EXECUTANDO":"PARADA"}</span></div>
