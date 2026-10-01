@@ -19,7 +19,7 @@ export default function InfluencerManagerPage(){
  const [profiles,setProfiles]=useState<Profile[]>([]),[selected,setSelected]=useState<Profile|null>(null),[items,setItems]=useState<Item[]>([]);
  const [loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[error,setError]=useState("");
  const [showNew,setShowNew]=useState(false),[name,setName]=useState(""),[instagram,setInstagram]=useState(""),[posts,setPosts]=useState("3");
- const [url,setUrl]=useState(""),[adding,setAdding]=useState(false),[publishing,setPublishing]=useState(false),[coverFile,setCoverFile]=useState<File|null>(null),[uploadingCover,setUploadingCover]=useState(false);
+ const [url,setUrl]=useState(""),[adding,setAdding]=useState(false),[publishing,setPublishing]=useState(false),[publishingItem,setPublishingItem]=useState<string|null>(null),[coverFile,setCoverFile]=useState<File|null>(null),[uploadingCover,setUploadingCover]=useState(false);
  const [coverPreviewKey,setCoverPreviewKey]=useState("");
  const [instagramConnected,setInstagramConnected]=useState(false),[instagramAccount,setInstagramAccount]=useState("");
  const coverPreviewUrl=selected?.cover_r2_key ? `/api/influencer/cover?profileId=${encodeURIComponent(selected.id)}&v=${encodeURIComponent(selected.cover_r2_key)}` : "";
@@ -106,6 +106,31 @@ export default function InfluencerManagerPage(){
    }
   }catch(e){setError(e instanceof Error?e.message:"Erro na publicação.");}finally{setPublishing(false);}
  }
+ async function publishItem(itemId:string){
+  if(!selected)return;
+  setPublishingItem(itemId);setError("");
+  try{
+   const r=await fetch("/api/influencer/publish",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"publish-item",profileId:selected.id,itemId})});
+   const d=await r.json().catch(()=>({}));
+   if(!r.ok)throw new Error(d.error||d.message||"Não foi possível publicar o Reel.");
+   await loadItems(selected.id);
+   await loadProfiles();
+  }catch(e){setError(e instanceof Error?e.message:"Erro ao publicar o Reel.");}
+  finally{setPublishingItem(null);}
+ }
+ async function deleteProfile(){
+  if(!selected)return;
+  if(!window.confirm(`Excluir o perfil "${selected.name}" e toda a biblioteca dele? Esta ação não pode ser desfeita.`))return;
+  setSaving(true);setError("");
+  try{
+   const r=await fetch("/api/influencer/profiles?id="+encodeURIComponent(selected.id),{method:"DELETE"});
+   const d=await r.json().catch(()=>({}));
+   if(!r.ok)throw new Error(d.error||"Não foi possível excluir o perfil.");
+   const remaining=profiles.filter(p=>p.id!==selected.id);
+   setProfiles(remaining);setSelected(remaining[0]||null);setItems([]);
+  }catch(e){setError(e instanceof Error?e.message:"Erro ao excluir o perfil.");}
+  finally{setSaving(false);}
+ }
  async function removeItem(id:string){
   const item=items.find(i=>i.id===id);if(!item)return;
   if(!window.confirm(item.status==="processing"?"Cancelar o processamento deste vídeo?":"Remover este vídeo da biblioteca?"))return;
@@ -124,7 +149,7 @@ export default function InfluencerManagerPage(){
   <section className="im-layout">
    <aside className="im-sidebar"><div className="im-side-head"><span>SEUS PERFIS</span><strong>{profiles.length}</strong></div>{loading?<div className="im-empty">Carregando…</div>:profiles.length===0?<div className="im-empty">Crie seu primeiro perfil para começar.</div>:profiles.map(p=><button key={p.id} className={"im-profile "+(selected?.id===p.id?"active":"")} onClick={()=>setSelected(p)}><span className="im-avatar">{p.name.slice(0,1).toUpperCase()}</span><span><strong>{p.name}</strong><small>{p.instagram_username?"@"+p.instagram_username:"Instagram não conectado"}</small></span><b>{p.posts_per_day}/dia</b></button>)}</aside>
    <section className="im-main">{!selected?<div className="im-card im-empty-main"><strong>Crie um perfil para começar.</strong><span>Depois, adicione URLs de vídeos.</span></div>:<>
-    <div className="im-card im-overview"><div><span className="im-kicker">PERFIL ATIVO</span><h2>{selected.name}</h2><p>{selected.instagram_username?"@"+selected.instagram_username:"Conecte um Instagram para publicar automaticamente."}</p></div><div className="im-stats"><div><strong>{items.length}</strong><span>vídeos</span></div><div><strong>{available}</strong><span>prontos</span></div><div><strong>{days}</strong><span>dias</span></div></div></div>
+    <div className="im-card im-overview"><div><span className="im-kicker">PERFIL ATIVO</span><h2>{selected.name}</h2><p>{selected.instagram_username?"@"+selected.instagram_username:"Conecte um Instagram para publicar automaticamente."}</p></div><div className="im-overview-actions"><button className="im-ghost im-danger" disabled={saving} onClick={()=>void deleteProfile()}>Excluir perfil</button></div><div className="im-stats"><div><strong>{items.length}</strong><span>vídeos</span></div><div><strong>{available}</strong><span>prontos</span></div><div><strong>{days}</strong><span>dias</span></div></div></div>
 
     <div className="im-card im-account"><div className="im-card-head"><div><span className="im-kicker">CONTA VINCULADA</span><h2>Instagram</h2><p>Esta conta pertence somente a este perfil e é independente do Instagram conectado na tela principal.</p></div><span className={"im-status "+(instagramConnected?"available":"archived")}>{instagramConnected?"CONECTADO":"NÃO CONECTADO"}</span></div><div className="im-account-row"><strong>{instagramAccount||"Nenhuma conta Instagram conectada"}</strong>{!instagramConnected&&<a className="im-ghost" href={"/api/influencer/instagram/oauth?profileId="+encodeURIComponent(selected.id)}>Conectar Instagram</a>}</div></div>
 
@@ -158,7 +183,7 @@ export default function InfluencerManagerPage(){
        {item.result_url&&<video className="im-video-preview" src={item.result_url} controls preload="metadata" />}
        {(item.publish_title||item.publish_description)&&<div className="im-reel-copy"><label>Nome do Reel<strong>{item.publish_title||"—"}</strong></label><label>Descrição para publicação<strong>{item.publish_description||"—"}</strong></label></div>}
        {item.source_description&&<div className="im-source-copy"><label>Descrição original do vídeo</label><p>{item.source_description}</p></div>}
-      </div><div className="im-item-actions"><span className={"im-status "+item.status}>{STATUS[item.status]||item.status}</span>{item.status==="processing"?<button className="im-ghost" onClick={()=>void removeItem(item.id)}>Cancelar</button>:item.result_url?<a className="im-ghost" href={item.result_url} target="_blank" rel="noreferrer">Abrir vídeo</a>:null}{item.status!=="processing"&&item.status!=="published"&&<button className="im-ghost" onClick={()=>void removeItem(item.id)}>Excluir</button>}</div></article>)}</div>}
+      </div><div className="im-item-actions"><span className={"im-status "+item.status}>{STATUS[item.status]||item.status}</span>{item.status==="processing"?<button className="im-ghost" onClick={()=>void removeItem(item.id)}>Cancelar</button>:item.result_url?<a className="im-ghost" href={item.result_url} target="_blank" rel="noreferrer">Abrir vídeo</a>:null}{item.status==="available"&&<button className="im-primary im-publish-item" disabled={publishingItem===item.id} onClick={()=>void publishItem(item.id)}>{publishingItem===item.id?"Publicando…":"Publicar Reel"}</button>}{item.status!=="processing"&&item.status!=="published"&&<button className="im-ghost" onClick={()=>void removeItem(item.id)}>Excluir</button>}</div></article>)}</div>}
     </div>
    </>}</section>
   </section>
