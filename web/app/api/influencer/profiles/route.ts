@@ -28,12 +28,13 @@ export async function POST(request: Request) {
   const name = typeof body?.name === "string" ? body.name.trim() : "";
   const instagramUsername = typeof body?.instagramUsername === "string" ? body.instagramUsername.trim().replace(/^@/, "") : "";
   const postsPerDay = Math.min(9, Math.max(1, Number(body?.postsPerDay) || 3));
+  const description = typeof body?.description === "string" ? body.description.trim().slice(0, 2000) : "";
   const postingTimes = Array.isArray(body?.postingTimes) ? body.postingTimes.filter((v: unknown) => typeof v === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(v)) : [];
   const captionMode = ["zh_random","ja_random","zh_ja_random","custom"].includes(body?.captionMode) ? body.captionMode : "zh_ja_random";
   if (!name || name.length > 80) return NextResponse.json({ error: "Informe um nome de perfil válido." }, { status: 400 });
   const admin = createAdminClient();
   const { data, error } = await admin.from("influencer_profiles").insert({
-    user_id: user.id, name, instagram_username: instagramUsername || null,
+    user_id: user.id, name, description: description || null, instagram_username: instagramUsername || null,
     posts_per_day: postsPerDay, posting_times: postingTimes, caption_mode: captionMode,
     auto_publish: false, repeat_when_exhausted: false, fixed_publish_title: typeof body?.fixedPublishTitle === "string" ? body.fixedPublishTitle.trim().slice(0, 500) || null : null, fixed_publish_description: typeof body?.fixedPublishDescription === "string" ? body.fixedPublishDescription.trim().slice(0, 5000) || null : null, share_to_feed: body?.shareToFeed !== false
   }).select("*").single();
@@ -67,7 +68,7 @@ export async function PATCH(request: Request) {
   const id = typeof body?.id === "string" ? body.id : "";
   if (!id) return NextResponse.json({ error: "Perfil inválido." }, { status: 400 });
   const allowed: Record<string, unknown> = {};
-  for (const key of ["name","instagram_username","posts_per_day","posting_times","caption_mode","cover_r2_key","auto_publish","repeat_when_exhausted","fixed_publish_title","fixed_publish_description","share_to_feed"]) {
+  for (const key of ["name","description","instagram_username","posts_per_day","posting_times","caption_mode","cover_r2_key","auto_publish","repeat_when_exhausted","fixed_publish_title","fixed_publish_description","share_to_feed"]) {
     if (body && Object.prototype.hasOwnProperty.call(body, key)) allowed[key] = body[key];
   }
   const admin = createAdminClient();
