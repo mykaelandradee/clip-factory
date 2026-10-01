@@ -151,9 +151,16 @@ export async function PATCH(request:Request) {
 export async function DELETE(request:Request) {
   const user=await auth();
   if(!user) return NextResponse.json({error:"Entre no Clip Factory."},{status:401});
-  const id=new URL(request.url).searchParams.get("id")||"";
+  const requestUrl=new URL(request.url);
+  const id=requestUrl.searchParams.get("id")||"";
+  const shareId=requestUrl.searchParams.get("shareId")||"";
   if(!id) return NextResponse.json({error:"Conteúdo inválido."},{status:400});
   const admin=createAdminClient();
+  if(shareId){
+    const {error:shareError}=await admin.from("influencer_content_shares").delete().eq("id",shareId).eq("item_id",id).eq("user_id",user.id);
+    if(shareError)return NextResponse.json({error:"Não foi possível remover o compartilhamento."},{status:500});
+    return NextResponse.json({ok:true,shared:true});
+  }
   const {data:item}=await admin.from("influencer_content_items").select("id,status,worker_run_id,r2_key").eq("id",id).eq("user_id",user.id).maybeSingle();
   if(!item) return NextResponse.json({error:"Conteúdo não encontrado."},{status:404});
   if(item.status==="processing"&&item.worker_run_id){
