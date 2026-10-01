@@ -126,11 +126,16 @@ export default function InfluencerManagerPage(){
    <section className="im-main">{!selected?<div className="im-card im-empty-main"><strong>Crie um perfil para começar.</strong><span>Depois, adicione URLs de vídeos.</span></div>:<>
     <div className="im-card im-overview"><div><span className="im-kicker">PERFIL ATIVO</span><h2>{selected.name}</h2><p>{selected.instagram_username?"@"+selected.instagram_username:"Conecte um Instagram para publicar automaticamente."}</p></div><div className="im-stats"><div><strong>{items.length}</strong><span>vídeos</span></div><div><strong>{available}</strong><span>prontos</span></div><div><strong>{days}</strong><span>dias</span></div></div></div>
 
-    <div className="im-card im-add"><div className="im-card-head"><div><span className="im-kicker">BIBLIOTECA</span><h2>Adicionar vídeo</h2><p>Cole uma URL. O vídeo será baixado uma vez, convertido para 9:16 e salvo no R2.</p></div></div>
-     <form className="im-url-form" onSubmit={addUrl}><input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..." required /><button className="im-primary" disabled={adding}>{adding?"Processando…":"Adicionar vídeo"}</button></form>
-    </div>
-
     <div className="im-card im-account"><div className="im-card-head"><div><span className="im-kicker">CONTA VINCULADA</span><h2>Instagram</h2><p>Esta conta pertence somente a este perfil e é independente do Instagram conectado na tela principal.</p></div><span className={"im-status "+(instagramConnected?"available":"archived")}>{instagramConnected?"CONECTADO":"NÃO CONECTADO"}</span></div><div className="im-account-row"><strong>{instagramAccount||"Nenhuma conta Instagram conectada"}</strong>{!instagramConnected&&<a className="im-ghost" href={"/api/influencer/instagram/oauth?profileId="+encodeURIComponent(selected.id)}>Conectar Instagram</a>}</div></div>
+
+    <div className="im-card im-cover-card">
+      <div className="im-card-head"><div><span className="im-kicker">IDENTIDADE</span><h2>Capa do perfil</h2><p>Uma única capa fixa será reutilizada nos Reels publicados por este perfil.</p></div><span className={selected.cover_r2_key?"im-cover-ok":"im-status archived"}>{selected.cover_r2_key?"CONFIGURADA":"NÃO CONFIGURADA"}</span></div>
+      <div className="im-cover-upload">
+        <label>Capa fixa<input key={selected.id} type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setCoverFile(e.target.files?.[0]||null)} /></label>
+        <div className="im-cover-row">{coverPreviewUrl?<img className="im-cover-preview" src={coverPreviewUrl} alt={`Capa de ${selected.name}`} />:null}<span>{coverFile?coverFile.name:selected.cover_r2_key?"Capa salva neste perfil":"Nenhuma capa selecionada"}</span><button type="button" className="im-primary" disabled={!coverFile||uploadingCover} onClick={()=>void uploadCover()}>{uploadingCover?"Enviando…":"Salvar capa"}</button></div>
+        <small>JPG, PNG ou WEBP · máximo 5 MB. A capa é exclusiva deste perfil.</small>
+      </div>
+    </div>
 
     <div className="im-card im-settings"><div className="im-card-head"><div><span className="im-kicker">PUBLICAÇÃO</span><h2>Controle da publicação</h2><p>Execute para começar a publicar a biblioteca. Pare para interromper a fila.</p></div>
       <span className={"im-status "+(selected.publishing_enabled?"available":"archived")}>{selected.publishing_enabled?"EXECUTANDO":"PARADA"}</span></div>
@@ -141,13 +146,8 @@ export default function InfluencerManagerPage(){
       <div className="im-times"><span className="im-kicker">HORÁRIOS DIÁRIOS</span><div className="im-time-grid">{Array.from({length:selected.posts_per_day},(_,i)=><label key={i}>Post {i+1}<input type="time" value={selected.posting_times?.[i]||["09:00","11:30","14:00","16:30","19:00","21:30","23:00","08:00","12:00"][i]} onChange={e=>{const times=[...(selected.posting_times||[])];while(times.length<selected.posts_per_day)times.push("");times[i]=e.target.value;void updateProfile({posting_times:times});}} /></label>)}</div><small>O primeiro Reel é publicado ao executar. Depois, a fila segue os horários definidos.</small></div>
     </div>
 
-    <div className="im-card im-cover-card">
-      <div className="im-card-head"><div><span className="im-kicker">IDENTIDADE</span><h2>Capa do perfil</h2><p>Uma única capa fixa será reutilizada nos Reels publicados por este perfil.</p></div><span className={selected.cover_r2_key?"im-cover-ok":"im-status archived"}>{selected.cover_r2_key?"CONFIGURADA":"NÃO CONFIGURADA"}</span></div>
-      <div className="im-cover-upload">
-        <label>Capa fixa<input key={selected.id} type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setCoverFile(e.target.files?.[0]||null)} /></label>
-        <div className="im-cover-row">{coverPreviewUrl?<img className="im-cover-preview" src={coverPreviewUrl} alt={`Capa de ${selected.name}`} />:null}<span>{coverFile?coverFile.name:selected.cover_r2_key?"Capa salva neste perfil":"Nenhuma capa selecionada"}</span><button type="button" className="im-primary" disabled={!coverFile||uploadingCover} onClick={()=>void uploadCover()}>{uploadingCover?"Enviando…":"Salvar capa"}</button></div>
-        <small>JPG, PNG ou WEBP · máximo 5 MB. A capa é exclusiva deste perfil.</small>
-      </div>
+    <div className="im-card im-add"><div className="im-card-head"><div><span className="im-kicker">BIBLIOTECA</span><h2>Adicionar vídeo</h2><p>Cole uma URL. O vídeo será baixado uma vez, convertido para 9:16 e salvo no R2.</p></div></div>
+     <form className="im-url-form" onSubmit={addUrl}><input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..." required /><button className="im-primary" disabled={adding}>{adding?"Processando…":"Adicionar vídeo"}</button></form>
     </div>
 
     <div className="im-card im-library"><div className="im-card-head"><div><span className="im-kicker">CONTEÚDO</span><h2>Biblioteca</h2></div><span className="im-count">{items.length}</span></div>
