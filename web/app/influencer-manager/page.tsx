@@ -23,6 +23,9 @@ export default function InfluencerManagerPage(){
  const [coverPreviewKey,setCoverPreviewKey]=useState("");
  const [localCoverPreview,setLocalCoverPreview]=useState("");
  const [instagramConnected,setInstagramConnected]=useState(false),[instagramAccount,setInstagramAccount]=useState("");
+ const [shareItemId,setShareItemId]=useState<string|null>(null);
+ const [shareTargets,setShareTargets]=useState<string[]>([]);
+ const [sharing,setSharing]=useState(false);
  const coverPreviewUrl=selected?.cover_r2_key ? `/api/influencer/cover?profileId=${encodeURIComponent(selected.id)}&v=${encodeURIComponent(selected.cover_r2_key)}` : "";
 
  async function loadProfiles(){
@@ -147,6 +150,18 @@ export default function InfluencerManagerPage(){
   }catch(e){setError(e instanceof Error?e.message:"Erro ao excluir o perfil.");}
   finally{setSaving(false);}
  }
+ async function shareItem(){
+  if(!shareItemId||!shareTargets.length)return;
+  setSharing(true);setError("");
+  try{
+   const r=await fetch("/api/influencer/content",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"share",profileId:selected?.id,itemId:shareItemId,targetProfileIds:shareTargets})});
+   const d=await r.json().catch(()=>({}));
+   if(!r.ok)throw new Error(d.error||"Não foi possível compartilhar a biblioteca.");
+   setShareItemId(null);setShareTargets([]);
+   if(selected)await loadItems(selected.id);
+  }catch(e){setError(e instanceof Error?e.message:"Erro ao compartilhar.");}
+  finally{setSharing(false);}
+ }
  async function removeItem(id:string){
   const item=items.find(i=>i.id===id);if(!item)return;
   if(!window.confirm(item.status==="processing"?"Cancelar o processamento deste vídeo?":"Remover este vídeo da biblioteca?"))return;
@@ -203,6 +218,6 @@ export default function InfluencerManagerPage(){
       </div><div className="im-item-actions"><span className={"im-status "+item.status}>{STATUS[item.status]||item.status}</span>{item.status==="processing"?<button className="im-ghost" onClick={()=>void removeItem(item.id)}>Cancelar</button>:item.result_url?<a className="im-ghost" href={item.result_url} target="_blank" rel="noreferrer">Abrir vídeo</a>:null}{item.status!=="processing"&&item.status!=="failed"&&<button className="im-ghost" disabled={randomizingItem===item.id} onClick={()=>void randomizeCopy(item.id)}>{randomizingItem===item.id?"Gerando…":"↻ Nome + descrição"}</button>}{(item.status==="available"||item.status==="published")&&<button className="im-primary im-publish-item" disabled={publishingItem===item.id} onClick={()=>void publishItem(item.id)}>{publishingItem===item.id?"Publicando…":item.status==="published"?"Compartilhar Reel":"Publicar Reel"}</button>}{item.status!=="processing"&&item.status!=="published"&&<button className="im-ghost" onClick={()=>void removeItem(item.id)}>Excluir</button>}</div></article>)}</div>}
     </div>
    </>}</section>
-  </section>
+  {shareItemId&&<div className="im-modal-backdrop" role="dialog" aria-modal="true"><div className="im-modal"><div className="im-card-head"><div><span className="im-kicker">BIBLIOTECA COMPARTILHADA</span><h2>Compartilhar conteúdo</h2><p>O vídeo processado continua no R2 e será reutilizado pelos perfis selecionados.</p></div><button className="im-ghost" onClick={()=>setShareItemId(null)}>Fechar</button></div><div className="im-share-list">{profiles.filter(p=>p.id!==selected?.id).map(p=><label key={p.id} className="im-check"><input type="checkbox" checked={shareTargets.includes(p.id)} onChange={e=>setShareTargets(v=>e.target.checked?[...v,p.id]:v.filter(id=>id!==p.id))}/><span>{p.name} {p.instagram_username?("· @"+p.instagram_username.replace(/^@/,"")):""}</span></label>)}</div><div className="im-modal-actions"><button className="im-primary" disabled={sharing||!shareTargets.length} onClick={()=>void shareItem()}>{sharing?"Compartilhando…":"Compartilhar biblioteca"}</button></div></div></div>} </section>
  </main>;
 }
