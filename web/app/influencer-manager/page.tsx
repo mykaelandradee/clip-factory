@@ -9,7 +9,7 @@ type Profile={
 };
 type Item={
   id:string; source_url:string; title:string|null; status:string; created_at:string;
-  result_url?:string|null; r2_key?:string|null; publish_title?:string|null;
+  r2_key?:string|null; publish_title?:string|null;
   publish_description?:string|null; source_description?:string|null;
   error_message?:string|null; progress?:number; stage?:string|null;
 };
