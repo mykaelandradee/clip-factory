@@ -35,7 +35,7 @@ export async function POST(request: Request) {
   const { data, error } = await admin.from("influencer_profiles").insert({
     user_id: user.id, name, instagram_username: instagramUsername || null,
     posts_per_day: postsPerDay, posting_times: postingTimes, caption_mode: captionMode,
-    auto_publish: false, repeat_when_exhausted: false
+    auto_publish: false, repeat_when_exhausted: false, fixed_publish_title: typeof body?.fixedPublishTitle === "string" ? body.fixedPublishTitle.trim().slice(0, 500) || null : null, fixed_publish_description: typeof body?.fixedPublishDescription === "string" ? body.fixedPublishDescription.trim().slice(0, 5000) || null : null, share_to_feed: body?.shareToFeed !== false
   }).select("*").single();
   if (error) {
     console.error("Influencer profile creation failed:", { code: error.code, message: error.message, details: error.details });
@@ -67,7 +67,7 @@ export async function PATCH(request: Request) {
   const id = typeof body?.id === "string" ? body.id : "";
   if (!id) return NextResponse.json({ error: "Perfil inválido." }, { status: 400 });
   const allowed: Record<string, unknown> = {};
-  for (const key of ["name","instagram_username","posts_per_day","posting_times","caption_mode","cover_r2_key","auto_publish","repeat_when_exhausted"]) {
+  for (const key of ["name","instagram_username","posts_per_day","posting_times","caption_mode","cover_r2_key","auto_publish","repeat_when_exhausted","fixed_publish_title","fixed_publish_description","share_to_feed"]) {
     if (body && Object.prototype.hasOwnProperty.call(body, key)) allowed[key] = body[key];
   }
   const admin = createAdminClient();
