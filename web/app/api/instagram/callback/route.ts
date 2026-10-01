@@ -17,6 +17,7 @@ export async function GET(request: Request) {
   const code = url.searchParams.get("code");
   const returnedState = url.searchParams.get("state");
   const expectedState = readCookie(request, getInstagramOAuthStateCookieName());
+  const influencerProfileId = readCookie(request, "cf_influencer_instagram_profile");
 
   if (!code || !returnedState || !expectedState || returnedState !== expectedState) {
     return NextResponse.redirect(new URL("/?instagram_error=invalid_callback", publicOrigin));
@@ -79,11 +80,40 @@ export async function GET(request: Request) {
 
     if (error) {
       console.error("Instagram connection save failed:", error.message);
-      return NextResponse.redirect(new URL("/?instagram_error=save_failed", publicOrigin));
+      return NextResponse.redirect(new URL(influencerProfileId ? "/influencer-manager?instagram_profile_error=save_failed" : "/?instagram_error=save_failed", publicOrigin));
     }
 
-    const response = NextResponse.redirect(new URL("/?instagram_connected=1#", publicOrigin));
+    if (influencerProfileId) {
+      const { data: ownedProfile } = await admin.from("influencer_profiles")
+        .select("id").eq("id", influencerProfileId).eq("user_id", user.id).maybeSingle();
+      if (!ownedProfile) {
+        return NextResponse.redirect(new URL("/influencer-manager?instagram_profile_error=invalid_profile", publicOrigin));
+      }
+      const { error: influencerError } = await admin.from("influencer_instagram_connections").upsert({
+        profile_id: influencerProfileId,
+        user_id: user.id,
+        instagram_user_id: String(profile.user_id),
+        username: profile.username ?? null,
+        access_token_encrypted: encryptInstagramAccessToken(longLived.accessToken),
+        expires_at: longLived.expiresIn > 0 ? new Date(Date.now() + longLived.expiresIn * 1000).toISOString() : null,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "profile_id" });
+      if (influencerError) {
+        console.error("Influencer Instagram connection save failed:", influencerError.message);
+        return NextResponse.redirect(new URL("/influencer-manager?instagram_profile_error=save_failed", publicOrigin));
+      }
+      await admin.from("influencer_profiles").update({
+        instagram_username: profile.username ?? null,
+        updated_at: new Date().toISOString(),
+      }).eq("id", influencerProfileId).eq("user_id", user.id);
+    }
+
+    const response = NextResponse.redirect(new URL(
+      influencerProfileId ? "/influencer-manager?instagram_profile_connected=1" : "/?instagram_connected=1#",
+      publicOrigin
+    ));
     response.cookies.delete(getInstagramOAuthStateCookieName());
+    response.cookies.delete("cf_influencer_instagram_profile");
     return response;
   } catch (error) {
     console.error("Instagram callback failed:", error);
