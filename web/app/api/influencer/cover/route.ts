@@ -35,8 +35,9 @@ export async function POST(request: Request) {
     region: "auto",
     endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
     credentials: { accessKeyId, secretAccessKey },
-    forcePathStyle: false,
+    forcePathStyle: true,
     maxAttempts: 3,
+    requestChecksumCalculation: "WHEN_REQUIRED",
   });
 
   try {
