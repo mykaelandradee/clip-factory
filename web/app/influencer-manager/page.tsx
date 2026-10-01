@@ -19,7 +19,7 @@ export default function InfluencerManagerPage(){
  const [profiles,setProfiles]=useState<Profile[]>([]),[selected,setSelected]=useState<Profile|null>(null),[items,setItems]=useState<Item[]>([]);
  const [loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[error,setError]=useState("");
  const [showNew,setShowNew]=useState(false),[name,setName]=useState(""),[instagram,setInstagram]=useState(""),[posts,setPosts]=useState("3");
- const [url,setUrl]=useState(""),[adding,setAdding]=useState(false),[publishing,setPublishing]=useState(false),[publishingItem,setPublishingItem]=useState<string|null>(null),[coverFile,setCoverFile]=useState<File|null>(null),[uploadingCover,setUploadingCover]=useState(false);
+ const [url,setUrl]=useState(""),[adding,setAdding]=useState(false),[publishing,setPublishing]=useState(false),[publishingItem,setPublishingItem]=useState<string|null>(null),[randomizingItem,setRandomizingItem]=useState<string|null>(null),[coverFile,setCoverFile]=useState<File|null>(null),[uploadingCover,setUploadingCover]=useState(false);
  const [coverPreviewKey,setCoverPreviewKey]=useState("");
  const [localCoverPreview,setLocalCoverPreview]=useState("");
  const [instagramConnected,setInstagramConnected]=useState(false),[instagramAccount,setInstagramAccount]=useState("");
@@ -124,6 +124,16 @@ export default function InfluencerManagerPage(){
   }catch(e){setError(e instanceof Error?e.message:"Erro ao publicar o Reel.");}
   finally{setPublishingItem(null);}
  }
+ async function randomizeCopy(itemId:string){
+  setRandomizingItem(itemId);setError("");
+  try{
+   const r=await fetch("/api/influencer/content",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:itemId,randomize:true})});
+   const d=await r.json().catch(()=>({}));
+   if(!r.ok)throw new Error(d.error||"Não foi possível gerar um novo nome e descrição.");
+   if(d.item)setItems(all=>all.map(item=>item.id===itemId?d.item:item));
+  }catch(e){setError(e instanceof Error?e.message:"Erro ao gerar novo nome e descrição.");}
+  finally{setRandomizingItem(null);}
+ }
  async function deleteProfile(){
   if(!selected)return;
   if(!window.confirm(`Excluir o perfil "${selected.name}" e toda a biblioteca dele? Esta ação não pode ser desfeita.`))return;
@@ -190,7 +200,7 @@ export default function InfluencerManagerPage(){
        {item.result_url&&<video className="im-video-preview" src={item.result_url} controls preload="metadata" />}
        {(item.publish_title||item.publish_description)&&<div className="im-reel-copy"><label>Nome do Reel<strong>{item.publish_title||"—"}</strong></label><label>Descrição para publicação<strong>{item.publish_description||"—"}</strong></label></div>}
        {item.source_description&&<div className="im-source-copy"><label>Descrição original do vídeo</label><p>{item.source_description}</p></div>}
-      </div><div className="im-item-actions"><span className={"im-status "+item.status}>{STATUS[item.status]||item.status}</span>{item.status==="processing"?<button className="im-ghost" onClick={()=>void removeItem(item.id)}>Cancelar</button>:item.result_url?<a className="im-ghost" href={item.result_url} target="_blank" rel="noreferrer">Abrir vídeo</a>:null}{item.status==="available"&&<button className="im-primary im-publish-item" disabled={publishingItem===item.id} onClick={()=>void publishItem(item.id)}>{publishingItem===item.id?"Publicando…":"Publicar Reel"}</button>}{item.status!=="processing"&&item.status!=="published"&&<button className="im-ghost" onClick={()=>void removeItem(item.id)}>Excluir</button>}</div></article>)}</div>}
+      </div><div className="im-item-actions"><span className={"im-status "+item.status}>{STATUS[item.status]||item.status}</span>{item.status==="processing"?<button className="im-ghost" onClick={()=>void removeItem(item.id)}>Cancelar</button>:item.result_url?<a className="im-ghost" href={item.result_url} target="_blank" rel="noreferrer">Abrir vídeo</a>:null}{item.status!=="processing"&&item.status!=="failed"&&<button className="im-ghost" disabled={randomizingItem===item.id} onClick={()=>void randomizeCopy(item.id)}>{randomizingItem===item.id?"Gerando…":"↻ Nome + descrição"}</button>}{(item.status==="available"||item.status==="published")&&<button className="im-primary im-publish-item" disabled={publishingItem===item.id} onClick={()=>void publishItem(item.id)}>{publishingItem===item.id?"Publicando…":item.status==="published"?"Compartilhar Reel":"Publicar Reel"}</button>}{item.status!=="processing"&&item.status!=="published"&&<button className="im-ghost" onClick={()=>void removeItem(item.id)}>Excluir</button>}</div></article>)}</div>}
     </div>
    </>}</section>
   </section>
