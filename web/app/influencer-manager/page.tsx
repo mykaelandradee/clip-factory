@@ -170,6 +170,20 @@ export default function InfluencerManagerPage(){
  }
  const available=useMemo(()=>items.filter(i=>i.status==="available").length,[items]);
  const days=selected&&selected.posts_per_day?Math.floor(available/selected.posts_per_day):0;
+ const queuePreview=useMemo(()=>{
+  if(!selected)return [];
+  const times=(selected.posting_times||[]).filter((v)=>/^([01]\\d|2[0-3]):[0-5]\\d$/.test(v)).sort();
+  const fallback=["09:00","11:30","14:00","16:30","19:00","21:30","23:00","08:00","12:00"];
+  const slots=times.length?times:Array.from({length:selected.posts_per_day},(_,i)=>fallback[i]||"09:00");
+  const ready=items.filter((item)=>item.status==="available"&&!item.shared);
+  const out:{day:number;time:string;item:Item|null}[]=[];
+  for(let day=0;day<7&&out.length<Math.min(ready.length,21);day++){
+   for(let i=0;i<slots.length&&out.length<Math.min(ready.length,21);i++){
+    out.push({day,time:slots[i],item:ready[out.length]||null});
+   }
+  }
+  return out;
+ },[items,selected]);
 
  return (<main className="im-page">
   <header className="im-header"><div><a className="im-back" href="/">← Clip Factory</a><span className="im-kicker">INFLUENCER MANAGER</span><h1>Influencer Manager</h1><p>Biblioteca, vídeos 9:16 e automação de publicação.</p></div><button className="im-primary" onClick={()=>setShowNew(true)}>+ Novo perfil</button></header>
@@ -203,6 +217,29 @@ export default function InfluencerManagerPage(){
       </div>
       <div className="im-publish-controls"><button className="im-primary" disabled={publishing||selected.publishing_enabled} onClick={()=>void togglePublishing()}>{publishing?"Ativando…":"▶ Ativar publicação automática"}</button><button className="im-ghost" disabled={publishing||!selected.publishing_enabled} onClick={()=>void togglePublishing()}>■ Parar publicação</button></div>
       <div className="im-times"><span className="im-kicker">HORÁRIOS DIÁRIOS</span><div className="im-time-grid">{Array.from({length:selected.posts_per_day},(_,i)=><label key={i}>Post {i+1}<input type="time" value={selected.posting_times?.[i]||["09:00","11:30","14:00","16:30","19:00","21:30","23:00","08:00","12:00"][i]} onChange={e=>{const times=[...(selected.posting_times||[])];while(times.length<selected.posts_per_day)times.push("");times[i]=e.target.value;void updateProfile({posting_times:times});}} /></label>)}</div><small>A publicação automática usa estes horários. Para publicar um Reel imediatamente, use “Publicar Reel” na biblioteca.</small></div>
+    </div>
+
+    <div className="im-card im-queue">
+      <div className="im-card-head">
+        <div><span className="im-kicker">FILA</span><h2>Próximas publicações</h2><p>Prévia da ordem usada pela publicação automática. O primeiro conteúdo disponível ocupa o próximo horário.</p></div>
+        <span className={"im-status "+(available?"available":"archived")}>{available} PRONTO{available===1?"":"S"}</span>
+      </div>
+      {available===0 ? (
+        <div className="im-stock-warning">A biblioteca está sem vídeos prontos. Adicione conteúdo para preencher a fila.</div>
+      ) : days<1 ? (
+        <div className="im-stock-warning">Estoque baixo: há conteúdo para menos de 1 dia de publicação.</div>
+      ) : (
+        <div className="im-queue-grid">
+          {queuePreview.map((slot,index)=>(
+            <div className="im-queue-row" key={slot.day+"-"+slot.time+"-"+index}>
+              <span>Dia {slot.day+1}</span>
+              <strong>{slot.time}</strong>
+              <small>{slot.item?.title||"Próximo vídeo"}</small>
+            </div>
+          ))}
+        </div>
+      )}
+      {available>0&&<small className="im-queue-note">Estoque atual: {available} vídeo{available===1?"":"s"} pronto{available===1?"":"s"} · aproximadamente {days} dia{days===1?"":"s"}.</small>}
     </div>
 
     <div className="im-card im-add"><div className="im-card-head"><div><span className="im-kicker">CONTEÚDO</span><h2>Adicionar vídeo</h2><p>Cole uma URL. O vídeo será baixado uma vez, convertido para 9:16 e salvo no R2.</p></div></div>
