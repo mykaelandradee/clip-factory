@@ -20,7 +20,8 @@ export default function InfluencerManagerPage(){
  const [loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[error,setError]=useState("");
  const [showNew,setShowNew]=useState(false),[name,setName]=useState(""),[instagram,setInstagram]=useState(""),[posts,setPosts]=useState("3");
  const [url,setUrl]=useState(""),[adding,setAdding]=useState(false),[publishing,setPublishing]=useState(false),[publishingItem,setPublishingItem]=useState<string|null>(null),[coverFile,setCoverFile]=useState<File|null>(null),[uploadingCover,setUploadingCover]=useState(false);
- const [coverPreviewKey,setCoverPreviewKey]=useState("");\n const [localCoverPreview,setLocalCoverPreview]=useState("");
+ const [coverPreviewKey,setCoverPreviewKey]=useState("");
+ const [localCoverPreview,setLocalCoverPreview]=useState("");
  const [instagramConnected,setInstagramConnected]=useState(false),[instagramAccount,setInstagramAccount]=useState("");
  const coverPreviewUrl=selected?.cover_r2_key ? `/api/influencer/cover?profileId=${encodeURIComponent(selected.id)}&v=${encodeURIComponent(selected.cover_r2_key)}` : "";
 
@@ -90,7 +91,12 @@ export default function InfluencerManagerPage(){
    setSelected(d.profile);setProfiles(all=>all.map(p=>p.id===d.profile.id?d.profile:p));setCoverFile(null);setCoverPreviewKey(d.profile.cover_r2_key||"");setLocalCoverPreview("");
   }catch(e){setError(e instanceof Error?e.message:"Erro ao salvar a capa.");}finally{setUploadingCover(false);}
  }
- function handleCoverFile(file:File|null){\n  if(localCoverPreview) URL.revokeObjectURL(localCoverPreview);\n  setCoverFile(file);\n  setLocalCoverPreview(file ? URL.createObjectURL(file) : "");\n }\n async function togglePublishing(){
+ function handleCoverFile(file:File|null){
+  if(localCoverPreview) URL.revokeObjectURL(localCoverPreview);
+  setCoverFile(file);
+  setLocalCoverPreview(file ? URL.createObjectURL(file) : "");
+ }
+ async function togglePublishing(){
   if(!selected)return;setPublishing(true);setError("");
   try{
    const action=selected.publishing_enabled?"stop":"enable-auto";
