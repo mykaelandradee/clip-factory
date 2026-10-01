@@ -19,7 +19,7 @@ export default function InfluencerManagerPage(){
  const [profiles,setProfiles]=useState<Profile[]>([]),[selected,setSelected]=useState<Profile|null>(null),[items,setItems]=useState<Item[]>([]);
  const [loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[error,setError]=useState("");
  const [showNew,setShowNew]=useState(false),[name,setName]=useState(""),[instagram,setInstagram]=useState(""),[posts,setPosts]=useState("3");
- const [url,setUrl]=useState(""),[adding,setAdding]=useState(false),[publishing,setPublishing]=useState(false),[coverFile,setCoverFile]=useState<File|null>(null),[uploadingCover,setUploadingCover]=useState(false);
+ const [url,setUrl]=useState(""),[adding,setAdding]=useState(false),[publishing,setPublishing]=useState(false),[coverFile,setCoverFile]=useState<File|null>(null),[uploadingCover,setUploadingCover]=useState(false);\n const [coverPreviewKey,setCoverPreviewKey]=useState("");
 
  async function loadProfiles(){
   setLoading(true);setError("");
@@ -34,7 +34,7 @@ export default function InfluencerManagerPage(){
   }catch(e){setError(e instanceof Error?e.message:"Erro ao carregar a biblioteca.");}
  }
  useEffect(()=>{void loadProfiles();},[]);
- useEffect(()=>{if(selected)void loadItems(selected.id);else setItems([]);},[selected?.id]);
+ useEffect(()=>{\n  setCoverFile(null);\n  setCoverPreviewKey(selected?.cover_r2_key||"");\n  if(selected)void loadItems(selected.id);else setItems([]);\n },[selected?.id,selected?.cover_r2_key]);
  useEffect(()=>{if(!selected||!items.some(i=>i.status==="processing"))return;
   const timer=window.setInterval(()=>{void Promise.all(items.filter(i=>i.status==="processing").map(async item=>{
    const r=await fetch("/api/influencer/content/status?id="+item.id,{cache:"no-store"}),d=await r.json().catch(()=>({}));
@@ -69,7 +69,7 @@ export default function InfluencerManagerPage(){
    const r=await fetch("/api/influencer/cover",{method:"POST",body:form});
    const d=await r.json().catch(()=>({}));
    if(!r.ok)throw new Error(d.error||"Não foi possível salvar a capa.");
-   setSelected(d.profile);setProfiles(all=>all.map(p=>p.id===d.profile.id?d.profile:p));setCoverFile(null);
+   setSelected(d.profile);setProfiles(all=>all.map(p=>p.id===d.profile.id?d.profile:p));setCoverFile(null);setCoverPreviewKey(d.profile.cover_r2_key||"");
   }catch(e){setError(e instanceof Error?e.message:"Erro ao salvar a capa.");}finally{setUploadingCover(false);}
  }
  async function togglePublishing(){
