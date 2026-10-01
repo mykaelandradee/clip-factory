@@ -5,7 +5,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 type Profile={
   id:string; name:string; instagram_username:string|null; posts_per_day:number;
   posting_times:string[]; caption_mode:string; auto_publish:boolean;
-  repeat_when_exhausted:boolean; publishing_enabled?:boolean; next_publish_at?:string|null;
+  repeat_when_exhausted:boolean; cover_r2_key?:string|null; publishing_enabled?:boolean; next_publish_at?:string|null;
 };
 type Item={
   id:string; source_url:string; title:string|null; status:string; created_at:string;
@@ -60,6 +60,17 @@ export default function InfluencerManagerPage(){
   if(!selected)return;const r=await fetch("/api/influencer/profiles",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:selected.id,...patch})}),d=await r.json().catch(()=>({}));
   if(!r.ok){setError(d.error||"Não foi possível salvar.");return;}
   setSelected(d.profile);setProfiles(all=>all.map(p=>p.id===d.profile.id?d.profile:p));
+ }
+ async function uploadCover(){
+  if(!selected||!coverFile)return;
+  setUploadingCover(true);setError("");
+  try{
+   const form=new FormData();form.append("profileId",selected.id);form.append("file",coverFile);
+   const r=await fetch("/api/influencer/cover",{method:"POST",body:form});
+   const d=await r.json().catch(()=>({}));
+   if(!r.ok)throw new Error(d.error||"Não foi possível salvar a capa.");
+   setSelected(d.profile);setProfiles(all=>all.map(p=>p.id===d.profile.id?d.profile:p));setCoverFile(null);
+  }catch(e){setError(e instanceof Error?e.message:"Erro ao salvar a capa.");}finally{setUploadingCover(false);}
  }
  async function togglePublishing(){
   if(!selected)return;setPublishing(true);setError("");
