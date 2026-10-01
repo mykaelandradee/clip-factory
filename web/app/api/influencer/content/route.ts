@@ -88,7 +88,7 @@ export async function POST(request:Request) {
   try{parsed=new URL(sourceUrl);}catch{return NextResponse.json({error:"URL inválida."},{status:400});}
   if(parsed.protocol!=="https:"||(parsed.hostname!=="youtube.com"&&!parsed.hostname.endsWith(".youtube.com")&&parsed.hostname!=="youtu.be")) return NextResponse.json({error:"Informe uma URL válida do YouTube."},{status:400});
   const admin=createAdminClient();
-  const {data:profile}=await admin.from("influencer_profiles").select("id").eq("id",profileId).eq("user_id",user.id).maybeSingle();
+  const {data:profile}=await admin.from("influencer_profiles").select("id,fixed_publish_title,fixed_publish_description,caption_mode").eq("id",profileId).eq("user_id",user.id).maybeSingle();
   if(!profile) return NextResponse.json({error:"Perfil não encontrado."},{status:404});
   if(!title){try{const o=await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(sourceUrl)}&format=json`,{cache:"no-store"});if(o.ok){const m=await o.json().catch(()=>({}));if(typeof m?.title==="string")title=m.title.trim().slice(0,500);}}catch{}}
   const {data:captionRows}=await admin.from("influencer_captions").select("id,language,caption").eq("profile_id",profileId).eq("active",true);
@@ -96,7 +96,7 @@ export async function POST(request:Request) {
   const caption= captions.length ? captions[Math.floor(Math.random()*captions.length)] : null;
 
   const language = caption?.language === "ja" ? "ja" : "zh";
-  const copy = randomCopy(language);
+  const copy = profile.fixed_publish_title || profile.fixed_publish_description ? { title: profile.fixed_publish_title || "", description: profile.fixed_publish_description || "" } : randomCopy(language);
 
   const itemId=crypto.randomUUID();
   const {data:item,error}=await admin.from("influencer_content_items").insert({
