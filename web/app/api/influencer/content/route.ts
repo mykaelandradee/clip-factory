@@ -72,7 +72,7 @@ export async function POST(request:Request) {
     const admin=createAdminClient();
     const {data:item}=await admin.from("influencer_content_items").select("id,profile_id,user_id,status").eq("id",itemId).eq("user_id",user.id).maybeSingle();
     if(!item) return NextResponse.json({error:"Conteúdo não encontrado."},{status:404});
-    const uniqueTargets=[...new Set(targetProfileIds)].filter((id:string)=>id!==item.profile_id);
+    const uniqueTargets=(Array.from(new Set<string>(targetProfileIds))).filter((id)=>id!==item.profile_id);
     if(!uniqueTargets.length) return NextResponse.json({error:"Escolha um perfil diferente do perfil atual."},{status:400});
     const {data:profiles}=await admin.from("influencer_profiles").select("id").in("id",uniqueTargets).eq("user_id",user.id);
     if((profiles||[]).length!==uniqueTargets.length) return NextResponse.json({error:"Um ou mais perfis de destino não pertencem à sua conta."},{status:403});
