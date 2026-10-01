@@ -77,7 +77,13 @@ export async function GET(request:Request) {
     }
   }
   const ownIds=new Set((data||[]).map((item:any)=>item.id));
-  return NextResponse.json({items:[...(data||[]),...sharedItems.filter((item:any)=>!ownIds.has(item.id))].sort((a:any,b:any)=>String(b.created_at).localeCompare(String(a.created_at)))},{headers:{"Cache-Control":"no-store"}});
+  const {data:ownedItems}=await admin.from("influencer_content_items").select("id").eq("profile_id",profileId).eq("user_id",user.id);
+  const ownItemIds=(ownedItems||[]).map((item:any)=>item.id);
+  const {data:outgoingShares}=ownItemIds.length
+    ? await admin.from("influencer_content_shares").select("profile_id").in("item_id",ownItemIds).neq("profile_id",profileId).eq("user_id",user.id)
+    : {data:[]};
+  const sharedWith=Array.from(new Set((outgoingShares||[]).map((share:any)=>share.profile_id)));
+  return NextResponse.json({items:[...(data||[]),...sharedItems.filter((item:any)=>!ownIds.has(item.id))].sort((a:any,b:any)=>String(b.created_at).localeCompare(String(a.created_at))),sharedWith},{headers:{"Cache-Control":"no-store"}});
 }
 
 export async function POST(request:Request) {
