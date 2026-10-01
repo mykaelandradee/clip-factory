@@ -83,7 +83,7 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
 
   try {
     const caption = (item.publish_description || "").trim() || "✨";
-    const coverUrl = profile.cover_r2_key && publicUrl ? `${publicUrl}/${profile.cover_r2_key}` : "";
+    let coverUrl = "";\n    if (profile.cover_r2_key) {\n      const { data: signedCover } = await admin.storage.from("influencer-covers").createSignedUrl(profile.cover_r2_key, 3600);\n      coverUrl = signedCover?.signedUrl || "";\n    }
     const mediaParams = new URLSearchParams({ media_type:"REELS", video_url:videoUrl, caption, share_to_feed:"false", access_token:accessToken });
     if (coverUrl) mediaParams.set("cover_url", coverUrl);
     const containerResponse = await fetch(`${GRAPH}/me/media`,{
@@ -164,7 +164,7 @@ export async function POST(request:Request) {
     return NextResponse.json({ok:true,...result});
   }
 
-  if(action==="stop"){
+  if(action==="enable-auto"){\n    const next = nextSlot((await admin.from("influencer_profiles").select("posting_times").eq("id",profileId).single()).data?.posting_times || []);\n    await admin.from("influencer_profiles").update({auto_publish:true,publishing_enabled:true,next_publish_at:next.toISOString(),updated_at:new Date().toISOString()}).eq("id",profileId).eq("user_id",userId);\n    return NextResponse.json({ok:true,publishingEnabled:true,nextPublishAt:next.toISOString()});\n  }\n\n  if(action==="stop"){
     await admin.from("influencer_profiles").update({publishing_enabled:false,next_publish_at:null,updated_at:new Date().toISOString()}).eq("id",profileId).eq("user_id",userId);
     return NextResponse.json({ok:true,publishingEnabled:false});
   }
