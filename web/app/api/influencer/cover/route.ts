@@ -35,6 +35,7 @@ export async function POST(request: Request) {
     region: "auto",
     endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
     credentials: { accessKeyId, secretAccessKey },
+    forcePathStyle: true,
     maxAttempts: 3,
   });
 
@@ -44,7 +45,6 @@ export async function POST(request: Request) {
       Bucket: bucket,
       Key: key,
       Body: body,
-      ContentLength: body.length,
       ContentType: file.type,
       CacheControl: "public, max-age=31536000, immutable",
     }));
