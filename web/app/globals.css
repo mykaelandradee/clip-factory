@@ -2158,3 +2158,12 @@ html,body,button,input,select,textarea{
 .im-share-current>strong{display:block;margin-bottom:9px;font-size:10px;color:#f0f0f3}
 .im-share-current-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)}
 .im-share-current-row span{font-size:10px;color:#b5b6bf}
+
+/* Influencer Manager — library actions */
+.im-delete-item{color:#9a6f76!important;border-color:rgba(190,100,115,.12)!important}
+.im-delete-item:hover{color:#e3a1ab!important;background:rgba(190,100,115,.07)!important;border-color:rgba(190,100,115,.24)!important}
+.im-item-actions{justify-content:flex-end;min-width:0}
+.im-item-actions .im-status{margin-right:2px}
+@media(min-width:821px){
+  .im-item-actions{max-width:330px;flex-wrap:wrap}
+}
