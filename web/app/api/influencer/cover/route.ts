@@ -44,7 +44,15 @@ export async function POST(request: Request) {
     CacheControl: "public, max-age=31536000, immutable",
   }));
 
-  if (profile.cover_r2_key && profile.cover_r2_key !== key) {\n    try {\n      await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: profile.cover_r2_key }));\n    } catch (cleanupError) {\n      console.warn("Could not remove previous influencer cover:", cleanupError);\n    }\n  }\n\n  const { data: updated, error } = await admin.from("influencer_profiles").update({
+  if (profile.cover_r2_key && profile.cover_r2_key !== key) {
+    try {
+      await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: profile.cover_r2_key }));
+    } catch (cleanupError) {
+      console.warn("Could not remove previous influencer cover:", cleanupError);
+    }
+  }
+
+  const { data: updated, error } = await admin.from("influencer_profiles").update({
     cover_r2_key: key,
     updated_at: new Date().toISOString(),
   }).eq("id",profileId).eq("user_id",user.id).select("*").single();
