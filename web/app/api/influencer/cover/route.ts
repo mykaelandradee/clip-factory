@@ -36,13 +36,18 @@ export async function POST(request: Request) {
     credentials: { accessKeyId, secretAccessKey },
   });
 
-  await client.send(new PutObjectCommand({
+  try {
+    await client.send(new PutObjectCommand({
     Bucket: bucket,
     Key: key,
     Body: Buffer.from(await file.arrayBuffer()),
     ContentType: file.type,
     CacheControl: "public, max-age=31536000, immutable",
-  }));
+    }));
+  } catch (error) {
+    console.error("Influencer cover R2 upload failed:", error);
+    return NextResponse.json({ error: "Não foi possível enviar a capa para o armazenamento R2. Verifique as credenciais do R2 no Render." }, { status: 502 });
+  }
 
   if (profile.cover_r2_key && profile.cover_r2_key !== key) {
     try {
