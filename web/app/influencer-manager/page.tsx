@@ -164,7 +164,7 @@ export default function InfluencerManagerPage(){
  }
  async function removeItem(id:string){
   const item=items.find(i=>i.id===id);if(!item)return;
-  if(!window.confirm(item.status==="processing"?"Cancelar o processamento deste vídeo?":"Remover este vídeo da biblioteca?"))return;
+  if(!window.confirm(item.status==="processing"?"Cancelar o processamento deste vídeo?":"Excluir este vídeo da biblioteca deste perfil? O arquivo armazenado será removido e esta ação não pode ser desfeita."))return;
   const r=await fetch("/api/influencer/content?id="+encodeURIComponent(id)+(item.share_id?"&shareId="+encodeURIComponent(item.share_id):""),{method:"DELETE"}),d=await r.json().catch(()=>({}));
   if(r.ok)setItems(v=>v.filter(i=>i.id!==id));else setError(d.error||"Não foi possível excluir o conteúdo.");
  }
@@ -312,8 +312,8 @@ export default function InfluencerManagerPage(){
                           {publishingItem === item.id ? "Publicando…" : "Publicar Reel"}
                         </button>
                       )}
-                      {item.status !== "processing" && item.status !== "published" && (
-                        <button className="im-ghost" onClick={() => void removeItem(item.id)}>Excluir</button>
+                      {item.status !== "processing" && (
+                        <button className="im-ghost im-delete-item" onClick={() => void removeItem(item.id)}>Excluir vídeo</button>
                       )}
                     </div>
                   </article>
