@@ -17,20 +17,35 @@ function schedulerAuthorized(request: Request) {
   try { return timingSafeEqual(Buffer.from(supplied), Buffer.from(secret)); } catch { return false; }
 }
 
-function nextSlot(times: string[], from = new Date()) {
-  const valid = times.filter(v => /^([01]\d|2[0-3]):[0-5]\d$/.test(v)).sort();
-  if (!valid.length) return new Date(from.getTime() + 5 * 60 * 1000);
-  for (const value of valid) {
-    const [h,m] = value.split(":").map(Number);
-    const candidate = new Date(from);
-    candidate.setHours(h,m,0,0);
-    if (candidate.getTime() > from.getTime()) return candidate;
+function localParts(date:Date) {
+  const parts=new Intl.DateTimeFormat("en-US",{timeZone:"America/Cuiaba",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).formatToParts(date);
+  const get=(type:string)=>Number(parts.find(p=>p.type===type)?.value||0);
+  return {year:get("year"),month:get("month"),day:get("day"),hour:get("hour"),minute:get("minute")};
+}
+function localToUtc(year:number,month:number,day:number,hour:number,minute:number) {
+  let guess=Date.UTC(year,month-1,day,hour,minute,0,0);
+  for(let i=0;i<3;i++){
+    const p=localParts(new Date(guess));
+    const rendered=Date.UTC(p.year,p.month-1,p.day,p.hour,p.minute,0,0);
+    const desired=Date.UTC(year,month-1,day,hour,minute,0,0);
+    guess += desired-rendered;
   }
-  const first = valid[0].split(":").map(Number);
-  const tomorrow = new Date(from);
-  tomorrow.setDate(tomorrow.getDate()+1);
-  tomorrow.setHours(first[0],first[1],0,0);
-  return tomorrow;
+  return new Date(guess);
+}
+function nextSlot(times:string[], from=new Date()) {
+  const valid=times.filter(v=>/^([01]\d|2[0-3]):[0-5]\d$/.test(v)).sort();
+  if(!valid.length)return new Date(from.getTime()+5*60*1000);
+  const local=localParts(from);
+  const base=Date.UTC(local.year,local.month-1,local.day);
+  for(const value of valid){
+    const [h,m]=value.split(":").map(Number);
+    const candidate=localToUtc(local.year,local.month,local.day,h,m);
+    if(candidate.getTime()>from.getTime())return candidate;
+  }
+  const first=valid[0].split(":").map(Number);
+  const tomorrow=new Date(base+24*60*60*1000);
+  const y=tomorrow.getUTCFullYear(), mo=tomorrow.getUTCMonth()+1, d=tomorrow.getUTCDate();
+  return localToUtc(y,mo,d,first[0],first[1]);
 }
 
 async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId: string, userId: string, itemId?: string) {
@@ -41,7 +56,7 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
 
   let itemQuery = admin.from("influencer_content_items")
     .select("id,profile_id,user_id,r2_key,publish_title,publish_description,status")
-    .eq("profile_id",profileId).eq("user_id",userId).eq("status","available");
+    .eq("profile_id",profileId).eq("user_id",userId).in("status",itemId?["available","published"]:["available"]);
   if (itemId) itemQuery = itemQuery.eq("id", itemId);
   const { data: item } = await itemQuery.order("created_at",{ascending:true}).limit(1).maybeSingle();
   if (!item) {
@@ -79,7 +94,7 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
     return { status:"error", error:"O Reel processado não está acessível no R2." };
   }
 
-  await admin.from("influencer_content_items").update({status:"scheduled",scheduled_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq("id",item.id).eq("status","available");
+  const originalStatus=item.status;\n  await admin.from("influencer_content_items").update({status:"scheduled",scheduled_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq("id",item.id);
 
   try {
     const caption = (item.publish_description || "").trim() || "✨";
@@ -131,7 +146,7 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
     return {status:"published",itemId:item.id,mediaId:String(publishData.id),nextPublishAt:next.toISOString()};
   } catch(error) {
     const message=error instanceof Error?error.message:"Falha na publicação.";
-    await admin.from("influencer_content_items").update({status:"available",scheduled_at:null,error_message:message.slice(0,1000),updated_at:new Date().toISOString()}).eq("id",item.id);
+    await admin.from("influencer_content_items").update({status:originalStatus==="published"?"published":"available",scheduled_at:null,error_message:message.slice(0,1000),updated_at:new Date().toISOString()}).eq("id",item.id);
     return {status:"error",error:message};
   }
 }
