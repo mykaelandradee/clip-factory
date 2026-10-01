@@ -225,6 +225,43 @@ export default function InfluencerManagerPage(){
         <div className="im-empty">Nenhum vídeo cadastrado.</div>
       ) : (
         <>
+          {items.filter(item => item.shared).length > 0 && (
+            <>
+              <div className="im-library-section-title">
+                <span>CONTEÚDO COMPARTILHADO</span>
+                <small>Vídeos disponibilizados por outros perfis</small>
+              </div>
+              <div className="im-items">
+                {items.filter(item => item.shared).map(item => (
+                  <article className="im-item" key={item.id + ":" + (item.share_id || "shared")}>
+                    <div className="im-item-main">
+                      <strong>{item.title || "Vídeo sem título"}</strong>
+                      <span>Biblioteca de {item.source_profile_name || "outro perfil"}</span>
+                      {item.result_url && <video className="im-video-preview" src={item.result_url} controls preload="metadata" />}
+                      {(item.publish_title || item.publish_description) && (
+                        <div className="im-reel-copy">
+                          <label>Nome do Reel<strong>{item.publish_title || "—"}</strong></label>
+                          <label>Descrição para publicação<strong>{item.publish_description || "—"}</strong></label>
+                        </div>
+                      )}
+                      {item.error_message && <small className="im-error-text">{item.error_message}</small>}
+                    </div>
+                    <div className="im-item-actions">
+                      <span className={"im-status " + item.status}>{STATUS[item.status] || item.status}</span>
+                      {item.result_url && <a className="im-ghost" href={item.result_url} target="_blank" rel="noreferrer">Abrir vídeo</a>}
+                      {item.status === "available" && (
+                        <button className="im-primary im-publish-item" disabled={publishingItem === item.id} onClick={() => void publishItem(item.id)}>
+                          {publishingItem === item.id ? "Publicando…" : "Publicar Reel"}
+                        </button>
+                      )}
+                      {item.share_id && <button className="im-ghost" onClick={() => void removeItem(item.id)}>Remover do perfil</button>}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </>
+          )}
+
           {items.filter(item => !item.shared).length > 0 && (
             <>
               <div className="im-library-section-title">
