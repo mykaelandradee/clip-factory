@@ -65,21 +65,21 @@ export async function POST(request:Request) {
   const body=await request.json().catch(()=>null);
   const profileId=typeof body?.profileId==="string"?body.profileId:"";
 
-  if(body?.action==="share"){
-    const itemId=typeof body?.itemId==="string"?body.itemId:"";
+  if(body?.action==="share-library"){
     const targetProfileIds=Array.isArray(body?.targetProfileIds)?body.targetProfileIds.filter((v:unknown)=>typeof v==="string"): [];
-    if(!itemId||!targetProfileIds.length) return NextResponse.json({error:"Informe o conteúdo e pelo menos um perfil de destino."},{status:400});
+    if(!profileId||!targetProfileIds.length) return NextResponse.json({error:"Selecione pelo menos um perfil de destino."},{status:400});
     const admin=createAdminClient();
-    const {data:item}=await admin.from("influencer_content_items").select("id,profile_id,user_id,status").eq("id",itemId).eq("user_id",user.id).maybeSingle();
-    if(!item) return NextResponse.json({error:"Conteúdo não encontrado."},{status:404});
-    const uniqueTargets=(Array.from(new Set<string>(targetProfileIds))).filter((id)=>id!==item.profile_id);
-    if(!uniqueTargets.length) return NextResponse.json({error:"Escolha um perfil diferente do perfil atual."},{status:400});
+    const {data:sourceProfile}=await admin.from("influencer_profiles").select("id").eq("id",profileId).eq("user_id",user.id).maybeSingle();
+    if(!sourceProfile) return NextResponse.json({error:"Perfil de origem não encontrado."},{status:404});
+    const uniqueTargets=Array.from(new Set<string>(targetProfileIds)).filter(id=>id!==profileId);
     const {data:profiles}=await admin.from("influencer_profiles").select("id").in("id",uniqueTargets).eq("user_id",user.id);
     if((profiles||[]).length!==uniqueTargets.length) return NextResponse.json({error:"Um ou mais perfis de destino não pertencem à sua conta."},{status:403});
-    const rows=uniqueTargets.map((targetId:string)=>({item_id:item.id,profile_id:targetId,user_id:user.id,status:item.status==="available"?"available":"queued"}));
+    const {data:items}=await admin.from("influencer_content_items").select("id,status").eq("profile_id",profileId).eq("user_id",user.id);
+    if(!items?.length) return NextResponse.json({error:"A biblioteca está vazia."},{status:400});
+    const rows=items.flatMap((item:any)=>uniqueTargets.map((targetId:string)=>({item_id:item.id,profile_id:targetId,user_id:user.id,status:item.status==="available"?"available":"queued"})));
     const {data:shares,error}=await admin.from("influencer_content_shares").upsert(rows,{onConflict:"item_id,profile_id"}).select("*");
     if(error){console.error("Influencer library share failed:",error);return NextResponse.json({error:"Não foi possível compartilhar a biblioteca."},{status:500});}
-    return NextResponse.json({ok:true,shares:shares||[]},{status:201});
+    return NextResponse.json({ok:true,sharedItems:items.length,shares:shares||[]},{status:201});
   }
   const sourceUrl=typeof body?.sourceUrl==="string"?body.sourceUrl.trim():"";
   let title=typeof body?.title==="string"?body.title.trim().slice(0,500):"";
@@ -95,8 +95,12 @@ export async function POST(request:Request) {
   const captions=captionRows||[];
   const caption= captions.length ? captions[Math.floor(Math.random()*captions.length)] : null;
 
-  const language = caption?.language === "ja" ? "ja" : "zh";
-  const copy = profile.fixed_publish_title || profile.fixed_publish_description ? { title: profile.fixed_publish_title || "", description: profile.fixed_publish_description || "" } : randomCopy(language);
+  const language = caption?.language === "ja" ? "ja" : profile.caption_mode === "ja_random" ? "ja" : profile.caption_mode === "zh_random" ? "zh" : Math.random() < 0.5 ? "ja" : "zh";
+  const generated = randomCopy(language);
+  const copy = {
+    title: profile.fixed_publish_title?.trim() || generated.title,
+    description: profile.fixed_publish_description?.trim() || generated.description,
+  };
 
   const itemId=crypto.randomUUID();
   const {data:item,error}=await admin.from("influencer_content_items").insert({
