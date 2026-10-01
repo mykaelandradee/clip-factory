@@ -63,7 +63,10 @@ export async function GET(request:Request) {
         shared:true,
         source_profile_id:item.profile_id,
         source_profile_name:undefined,
-        status:share.status,
+        status:
+          share.status === "queued"
+            ? (item.status === "available" || item.status === "published" ? "available" : item.status === "processing" ? "processing" : "queued")
+            : share.status,
         scheduled_at:share.scheduled_at,
         published_at:share.published_at,
         error_message:share.error_message
@@ -119,7 +122,12 @@ export async function POST(request:Request) {
     if((profiles||[]).length!==uniqueTargets.length) return NextResponse.json({error:"Um ou mais perfis de destino não pertencem à sua conta."},{status:403});
     const {data:items}=await admin.from("influencer_content_items").select("id,status").eq("profile_id",profileId).eq("user_id",user.id);
     if(!items?.length) return NextResponse.json({error:"A biblioteca está vazia."},{status:400});
-    const rows=items.flatMap((item:any)=>uniqueTargets.map((targetId:string)=>({item_id:item.id,profile_id:targetId,user_id:user.id,status:item.status==="available"?"available":"queued"})));
+    const rows=items.flatMap((item:any)=>uniqueTargets.map((targetId:string)=>({
+      item_id:item.id,
+      profile_id:targetId,
+      user_id:user.id,
+      status:item.status==="processing"||item.status==="queued" ? "queued" : "available"
+    })));
     const {data:existingShares,error:existingError}=await admin
       .from("influencer_content_shares")
       .select("item_id,profile_id")
