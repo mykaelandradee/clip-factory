@@ -22,10 +22,11 @@ export async function POST(request: Request) {
   const { data: profile } = await admin.from("influencer_profiles").select("id,cover_r2_key").eq("id",profileId).eq("user_id",user.id).maybeSingle();
   if (!profile) return NextResponse.json({ error: "Perfil não encontrado." }, { status: 404 });
 
-  const accountId = process.env.R2_ACCOUNT_ID;
-  const bucket = process.env.R2_BUCKET_NAME;
-  const accessKeyId = process.env.R2_ACCESS_KEY_ID;
-  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
+  const accountId = process.env.R2_ACCOUNT_ID?.trim();
+  const bucket = process.env.R2_BUCKET_NAME?.trim();
+  const accessKeyId = process.env.R2_ACCESS_KEY_ID?.trim();
+  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY?.trim();
+  const publicUrl = process.env.R2_PUBLIC_URL?.trim().replace(/\/$/, "");
   if (!accountId || !bucket || !accessKeyId || !secretAccessKey) return NextResponse.json({ error: "Armazenamento R2 não configurado." }, { status: 503 });
 
   const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
@@ -35,15 +36,18 @@ export async function POST(request: Request) {
     endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
     credentials: { accessKeyId, secretAccessKey },
     forcePathStyle: false,
+    maxAttempts: 3,
   });
 
   try {
+    const body = Buffer.from(await file.arrayBuffer());
     await client.send(new PutObjectCommand({
-    Bucket: bucket,
-    Key: key,
-    Body: Buffer.from(await file.arrayBuffer()),
-    ContentType: file.type,
-    CacheControl: "public, max-age=31536000, immutable",
+      Bucket: bucket,
+      Key: key,
+      Body: body,
+      ContentLength: body.length,
+      ContentType: file.type,
+      CacheControl: "public, max-age=31536000, immutable",
     }));
   } catch (error) {
     const details = error as { name?: string; code?: string; message?: string; $metadata?: { httpStatusCode?: number } };
@@ -52,12 +56,16 @@ export async function POST(request: Request) {
       code: details?.code,
       status: details?.$metadata?.httpStatusCode,
       message: details?.message,
+      endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+      bucket,
+      key,
+      hasPublicUrl: Boolean(publicUrl),
     });
     const code = details?.code || details?.name || "R2_UPLOAD_FAILED";
     return NextResponse.json({
       error: "Não foi possível enviar a capa para o armazenamento R2.",
       code,
-      hint: "Confirme no Render as variáveis R2_ACCOUNT_ID, R2_BUCKET_NAME, R2_ACCESS_KEY_ID e R2_SECRET_ACCESS_KEY.",
+      hint: "Confirme no Render as variáveis R2_ACCOUNT_ID, R2_BUCKET_NAME, R2_ACCESS_KEY_ID e R2_SECRET_ACCESS_KEY. Elas devem ser exatamente as mesmas usadas pelo worker que já envia os vídeos para o R2, sem espaços no início/fim.",
     }, { status: 502 });
   }
 
