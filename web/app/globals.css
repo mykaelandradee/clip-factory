@@ -2150,3 +2150,11 @@ html,body,button,input,select,textarea{
 .im-share-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:18px}
 .im-share-list .im-check{padding:11px 12px;border:1px solid rgba(255,255,255,.07);border-radius:10px;background:#0b0b10}
 @media(max-width:720px){.im-fixed-copy{grid-template-columns:1fr}.im-library-head-actions{width:100%;justify-content:space-between}.im-library-head-actions .im-ghost{flex:1}.im-share-list{grid-template-columns:1fr}.im-header h1{font-size:24px}}
+
+.im-library-section-title{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:18px 0 8px;padding:0 2px}
+.im-library-section-title span{font-size:8px;font-weight:850;letter-spacing:.1em;color:#9c99ff}
+.im-library-section-title small{font-size:9px;color:#696b76}
+.im-share-current{margin-top:18px;padding-top:16px;border-top:1px solid rgba(255,255,255,.07)}
+.im-share-current>strong{display:block;margin-bottom:9px;font-size:10px;color:#f0f0f3}
+.im-share-current-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+.im-share-current-row span{font-size:10px;color:#b5b6bf}
