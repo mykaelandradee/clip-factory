@@ -33,18 +33,21 @@ function nextSlot(times: string[], from = new Date()) {
   return tomorrow;
 }
 
-async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId: string, userId: string) {
+async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId: string, userId: string, itemId?: string) {
   const { data: profile } = await admin.from("influencer_profiles")
     .select("id,user_id,posting_times,next_publish_at,publishing_enabled,cover_r2_key")
     .eq("id",profileId).eq("user_id",userId).maybeSingle();
-  if (!profile || !profile.publishing_enabled) return { status:"stopped" };
+  if (!profile || (!itemId && !profile.publishing_enabled)) return { status:"stopped" };
 
-  const { data: item } = await admin.from("influencer_content_items")
+  let itemQuery = admin.from("influencer_content_items")
     .select("id,profile_id,user_id,r2_key,publish_title,publish_description,status")
-    .eq("profile_id",profileId).eq("user_id",userId).eq("status","available")
-    .order("created_at",{ascending:true}).limit(1).maybeSingle();
+    .eq("profile_id",profileId).eq("user_id",userId).eq("status","available");
+  if (itemId) itemQuery = itemQuery.eq("id", itemId);
+  const { data: item } = await itemQuery.order("created_at",{ascending:true}).limit(1).maybeSingle();
   if (!item) {
-    await admin.from("influencer_profiles").update({publishing_enabled:false,next_publish_at:null,updated_at:new Date().toISOString()}).eq("id",profileId).eq("user_id",userId);
+    if (!itemId) {
+      await admin.from("influencer_profiles").update({publishing_enabled:false,next_publish_at:null,updated_at:new Date().toISOString()}).eq("id",profileId).eq("user_id",userId);
+    }
     return { status:"empty" };
   }
 
@@ -118,7 +121,9 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
     await admin.from("influencer_content_items").update({
       status:"published",published_at:new Date().toISOString(),scheduled_at:null,error_message:null,updated_at:new Date().toISOString()
     }).eq("id",item.id);
-    await admin.from("influencer_profiles").update({next_publish_at:next.toISOString(),updated_at:new Date().toISOString()}).eq("id",profileId).eq("user_id",userId);
+    if (!itemId || profile.publishing_enabled) {
+      await admin.from("influencer_profiles").update({next_publish_at:next.toISOString(),updated_at:new Date().toISOString()}).eq("id",profileId).eq("user_id",userId);
+    }
     return {status:"published",itemId:item.id,mediaId:String(publishData.id),nextPublishAt:next.toISOString()};
   } catch(error) {
     const message=error instanceof Error?error.message:"Falha na publicação.";
@@ -149,6 +154,15 @@ export async function POST(request:Request) {
   const userId=user!.id;
   const {data:profile}=await admin.from("influencer_profiles").select("id").eq("id",profileId).eq("user_id",userId).maybeSingle();
   if(!profile) return NextResponse.json({error:"Perfil não encontrado."},{status:404});
+
+  if(action==="publish-item"){
+    const itemId=typeof body?.itemId==="string"?body.itemId:"";
+    if(!itemId) return NextResponse.json({error:"Reel inválido."},{status:400});
+    const result=await publishOne(admin,profileId,userId,itemId);
+    if(result.status==="error") return NextResponse.json({ok:false,...result},{status:502});
+    if(result.status!=="published") return NextResponse.json({ok:false,error:"Este Reel não está disponível para publicação."},{status:409});
+    return NextResponse.json({ok:true,...result});
+  }
 
   if(action==="stop"){
     await admin.from("influencer_profiles").update({publishing_enabled:false,next_publish_at:null,updated_at:new Date().toISOString()}).eq("id",profileId).eq("user_id",userId);
