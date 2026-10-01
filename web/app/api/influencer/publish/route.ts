@@ -94,7 +94,8 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
     return { status:"error", error:"O Reel processado não está acessível no R2." };
   }
 
-  const originalStatus=item.status;\n  await admin.from("influencer_content_items").update({status:"scheduled",scheduled_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq("id",item.id);
+  const originalStatus=item.status;
+  await admin.from("influencer_content_items").update({status:"scheduled",scheduled_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq("id",item.id);
 
   try {
     const caption = (item.publish_description || "").trim() || "✨";
