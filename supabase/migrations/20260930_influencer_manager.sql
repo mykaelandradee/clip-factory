@@ -108,3 +108,12 @@ alter table public.influencer_content_items
   add column if not exists source_description text;
 
 create index if not exists influencer_content_worker_job_idx on public.influencer_content_items(worker_job_id);
+
+
+-- Campos usados pelo controle automático de publicação.
+alter table public.influencer_profiles
+  add column if not exists publishing_enabled boolean not null default false,
+  add column if not exists next_publish_at timestamptz;
+
+create index if not exists influencer_profiles_publish_idx
+  on public.influencer_profiles(publishing_enabled, next_publish_at);
