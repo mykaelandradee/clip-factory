@@ -84,3 +84,34 @@ export async function GET() {
 
   return NextResponse.json({ scheduledPosts: rows }, { headers: { "Cache-Control": "no-store" } });
 }
+
+
+export async function DELETE(request: Request) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Entre no Clip Factory." }, { status: 401 });
+
+  const id = new URL(request.url).searchParams.get("id") || "";
+  if (!id) return NextResponse.json({ error: "Agendamento inválido." }, { status: 400 });
+
+  const admin = createAdminClient();
+  const { data: share } = await admin.from("influencer_content_shares")
+    .select("id").eq("id", id).eq("user_id", user.id).maybeSingle();
+  if (share) {
+    const { error } = await admin.from("influencer_content_shares")
+      .update({ status: "canceled", scheduled_at: null, error_message: "Cancelado pelo usuário." })
+      .eq("id", id).eq("user_id", user.id);
+    if (error) return NextResponse.json({ error: "Não foi possível cancelar o agendamento." }, { status: 500 });
+    return NextResponse.json({ ok: true });
+  }
+
+  const { data: item } = await admin.from("influencer_content_items")
+    .select("id").eq("id", id).eq("user_id", user.id).maybeSingle();
+  if (!item) return NextResponse.json({ error: "Agendamento não encontrado." }, { status: 404 });
+
+  const { error } = await admin.from("influencer_content_items")
+    .update({ status: "available", scheduled_at: null, error_message: "Agendamento cancelado pelo usuário." })
+    .eq("id", id).eq("user_id", user.id);
+  if (error) return NextResponse.json({ error: "Não foi possível cancelar o agendamento." }, { status: 500 });
+  return NextResponse.json({ ok: true });
+}
