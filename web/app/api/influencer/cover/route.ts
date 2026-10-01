@@ -35,7 +35,6 @@ export async function POST(request: Request) {
     region: "auto",
     endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
     credentials: { accessKeyId, secretAccessKey },
-    forcePathStyle: true,
     maxAttempts: 3,
   });
 
@@ -116,6 +115,7 @@ export async function GET(request: Request) {
     region: "auto",
     endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
     credentials: { accessKeyId, secretAccessKey },
+    maxAttempts: 3,
   });
 
   try {
