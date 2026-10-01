@@ -50,7 +50,7 @@ function nextSlot(times:string[], from=new Date()) {
 
 async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId: string, userId: string, itemId?: string) {
   const { data: profile } = await admin.from("influencer_profiles")
-    .select("id,user_id,posting_times,next_publish_at,publishing_enabled,cover_r2_key")
+    .select("id,user_id,posting_times,next_publish_at,publishing_enabled,cover_r2_key,share_to_feed,fixed_publish_title,fixed_publish_description")
     .eq("id",profileId).eq("user_id",userId).maybeSingle();
   if (!profile || (!itemId && !profile.publishing_enabled)) return { status:"stopped" };
 
@@ -115,13 +115,16 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
   else await admin.from("influencer_content_items").update({status:"scheduled",scheduled_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq("id",item.id).eq("user_id",userId);
 
   try {
-    const caption = (item.publish_description || "").trim() || "✨";
+    const fixedTitle = String(profile.fixed_publish_title || "").trim();
+    const fixedDescription = String(profile.fixed_publish_description || "").trim();
+    const captionParts = [fixedTitle || String(item.publish_title || "").trim(), fixedDescription || String(item.publish_description || "").trim()].filter(Boolean);
+    const caption = captionParts.join("\n\n") || "✨";
     let coverUrl = "";
     if (profile.cover_r2_key) {
       const { data: signedCover } = await admin.storage.from("influencer-covers").createSignedUrl(profile.cover_r2_key, 3600);
       coverUrl = signedCover?.signedUrl || "";
     }
-    const mediaParams = new URLSearchParams({ media_type:"REELS", video_url:videoUrl, caption, share_to_feed:"true", access_token:accessToken });
+    const mediaParams = new URLSearchParams({ media_type:"REELS", video_url:videoUrl, caption, share_to_feed:profile.share_to_feed !== false ? "true" : "false", access_token:accessToken });
     if (coverUrl) mediaParams.set("cover_url", coverUrl);
     const containerResponse = await fetch(`${GRAPH}/me/media`,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:mediaParams,cache:"no-store"});
     const containerData = await containerResponse.json().catch(()=>({}));
