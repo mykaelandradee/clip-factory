@@ -21,6 +21,7 @@ export default function InfluencerManagerPage(){
  const [showNew,setShowNew]=useState(false),[name,setName]=useState(""),[instagram,setInstagram]=useState(""),[posts,setPosts]=useState("3");
  const [url,setUrl]=useState(""),[adding,setAdding]=useState(false),[publishing,setPublishing]=useState(false),[coverFile,setCoverFile]=useState<File|null>(null),[uploadingCover,setUploadingCover]=useState(false);
  const [coverPreviewKey,setCoverPreviewKey]=useState("");
+ const [instagramConnected,setInstagramConnected]=useState(false),[instagramAccount,setInstagramAccount]=useState("");
  const coverPreviewUrl=selected?.cover_r2_key ? `/api/influencer/cover?profileId=${encodeURIComponent(selected.id)}&v=${encodeURIComponent(selected.cover_r2_key)}` : "";
 
  async function loadProfiles(){
@@ -35,7 +36,13 @@ export default function InfluencerManagerPage(){
    if(!r.ok)throw new Error(d.error||"Não foi possível carregar a biblioteca.");setItems(d.items||[]);
   }catch(e){setError(e instanceof Error?e.message:"Erro ao carregar a biblioteca.");}
  }
- useEffect(()=>{void loadProfiles();},[]);
+ useEffect(()=>{void loadProfiles();void loadInstagramConnection();},[]);
+ async function loadInstagramConnection(){
+  try{const r=await fetch("/api/instagram/status",{cache:"no-store"}),d=await r.json().catch(()=>({}));
+   setInstagramConnected(Boolean(r.ok&&d.connected));
+   setInstagramAccount(typeof d.username==="string"&&d.username?`@${d.username.replace(/^@/,"")}`:"");
+  }catch{setInstagramConnected(false);setInstagramAccount("");}
+ }
  useEffect(()=>{
   setCoverFile(null);
   setCoverPreviewKey(selected?.cover_r2_key||"");
@@ -51,7 +58,7 @@ export default function InfluencerManagerPage(){
  async function createProfile(e:FormEvent){
   e.preventDefault();setSaving(true);setError("");
   try{const r=await fetch("/api/influencer/profiles",{method:"POST",headers:{"Content-Type":"application/json"},
-   body:JSON.stringify({name,instagramUsername:instagram,postsPerDay:Number(posts),postingTimes:[],captionMode:"zh_ja_random"})}),d=await r.json().catch(()=>({}));
+   body:JSON.stringify({name,instagramUsername:instagram||instagramAccount.replace(/^@/,""),postsPerDay:Number(posts),postingTimes:[],captionMode:"zh_ja_random"})}),d=await r.json().catch(()=>({}));
    if(!r.ok)throw new Error(d.error||"Não foi possível criar o perfil.");
    setProfiles(p=>[...p,d.profile]);setSelected(d.profile);setName("");setInstagram("");setPosts("3");setShowNew(false);
   }catch(e){setError(e instanceof Error?e.message:"Erro ao criar perfil.");}finally{setSaving(false);}
@@ -122,6 +129,8 @@ export default function InfluencerManagerPage(){
     <div className="im-card im-add"><div className="im-card-head"><div><span className="im-kicker">BIBLIOTECA</span><h2>Adicionar vídeo</h2><p>Cole uma URL. O vídeo será baixado uma vez, convertido para 9:16 e salvo no R2.</p></div></div>
      <form className="im-url-form" onSubmit={addUrl}><input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..." required /><button className="im-primary" disabled={adding}>{adding?"Processando…":"Adicionar vídeo"}</button></form>
     </div>
+
+    <div className="im-card im-account"><div className="im-card-head"><div><span className="im-kicker">CONTA VINCULADA</span><h2>Instagram</h2><p>A publicação automática usa a conta Instagram conectada ao seu usuário do Clip Factory.</p></div><span className={"im-status "+(instagramConnected?"available":"archived")}>{instagramConnected?"CONECTADO":"NÃO CONECTADO"}</span></div><div className="im-account-row"><strong>{instagramAccount||"Nenhuma conta Instagram conectada"}</strong>{!instagramConnected&&<a className="im-ghost" href="/api/instagram/oauth">Conectar Instagram</a>}</div></div>
 
     <div className="im-card im-settings"><div className="im-card-head"><div><span className="im-kicker">PUBLICAÇÃO</span><h2>Controle da publicação</h2><p>Execute para começar a publicar a biblioteca. Pare para interromper a fila.</p></div>
       <span className={"im-status "+(selected.publishing_enabled?"available":"archived")}>{selected.publishing_enabled?"EXECUTANDO":"PARADA"}</span></div>
