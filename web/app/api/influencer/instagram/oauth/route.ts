@@ -30,7 +30,8 @@ export async function GET(request: Request) {
   });
 
   const publicOrigin = process.env.CLIP_FACTORY_WEB_URL || url.origin;
-  const redirectUri = `${publicOrigin.replace(/\/$/,"")}/api/influencer/instagram/callback`;
+  // Reuse the already-approved Meta redirect URI from the main Instagram OAuth flow.
+  const redirectUri = `${publicOrigin.replace(/\/$/,"")}/api/instagram/callback`;
   const params = new URLSearchParams({
     client_id: clientId, redirect_uri: redirectUri, response_type: "code",
     scope: "instagram_business_basic,instagram_business_content_publish",
