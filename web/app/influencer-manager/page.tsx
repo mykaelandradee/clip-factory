@@ -73,7 +73,7 @@ export default function InfluencerManagerPage(){
    const form=new FormData();form.append("profileId",selected.id);form.append("file",coverFile);
    const r=await fetch("/api/influencer/cover",{method:"POST",body:form});
    const d=await r.json().catch(()=>({}));
-   if(!r.ok)throw new Error(d.error||"Não foi possível salvar a capa.");
+   if(!r.ok)throw new Error([d.error,d.code ? `Código: ${d.code}` : "",d.hint || ""].filter(Boolean).join(" "));
    setSelected(d.profile);setProfiles(all=>all.map(p=>p.id===d.profile.id?d.profile:p));setCoverFile(null);setCoverPreviewKey(d.profile.cover_r2_key||"");
   }catch(e){setError(e instanceof Error?e.message:"Erro ao salvar a capa.");}finally{setUploadingCover(false);}
  }
