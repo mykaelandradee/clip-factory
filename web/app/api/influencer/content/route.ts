@@ -121,7 +121,17 @@ export async function POST(request:Request) {
     if(!items?.length) return NextResponse.json({error:"A biblioteca está vazia."},{status:400});
     const rows=items.flatMap((item:any)=>uniqueTargets.map((targetId:string)=>({item_id:item.id,profile_id:targetId,user_id:user.id,status:item.status==="available"?"available":"queued"})));
     const {data:shares,error}=await admin.from("influencer_content_shares").upsert(rows,{onConflict:"item_id,profile_id"}).select("*");
-    if(error){console.error("Influencer library share failed:",error);return NextResponse.json({error:"Não foi possível compartilhar a biblioteca."},{status:500});}
+    if(error){
+      console.error("Influencer library share failed:",{code:error.code,message:error.message,details:error.details,hint:error.hint});
+      const message = error.code === "42P01"
+        ? "A tabela de compartilhamento ainda não existe no Supabase. Execute a migration 20260930_influencer_manager.sql."
+        : error.code === "42703"
+          ? "O banco do Influencer Manager está desatualizado. Execute novamente a migration 20260930_influencer_manager.sql no Supabase."
+          : error.code === "42P10"
+            ? "A configuração de compartilhamento do banco está incompleta. Execute novamente a migration 20260930_influencer_manager.sql no Supabase."
+            : "Não foi possível compartilhar a biblioteca. Código do banco: " + (error.code || "desconhecido");
+      return NextResponse.json({error:message,code:error.code||null},{status:500});
+    }
     return NextResponse.json({ok:true,sharedItems:items.length,shares:shares||[]},{status:201});
   }
   const sourceUrl=typeof body?.sourceUrl==="string"?body.sourceUrl.trim():"";
