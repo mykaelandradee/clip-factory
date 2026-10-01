@@ -98,7 +98,7 @@ export async function GET(request: Request) {
     const object = await client.send(new GetObjectCommand({ Bucket: bucket, Key: profile.cover_r2_key }));
     if (!object.Body) return new NextResponse("Capa não encontrada.", { status: 404 });
     const bytes = await object.Body.transformToByteArray();
-    return new NextResponse(bytes, {
+    return new NextResponse(Buffer.from(bytes), {
       headers: {
         "Content-Type": object.ContentType || "image/jpeg",
         "Cache-Control": "private, no-store",
