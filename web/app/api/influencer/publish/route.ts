@@ -34,7 +34,10 @@ function localToUtc(year:number,month:number,day:number,hour:number,minute:numbe
 }
 function nextSlot(times:string[], from=new Date(), postsPerDay=3) {
   const valid=times.filter(v=>/^([01]\d|2[0-3]):[0-5]\d$/.test(v)).sort();
-  if(!valid.length){\n    const fallback=["09:00","11:30","14:00","16:30","19:00","21:30","23:00","08:00","12:00"].slice(0,Math.max(1,Math.min(9,postsPerDay)));\n    valid.push(...fallback);\n  }
+  if(!valid.length){
+    const fallback=["09:00","11:30","14:00","16:30","19:00","21:30","23:00","08:00","12:00"].slice(0,Math.max(1,Math.min(9,postsPerDay)));
+    valid.push(...fallback);
+  }
   const local=localParts(from);
   const base=Date.UTC(local.year,local.month-1,local.day);
   for(const value of valid){
@@ -193,7 +196,8 @@ export async function POST(request:Request) {
   }
 
   if(action==="enable-auto"){
-    const profileSchedule=(await admin.from("influencer_profiles").select("posting_times,posts_per_day").eq("id",profileId).eq("user_id",userId).single()).data;\n    const next = nextSlot((profileSchedule?.posting_times || []) as string[],new Date(),Number(profileSchedule?.posts_per_day)||3);
+    const profileSchedule=(await admin.from("influencer_profiles").select("posting_times,posts_per_day").eq("id",profileId).eq("user_id",userId).single()).data;
+    const next = nextSlot((profileSchedule?.posting_times || []) as string[],new Date(),Number(profileSchedule?.posts_per_day)||3);
     await admin.from("influencer_profiles").update({auto_publish:true,publishing_enabled:true,next_publish_at:next.toISOString(),updated_at:new Date().toISOString()}).eq("id",profileId).eq("user_id",userId);
     return NextResponse.json({ok:true,publishingEnabled:true,nextPublishAt:next.toISOString()});
   }
