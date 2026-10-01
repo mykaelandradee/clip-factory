@@ -45,8 +45,19 @@ export async function POST(request: Request) {
     CacheControl: "public, max-age=31536000, immutable",
     }));
   } catch (error) {
-    console.error("Influencer cover R2 upload failed:", error);
-    return NextResponse.json({ error: "Não foi possível enviar a capa para o armazenamento R2. Verifique as credenciais do R2 no Render." }, { status: 502 });
+    const details = error as { name?: string; code?: string; message?: string; $metadata?: { httpStatusCode?: number } };
+    console.error("Influencer cover R2 upload failed:", {
+      name: details?.name,
+      code: details?.code,
+      status: details?.$metadata?.httpStatusCode,
+      message: details?.message,
+    });
+    const code = details?.code || details?.name || "R2_UPLOAD_FAILED";
+    return NextResponse.json({
+      error: "Não foi possível enviar a capa para o armazenamento R2.",
+      code,
+      hint: "Confirme no Render as variáveis R2_ACCOUNT_ID, R2_BUCKET_NAME, R2_ACCESS_KEY_ID e R2_SECRET_ACCESS_KEY.",
+    }, { status: 502 });
   }
 
   if (profile.cover_r2_key && profile.cover_r2_key !== key) {
