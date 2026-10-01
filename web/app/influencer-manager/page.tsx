@@ -5,7 +5,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 type Profile={
   id:string; name:string; instagram_username:string|null; posts_per_day:number;
   posting_times:string[]; caption_mode:string; auto_publish:boolean;
-  repeat_when_exhausted:boolean; cover_r2_key?:string|null; publishing_enabled?:boolean; next_publish_at?:string|null;
+  repeat_when_exhausted:boolean; cover_r2_key?:string|null; fixed_publish_title?:string|null; fixed_publish_description?:string|null; share_to_feed?:boolean; publishing_enabled?:boolean; next_publish_at?:string|null;
 };
 type Item={
   id:string; source_url:string; title:string|null; status:string; created_at:string; share_id?:string|null; shared?:boolean;
@@ -62,7 +62,7 @@ export default function InfluencerManagerPage(){
  async function createProfile(e:FormEvent){
   e.preventDefault();setSaving(true);setError("");
   try{const r=await fetch("/api/influencer/profiles",{method:"POST",headers:{"Content-Type":"application/json"},
-   body:JSON.stringify({name,instagramUsername:"",postsPerDay:3,postingTimes:[],captionMode:"zh_ja_random"})}),d=await r.json().catch(()=>({}));
+   body:JSON.stringify({name,instagramUsername:"",postsPerDay:3,postingTimes:[],captionMode:"zh_ja_random",fixedPublishTitle:"",fixedPublishDescription:"",shareToFeed:true})}),d=await r.json().catch(()=>({}));
    if(!r.ok)throw new Error(d.error||"Não foi possível criar o perfil.");
    setProfiles(p=>[...p,d.profile]);setSelected(d.profile);setName("");setInstagram("");setPosts("3");setShowNew(false); window.location.href="/api/influencer/instagram/oauth?profileId="+encodeURIComponent(d.profile.id);
   }catch(e){setError(e instanceof Error?e.message:"Erro ao criar perfil.");}finally{setSaving(false);}
@@ -192,6 +192,8 @@ export default function InfluencerManagerPage(){
         <small>JPG, PNG ou WEBP · máximo 5 MB. A capa é exclusiva deste perfil.</small>
       </div>
     </div>
+
+    <div className="im-card im-identity-copy"><div className="im-card-head"><div><span className="im-kicker">IDENTIDADE DO REEL</span><h2>Nome e descrição fixos</h2><p>Todos os Reels deste perfil usarão exatamente estes textos.</p></div><span className="im-cover-ok">FIXOS</span></div><div className="im-fixed-copy"><label>Nome<input value={selected.fixed_publish_title||""} onChange={e=>void updateProfile({fixed_publish_title:e.target.value})} placeholder="#チェンソーマン マキマ 🩸" /></label><label>Descrição<textarea rows={5} value={selected.fixed_publish_description||""} onChange={e=>void updateProfile({fixed_publish_description:e.target.value})} placeholder="Descrição fixa para todos os Reels deste perfil." /></label></div><label className="im-check"><input type="checkbox" checked={selected.share_to_feed!==false} onChange={e=>void updateProfile({share_to_feed:e.target.checked})}/><span>Publicar também na Grade Principal do Instagram</span></label></div>
 
     <div className="im-card im-settings"><div className="im-card-head"><div><span className="im-kicker">PUBLICAÇÃO</span><h2>Controle da publicação</h2><p>Automática: publica nos horários definidos. Manual: use “Publicar Reel” em um vídeo disponível.</p></div>
       <span className={"im-status "+(selected.publishing_enabled?"available":"archived")}>{selected.publishing_enabled?"EXECUTANDO":"PARADA"}</span></div>
