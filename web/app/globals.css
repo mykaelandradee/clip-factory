@@ -2514,3 +2514,46 @@ html,body,button,input,select,textarea{
   .im-time-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
   .im-time-grid input{width:100%}
 }
+
+
+/* Influencer Manager — full-width content + hero hover parity */
+.im-layout{
+  display:block;
+  width:100%;
+  max-width:1280px;
+}
+.im-main{
+  width:100%;
+  min-width:0;
+}
+.im-header h1{
+  cursor:default;
+  transition:transform .28s cubic-bezier(.22,1,.36,1),filter .28s ease;
+}
+.im-header h1 em{
+  color:#73737f;
+  transition:color .28s ease,filter .28s ease;
+}
+.im-header h1:hover{
+  transform:translateY(-2px);
+  filter:drop-shadow(0 10px 28px rgba(156,153,255,.10));
+}
+.im-header h1:hover em{
+  color:#f2f2f5;
+}
+.im-header h1:hover{
+  background:linear-gradient(90deg,#ffffff 0%,#ffffff 48%,#c5c1ff 78%,#ffffff 100%);
+  background-size:220% 100%;
+  -webkit-background-clip:text;
+  background-clip:text;
+  -webkit-text-fill-color:transparent;
+  animation:im-title-sweep 1.1s ease forwards;
+}
+@keyframes im-title-sweep{
+  from{background-position:100% 0}
+  to{background-position:0 0}
+}
+@media(prefers-reduced-motion:reduce){
+  .im-header h1,.im-header h1 em{transition:none}
+  .im-header h1:hover{transform:none;animation:none}
+}
