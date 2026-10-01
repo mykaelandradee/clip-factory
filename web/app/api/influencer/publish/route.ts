@@ -48,9 +48,9 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
     return { status:"empty" };
   }
 
-  const { data: connection } = await admin.from("instagram_connections")
-    .select("access_token_encrypted,expires_at").eq("user_id",userId).maybeSingle();
-  if (!connection) return { status:"error", error:"Conecte o Instagram antes de executar a publicação." };
+  const { data: connection } = await admin.from("influencer_instagram_connections")
+    .select("access_token_encrypted,expires_at").eq("profile_id",profileId).eq("user_id",userId).maybeSingle();
+  if (!connection) return { status:"error", error:"Conecte o Instagram deste perfil antes de executar a publicação." };
 
   let accessToken = decryptInstagramAccessToken(connection.access_token_encrypted);
   if (!accessToken) return { status:"error", error:"Não foi possível ler a conexão do Instagram. Conecte novamente." };
@@ -59,11 +59,11 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
     try {
       const refreshed = await refreshInstagramLongLivedToken(accessToken);
       accessToken = refreshed.accessToken;
-      await admin.from("instagram_connections").update({
+      await admin.from("influencer_instagram_connections").update({
         access_token_encrypted: encryptInstagramAccessToken(accessToken),
         expires_at: refreshed.expiresIn > 0 ? new Date(Date.now()+refreshed.expiresIn*1000).toISOString() : connection.expires_at,
         updated_at:new Date().toISOString()
-      }).eq("user_id",userId);
+      }).eq("profile_id",profileId).eq("user_id",userId);
     } catch { return { status:"error", error:"A sessão do Instagram expirou. Conecte novamente." }; }
   }
 
