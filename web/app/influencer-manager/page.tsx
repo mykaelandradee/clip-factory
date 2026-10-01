@@ -19,7 +19,8 @@ export default function InfluencerManagerPage(){
  const [profiles,setProfiles]=useState<Profile[]>([]),[selected,setSelected]=useState<Profile|null>(null),[items,setItems]=useState<Item[]>([]);
  const [loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[error,setError]=useState("");
  const [showNew,setShowNew]=useState(false),[name,setName]=useState(""),[instagram,setInstagram]=useState(""),[posts,setPosts]=useState("3");
- const [url,setUrl]=useState(""),[adding,setAdding]=useState(false),[publishing,setPublishing]=useState(false),[coverFile,setCoverFile]=useState<File|null>(null),[uploadingCover,setUploadingCover]=useState(false);\n const [coverPreviewKey,setCoverPreviewKey]=useState("");
+ const [url,setUrl]=useState(""),[adding,setAdding]=useState(false),[publishing,setPublishing]=useState(false),[coverFile,setCoverFile]=useState<File|null>(null),[uploadingCover,setUploadingCover]=useState(false);
+ const [coverPreviewKey,setCoverPreviewKey]=useState("");
 
  async function loadProfiles(){
   setLoading(true);setError("");
@@ -34,7 +35,11 @@ export default function InfluencerManagerPage(){
   }catch(e){setError(e instanceof Error?e.message:"Erro ao carregar a biblioteca.");}
  }
  useEffect(()=>{void loadProfiles();},[]);
- useEffect(()=>{\n  setCoverFile(null);\n  setCoverPreviewKey(selected?.cover_r2_key||"");\n  if(selected)void loadItems(selected.id);else setItems([]);\n },[selected?.id,selected?.cover_r2_key]);
+ useEffect(()=>{
+  setCoverFile(null);
+  setCoverPreviewKey(selected?.cover_r2_key||"");
+  if(selected)void loadItems(selected.id);else setItems([]);
+ },[selected?.id,selected?.cover_r2_key]);
  useEffect(()=>{if(!selected||!items.some(i=>i.status==="processing"))return;
   const timer=window.setInterval(()=>{void Promise.all(items.filter(i=>i.status==="processing").map(async item=>{
    const r=await fetch("/api/influencer/content/status?id="+item.id,{cache:"no-store"}),d=await r.json().catch(()=>({}));
