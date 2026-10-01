@@ -222,5 +222,6 @@ export default function InfluencerManagerPage(){
     </div>
    </>}
   </section>
+  </section>
   {shareOpen&&<div className="im-modal-backdrop" role="dialog" aria-modal="true"><div className="im-modal"><div className="im-card-head"><div><span className="im-kicker">BIBLIOTECA COMPARTILHADA</span><h2>Compartilhar biblioteca</h2><p>Todos os vídeos desta biblioteca serão disponibilizados nos perfis selecionados. Não é necessário escolher vídeo por vídeo.</p></div><button className="im-ghost" onClick={()=>setShareOpen(false)}>Fechar</button></div><div className="im-share-list">{profiles.filter(p=>p.id!==selected?.id).map(p=><label key={p.id} className="im-check"><input type="checkbox" checked={shareTargets.includes(p.id)} onChange={e=>setShareTargets(v=>e.target.checked?[...v,p.id]:v.filter(id=>id!==p.id))}/><span>{p.name} {p.instagram_username?("· @"+p.instagram_username.replace(/^@/,"")):""}</span></label>)}</div><div className="im-modal-actions"><button className="im-primary" disabled={sharing||!shareTargets.length} onClick={()=>void shareLibrary()}>{sharing?"Compartilhando…":"Compartilhar biblioteca"}</button></div></div></div>} </main>);
 }
