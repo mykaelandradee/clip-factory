@@ -19,7 +19,7 @@ export default function InfluencerManagerPage(){
  const [profiles,setProfiles]=useState<Profile[]>([]),[selected,setSelected]=useState<Profile|null>(null),[items,setItems]=useState<Item[]>([]);
  const [loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[error,setError]=useState("");
  const [showNew,setShowNew]=useState(false),[name,setName]=useState(""),[instagram,setInstagram]=useState(""),[posts,setPosts]=useState("3");
- const [url,setUrl]=useState(""),[adding,setAdding]=useState(false),[publishing,setPublishing]=useState(false);
+ const [url,setUrl]=useState(""),[adding,setAdding]=useState(false),[publishing,setPublishing]=useState(false),[coverFile,setCoverFile]=useState<File|null>(null),[uploadingCover,setUploadingCover]=useState(false);
 
  async function loadProfiles(){
   setLoading(true);setError("");
@@ -106,7 +106,7 @@ export default function InfluencerManagerPage(){
       <div className="im-settings-grid"><label>Reels por dia<select value={selected.posts_per_day} onChange={e=>void updateProfile({posts_per_day:Number(e.target.value)})}>{[1,2,3,4,5,6,7,8,9].map(n=><option key={n}>{n}</option>)}</select></label>
        <label>Descrição<select value={selected.caption_mode} onChange={e=>void updateProfile({caption_mode:e.target.value})}><option value="zh_ja_random">Chinês + Japonês aleatório</option><option value="zh_random">Chinês</option><option value="ja_random">Japonês</option><option value="custom">Banco personalizado</option></select></label>
       </div>
-      <div className="im-publish-controls"><button className="im-primary" disabled={publishing||selected.publishing_enabled} onClick={()=>void togglePublishing()}>{publishing?"Iniciando…":"▶ Executar publicação"}</button><button className="im-ghost" disabled={publishing||!selected.publishing_enabled} onClick={()=>void togglePublishing()}>■ Parar publicação</button></div>
+      <div className="im-cover"><span className="im-kicker">IDENTIDADE</span><label>Capa fixa do perfil<input type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setCoverFile(e.target.files?.[0]||null)} /></label><div className="im-cover-row">{selected.cover_r2_key&&<span className="im-cover-ok">Capa configurada</span>}<button type="button" className="im-ghost" disabled={!coverFile||uploadingCover} onClick={()=>void uploadCover()}>{uploadingCover?"Enviando…":"Salvar capa"}</button></div><small>A mesma capa será reutilizada nas publicações deste perfil.</small></div><div className="im-publish-controls"><button className="im-primary" disabled={publishing||selected.publishing_enabled} onClick={()=>void togglePublishing()}>{publishing?"Iniciando…":"▶ Executar publicação"}</button><button className="im-ghost" disabled={publishing||!selected.publishing_enabled} onClick={()=>void togglePublishing()}>■ Parar publicação</button></div>
       <div className="im-times"><span className="im-kicker">HORÁRIOS DIÁRIOS</span><div className="im-time-grid">{Array.from({length:selected.posts_per_day},(_,i)=><label key={i}>Post {i+1}<input type="time" value={selected.posting_times?.[i]||["09:00","11:30","14:00","16:30","19:00","21:30","23:00","08:00","12:00"][i]} onChange={e=>{const times=[...(selected.posting_times||[])];while(times.length<selected.posts_per_day)times.push("");times[i]=e.target.value;void updateProfile({posting_times:times});}} /></label>)}</div><small>O primeiro Reel é publicado ao executar. Depois, a fila segue os horários definidos.</small></div>
     </div>
 
