@@ -54,15 +54,31 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
     .eq("id",profileId).eq("user_id",userId).maybeSingle();
   if (!profile || (!itemId && !profile.publishing_enabled)) return { status:"stopped" };
 
-  let itemQuery = admin.from("influencer_content_items")
-    .select("id,profile_id,user_id,r2_key,publish_title,publish_description,status")
+  let item: any = null;
+  let shareId: string | null = null;
+
+  const ownQuery = admin.from("influencer_content_items")
+    .select("id,profile_id,user_id,r2_key,publish_title,publish_description,status,scheduled_at")
     .eq("profile_id",profileId).eq("user_id",userId).in("status",itemId?["available","published"]:["available"]);
-  if (itemId) itemQuery = itemQuery.eq("id", itemId);
-  const { data: item } = await itemQuery.order("created_at",{ascending:true}).limit(1).maybeSingle();
+  const own = await (itemId ? ownQuery.eq("id",itemId) : ownQuery.order("created_at",{ascending:true}).limit(1)).maybeSingle();
+  if (own.data) item = own.data;
+
   if (!item) {
-    if (!itemId) {
-      await admin.from("influencer_profiles").update({publishing_enabled:false,next_publish_at:null,updated_at:new Date().toISOString()}).eq("id",profileId).eq("user_id",userId);
+    const shareQuery = admin.from("influencer_content_shares")
+      .select("id,item_id,profile_id,status,scheduled_at")
+      .eq("profile_id",profileId).eq("user_id",userId).in("status",itemId?["available","published"]:["available"]);
+    const shareResult = await (itemId ? shareQuery.eq("item_id",itemId) : shareQuery.order("created_at",{ascending:true}).limit(1)).maybeSingle();
+    if (shareResult.data) {
+      shareId = shareResult.data.id;
+      const { data: source } = await admin.from("influencer_content_items")
+        .select("id,profile_id,user_id,r2_key,publish_title,publish_description,status,scheduled_at")
+        .eq("id",shareResult.data.item_id).eq("user_id",userId).maybeSingle();
+      if (source) item = source;
     }
+  }
+
+  if (!item) {
+    if (!itemId) await admin.from("influencer_profiles").update({publishing_enabled:false,next_publish_at:null,updated_at:new Date().toISOString()}).eq("id",profileId).eq("user_id",userId);
     return { status:"empty" };
   }
 
@@ -73,12 +89,12 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
   let accessToken = decryptInstagramAccessToken(connection.access_token_encrypted);
   if (!accessToken) return { status:"error", error:"Não foi possível ler a conexão do Instagram. Conecte novamente." };
 
-  if (connection.expires_at && Date.parse(connection.expires_at) <= Date.now()) {
+  if (connection.expires_at && Date.parse(connection.expires_at) < Date.now()+7*24*60*60*1000) {
     try {
       const refreshed = await refreshInstagramLongLivedToken(accessToken);
       accessToken = refreshed.accessToken;
       await admin.from("influencer_instagram_connections").update({
-        access_token_encrypted: encryptInstagramAccessToken(accessToken),
+        access_token_encrypted:encryptInstagramAccessToken(accessToken),
         expires_at: refreshed.expiresIn > 0 ? new Date(Date.now()+refreshed.expiresIn*1000).toISOString() : connection.expires_at,
         updated_at:new Date().toISOString()
       }).eq("profile_id",profileId).eq("user_id",userId);
@@ -95,7 +111,8 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
   }
 
   const originalStatus=item.status;
-  await admin.from("influencer_content_items").update({status:"scheduled",scheduled_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq("id",item.id);
+  if (shareId) await admin.from("influencer_content_shares").update({status:"scheduled",scheduled_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq("id",shareId).eq("user_id",userId);
+  else await admin.from("influencer_content_items").update({status:"scheduled",scheduled_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq("id",item.id).eq("user_id",userId);
 
   try {
     const caption = (item.publish_description || "").trim() || "✨";
@@ -104,14 +121,9 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
       const { data: signedCover } = await admin.storage.from("influencer-covers").createSignedUrl(profile.cover_r2_key, 3600);
       coverUrl = signedCover?.signedUrl || "";
     }
-    const mediaParams = new URLSearchParams({ media_type:"REELS", video_url:videoUrl, caption, share_to_feed:"false", access_token:accessToken });
+    const mediaParams = new URLSearchParams({ media_type:"REELS", video_url:videoUrl, caption, share_to_feed:"true", access_token:accessToken });
     if (coverUrl) mediaParams.set("cover_url", coverUrl);
-    const containerResponse = await fetch(`${GRAPH}/me/media`,{
-      method:"POST",
-      headers:{"Content-Type":"application/x-www-form-urlencoded"},
-      body:mediaParams,
-      cache:"no-store"
-    });
+    const containerResponse = await fetch(`${GRAPH}/me/media`,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:mediaParams,cache:"no-store"});
     const containerData = await containerResponse.json().catch(()=>({}));
     if(!containerResponse.ok || !containerData.id) throw new Error(containerData?.error?.message || "O Instagram não conseguiu criar o Reel.");
 
@@ -128,26 +140,19 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
     }
     if(statusCode!=="FINISHED") throw new Error("O Instagram demorou demais para processar o Reel.");
 
-    const publishResponse=await fetch(`${GRAPH}/me/media_publish`,{
-      method:"POST",
-      headers:{"Content-Type":"application/x-www-form-urlencoded"},
-      body:new URLSearchParams({creation_id:creationId,access_token:accessToken}),
-      cache:"no-store"
-    });
+    const publishResponse=await fetch(`${GRAPH}/me/media_publish`,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:new URLSearchParams({creation_id:creationId,access_token:accessToken}),cache:"no-store"});
     const publishData=await publishResponse.json().catch(()=>({}));
     if(!publishResponse.ok || !publishData.id) throw new Error(publishData?.error?.message || "O Instagram não conseguiu publicar o Reel.");
 
     const next=nextSlot((profile.posting_times||[]) as string[]);
-    await admin.from("influencer_content_items").update({
-      status:"published",published_at:new Date().toISOString(),scheduled_at:null,error_message:null,updated_at:new Date().toISOString()
-    }).eq("id",item.id);
-    if (!itemId || profile.publishing_enabled) {
-      await admin.from("influencer_profiles").update({next_publish_at:next.toISOString(),updated_at:new Date().toISOString()}).eq("id",profileId).eq("user_id",userId);
-    }
+    if (shareId) await admin.from("influencer_content_shares").update({status:"published",published_at:new Date().toISOString(),scheduled_at:null,error_message:null}).eq("id",shareId).eq("user_id",userId);
+    else await admin.from("influencer_content_items").update({status:"published",published_at:new Date().toISOString(),scheduled_at:null,error_message:null,updated_at:new Date().toISOString()}).eq("id",item.id).eq("user_id",userId);
+    await admin.from("influencer_profiles").update({next_publish_at:next.toISOString(),updated_at:new Date().toISOString()}).eq("id",profileId).eq("user_id",userId);
     return {status:"published",itemId:item.id,mediaId:String(publishData.id),nextPublishAt:next.toISOString()};
   } catch(error) {
     const message=error instanceof Error?error.message:"Falha na publicação.";
-    await admin.from("influencer_content_items").update({status:originalStatus==="published"?"published":"available",scheduled_at:null,error_message:message.slice(0,1000),updated_at:new Date().toISOString()}).eq("id",item.id);
+    if (shareId) await admin.from("influencer_content_shares").update({status:"available",scheduled_at:null,error_message:message.slice(0,1000)}).eq("id",shareId).eq("user_id",userId);
+    else await admin.from("influencer_content_items").update({status:originalStatus==="published"?"published":"available",scheduled_at:null,error_message:message.slice(0,1000),updated_at:new Date().toISOString()}).eq("id",item.id).eq("user_id",userId);
     return {status:"error",error:message};
   }
 }
