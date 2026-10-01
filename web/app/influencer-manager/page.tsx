@@ -203,7 +203,19 @@ export default function InfluencerManagerPage(){
       <div className="im-card-head"><div><span className="im-kicker">IDENTIDADE</span><h2>Capa do perfil</h2><p>Uma única capa fixa será reutilizada nos Reels publicados por este perfil.</p></div><span className={selected.cover_r2_key?"im-cover-ok":"im-status archived"}>{selected.cover_r2_key?"CONFIGURADA":"NÃO CONFIGURADA"}</span></div>
       <div className="im-cover-upload">
         <label>Capa fixa<input key={selected.id} type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>handleCoverFile(e.target.files?.[0]||null)} /></label>
-        <div className="im-cover-row">{(localCoverPreview||coverPreviewUrl)?<img className="im-cover-preview" src={localCoverPreview||coverPreviewUrl} alt={`Capa de ${selected.name}`} />:null}<span>{coverFile?coverFile.name:selected.cover_r2_key?"Capa salva neste perfil":"Nenhuma capa selecionada"}</span><button type="button" className="im-primary" disabled={!coverFile||uploadingCover} onClick={()=>void uploadCover()}>{uploadingCover?"Enviando…":"Salvar capa"}</button></div>
+        <div className="im-cover-row">
+        <div className="im-cover-frame">
+          {(localCoverPreview||coverPreviewUrl)
+            ? <img className="im-cover-preview" src={localCoverPreview||coverPreviewUrl} alt={`Capa de ${selected.name}`} />
+            : <div className="im-cover-empty"><span>9:16</span><small>PRÉVIA DA CAPA</small></div>}
+          <div className="im-cover-frame-glow" />
+        </div>
+        <div className="im-cover-meta">
+          <strong>{coverFile?coverFile.name:selected.cover_r2_key?"Capa configurada":"Escolha uma capa vertical"}</strong>
+          <span>Ela será aplicada como identidade visual dos Reels deste perfil.</span>
+          <button type="button" className="im-primary" disabled={!coverFile||uploadingCover} onClick={()=>void uploadCover()}>{uploadingCover?"Enviando…":"Salvar capa"}</button>
+        </div>
+      </div>
         <small>JPG, PNG ou WEBP · máximo 5 MB. A capa é exclusiva deste perfil.</small>
       </div>
     </div>
