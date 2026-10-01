@@ -20,7 +20,7 @@ export default function InfluencerManagerPage(){
  const [loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[error,setError]=useState("");
  const [showNew,setShowNew]=useState(false),[name,setName]=useState(""),[instagram,setInstagram]=useState(""),[posts,setPosts]=useState("3");
  const [url,setUrl]=useState(""),[adding,setAdding]=useState(false),[publishing,setPublishing]=useState(false),[publishingItem,setPublishingItem]=useState<string|null>(null),[coverFile,setCoverFile]=useState<File|null>(null),[uploadingCover,setUploadingCover]=useState(false);
- const [coverPreviewKey,setCoverPreviewKey]=useState("");
+ const [coverPreviewKey,setCoverPreviewKey]=useState("");\n const [localCoverPreview,setLocalCoverPreview]=useState("");
  const [instagramConnected,setInstagramConnected]=useState(false),[instagramAccount,setInstagramAccount]=useState("");
  const coverPreviewUrl=selected?.cover_r2_key ? `/api/influencer/cover?profileId=${encodeURIComponent(selected.id)}&v=${encodeURIComponent(selected.cover_r2_key)}` : "";
 
@@ -87,13 +87,13 @@ export default function InfluencerManagerPage(){
    finally { window.clearTimeout(timeout); }
    const d=await r.json().catch(()=>({}));
    if(!r.ok)throw new Error([d.error,d.code ? `Código: ${d.code}` : "",d.hint || ""].filter(Boolean).join(" "));
-   setSelected(d.profile);setProfiles(all=>all.map(p=>p.id===d.profile.id?d.profile:p));setCoverFile(null);setCoverPreviewKey(d.profile.cover_r2_key||"");
+   setSelected(d.profile);setProfiles(all=>all.map(p=>p.id===d.profile.id?d.profile:p));setCoverFile(null);setCoverPreviewKey(d.profile.cover_r2_key||"");setLocalCoverPreview("");
   }catch(e){setError(e instanceof Error?e.message:"Erro ao salvar a capa.");}finally{setUploadingCover(false);}
  }
- async function togglePublishing(){
+ function handleCoverFile(file:File|null){\n  if(localCoverPreview) URL.revokeObjectURL(localCoverPreview);\n  setCoverFile(file);\n  setLocalCoverPreview(file ? URL.createObjectURL(file) : "");\n }\n async function togglePublishing(){
   if(!selected)return;setPublishing(true);setError("");
   try{
-   const action=selected.publishing_enabled?"stop":"start";
+   const action=selected.publishing_enabled?"stop":"enable-auto";
    const r=await fetch("/api/influencer/publish",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action,profileId:selected.id})});
    const d=await r.json().catch(()=>({}));
    if(!r.ok)throw new Error(d.error||d.message||"Não foi possível alterar a publicação.");
@@ -156,27 +156,27 @@ export default function InfluencerManagerPage(){
     <div className="im-card im-cover-card">
       <div className="im-card-head"><div><span className="im-kicker">IDENTIDADE</span><h2>Capa do perfil</h2><p>Uma única capa fixa será reutilizada nos Reels publicados por este perfil.</p></div><span className={selected.cover_r2_key?"im-cover-ok":"im-status archived"}>{selected.cover_r2_key?"CONFIGURADA":"NÃO CONFIGURADA"}</span></div>
       <div className="im-cover-upload">
-        <label>Capa fixa<input key={selected.id} type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setCoverFile(e.target.files?.[0]||null)} /></label>
-        <div className="im-cover-row">{coverPreviewUrl?<img className="im-cover-preview" src={coverPreviewUrl} alt={`Capa de ${selected.name}`} />:null}<span>{coverFile?coverFile.name:selected.cover_r2_key?"Capa salva neste perfil":"Nenhuma capa selecionada"}</span><button type="button" className="im-primary" disabled={!coverFile||uploadingCover} onClick={()=>void uploadCover()}>{uploadingCover?"Enviando…":"Salvar capa"}</button></div>
+        <label>Capa fixa<input key={selected.id} type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>handleCoverFile(e.target.files?.[0]||null)} /></label>
+        <div className="im-cover-row">{(localCoverPreview||coverPreviewUrl)?<img className="im-cover-preview" src={localCoverPreview||coverPreviewUrl} alt={`Capa de ${selected.name}`} />:null}<span>{coverFile?coverFile.name:selected.cover_r2_key?"Capa salva neste perfil":"Nenhuma capa selecionada"}</span><button type="button" className="im-primary" disabled={!coverFile||uploadingCover} onClick={()=>void uploadCover()}>{uploadingCover?"Enviando…":"Salvar capa"}</button></div>
         <small>JPG, PNG ou WEBP · máximo 5 MB. A capa é exclusiva deste perfil.</small>
       </div>
     </div>
 
-    <div className="im-card im-settings"><div className="im-card-head"><div><span className="im-kicker">PUBLICAÇÃO</span><h2>Controle da publicação</h2><p>Execute para começar a publicar a biblioteca. Pare para interromper a fila.</p></div>
+    <div className="im-card im-settings"><div className="im-card-head"><div><span className="im-kicker">PUBLICAÇÃO</span><h2>Controle da publicação</h2><p>Automática: publica nos horários definidos. Manual: use “Publicar Reel” em um vídeo disponível.</p></div>
       <span className={"im-status "+(selected.publishing_enabled?"available":"archived")}>{selected.publishing_enabled?"EXECUTANDO":"PARADA"}</span></div>
       <div className="im-settings-grid"><label>Reels por dia<select value={selected.posts_per_day} onChange={e=>void updateProfile({posts_per_day:Number(e.target.value)})}>{[1,2,3,4,5,6,7,8,9].map(n=><option key={n}>{n}</option>)}</select></label>
        <label>Descrição<select value={selected.caption_mode} onChange={e=>void updateProfile({caption_mode:e.target.value})}><option value="zh_ja_random">Chinês + Japonês aleatório</option><option value="zh_random">Chinês</option><option value="ja_random">Japonês</option><option value="custom">Banco personalizado</option></select></label>
        <label className="im-check"><input type="checkbox" checked={selected.auto_publish} onChange={e=>void updateProfile({auto_publish:e.target.checked})}/><span>Publicação automática</span></label>
       </div>
-      <div className="im-publish-controls"><button className="im-primary" disabled={publishing||selected.publishing_enabled} onClick={()=>void togglePublishing()}>{publishing?"Iniciando…":"▶ Executar publicação"}</button><button className="im-ghost" disabled={publishing||!selected.publishing_enabled} onClick={()=>void togglePublishing()}>■ Parar publicação</button></div>
-      <div className="im-times"><span className="im-kicker">HORÁRIOS DIÁRIOS</span><div className="im-time-grid">{Array.from({length:selected.posts_per_day},(_,i)=><label key={i}>Post {i+1}<input type="time" value={selected.posting_times?.[i]||["09:00","11:30","14:00","16:30","19:00","21:30","23:00","08:00","12:00"][i]} onChange={e=>{const times=[...(selected.posting_times||[])];while(times.length<selected.posts_per_day)times.push("");times[i]=e.target.value;void updateProfile({posting_times:times});}} /></label>)}</div><small>O primeiro Reel é publicado ao executar. Depois, a fila segue os horários definidos.</small></div>
+      <div className="im-publish-controls"><button className="im-primary" disabled={publishing||selected.publishing_enabled} onClick={()=>void togglePublishing()}>{publishing?"Ativando…":"▶ Ativar publicação automática"}</button><button className="im-ghost" disabled={publishing||!selected.publishing_enabled} onClick={()=>void togglePublishing()}>■ Parar publicação</button></div>
+      <div className="im-times"><span className="im-kicker">HORÁRIOS DIÁRIOS</span><div className="im-time-grid">{Array.from({length:selected.posts_per_day},(_,i)=><label key={i}>Post {i+1}<input type="time" value={selected.posting_times?.[i]||["09:00","11:30","14:00","16:30","19:00","21:30","23:00","08:00","12:00"][i]} onChange={e=>{const times=[...(selected.posting_times||[])];while(times.length<selected.posts_per_day)times.push("");times[i]=e.target.value;void updateProfile({posting_times:times});}} /></label>)}</div><small>A publicação automática usa estes horários. Para publicar um Reel imediatamente, use “Publicar Reel” na biblioteca.</small></div>
     </div>
 
-    <div className="im-card im-add"><div className="im-card-head"><div><span className="im-kicker">BIBLIOTECA</span><h2>Adicionar vídeo</h2><p>Cole uma URL. O vídeo será baixado uma vez, convertido para 9:16 e salvo no R2.</p></div></div>
+    <div className="im-card im-add"><div className="im-card-head"><div><span className="im-kicker">CONTEÚDO</span><h2>Adicionar vídeo</h2><p>Cole uma URL. O vídeo será baixado uma vez, convertido para 9:16 e salvo no R2.</p></div></div>
      <form className="im-url-form" onSubmit={addUrl}><input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..." required /><button className="im-primary" disabled={adding}>{adding?"Processando…":"Adicionar vídeo"}</button></form>
     </div>
 
-    <div className="im-card im-library"><div className="im-card-head"><div><span className="im-kicker">CONTEÚDO</span><h2>Biblioteca</h2></div><span className="im-count">{items.length}</span></div>
+    <div className="im-card im-library"><div className="im-card-head"><div><span className="im-kicker">BIBLIOTECA</span><h2>Biblioteca</h2></div><span className="im-count">{items.length}</span></div>
      {items.length===0?<div className="im-empty">Nenhum vídeo cadastrado.</div>:<div className="im-items">{items.map(item=><article className="im-item" key={item.id}><div className="im-item-main">
        <strong>{item.title||"Vídeo sem título"}</strong><span>{item.source_url}</span>
        {item.status==="processing"&&<div className="im-progress"><div><span style={{width:(item.progress||5)+"%"}} /></div><small>{item.progress||5}% · {item.stage==="download"?"Baixando":item.stage==="render"?"Convertendo para 9:16":item.stage==="upload"?"Enviando para R2":"Preparando worker"}</small></div>}
