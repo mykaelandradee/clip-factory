@@ -218,7 +218,7 @@ export default function InfluencerManagerPage(){
         </div>
         <div className="im-library-head-actions">
           <span className="im-count">{items.length}</span>
-          <button className="im-ghost" onClick={() => { setShareOpen(true); setShareTargets([]); }} disabled={profiles.length < 2}>Gerenciar compartilhamento</button>
+          <button className="im-ghost" onClick={() => { setShareOpen(true); }} disabled={profiles.length < 2}>Gerenciar compartilhamento</button>
         </div>
       </div>
       {items.length === 0 ? (
