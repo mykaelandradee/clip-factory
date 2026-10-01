@@ -62,7 +62,7 @@ export default function InfluencerManagerPage(){
  async function createProfile(e:FormEvent){
   e.preventDefault();setSaving(true);setError("");
   try{const r=await fetch("/api/influencer/profiles",{method:"POST",headers:{"Content-Type":"application/json"},
-   body:JSON.stringify({name,description:profileDescription,instagramUsername:"",postsPerDay:Number(posts)||3,postingTimes:[],captionMode:"zh_ja_random",fixedPublishTitle:name,fixedPublishDescription:profileDescription,shareToFeed:true})}),d=await r.json().catch(()=>({}));
+   body:JSON.stringify({name,description:profileDescription,instagramUsername:"",postsPerDay:Number(posts)||3,postingTimes:["09:00","11:30","14:00","16:30","19:00","21:30","23:00","08:00","12:00"].slice(0,Number(posts)||3),captionMode:"zh_ja_random",fixedPublishTitle:name,fixedPublishDescription:profileDescription,shareToFeed:true})}),d=await r.json().catch(()=>({}));
    if(!r.ok)throw new Error(d.error||"Não foi possível criar o perfil.");
    setProfiles(p=>[...p,d.profile]);setSelected(d.profile);setName("");setProfileDescription("");setInstagram("");setPosts("3");setShowNew(false); window.location.href="/api/influencer/instagram/oauth?profileId="+encodeURIComponent(d.profile.id);
   }catch(e){setError(e instanceof Error?e.message:"Erro ao criar perfil.");}finally{setSaving(false);}
