@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "../../../../lib/supabase/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -29,7 +29,7 @@ export async function POST(request: Request) {
   if (!accountId || !bucket || !accessKeyId || !secretAccessKey) return NextResponse.json({ error: "Armazenamento R2 não configurado." }, { status: 503 });
 
   const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
-  const key = `influencer/${user.id}/${profileId}/cover.${ext}`;
+  const key = `influencer/${user.id}/${profileId}/cover-${Date.now()}.${ext}`;
   const client = new S3Client({
     region: "auto",
     endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
@@ -44,11 +44,59 @@ export async function POST(request: Request) {
     CacheControl: "public, max-age=31536000, immutable",
   }));
 
-  const { data: updated, error } = await admin.from("influencer_profiles").update({
+  if (profile.cover_r2_key && profile.cover_r2_key !== key) {\n    try {\n      await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: profile.cover_r2_key }));\n    } catch (cleanupError) {\n      console.warn("Could not remove previous influencer cover:", cleanupError);\n    }\n  }\n\n  const { data: updated, error } = await admin.from("influencer_profiles").update({
     cover_r2_key: key,
     updated_at: new Date().toISOString(),
   }).eq("id",profileId).eq("user_id",user.id).select("*").single();
 
   if (error) return NextResponse.json({ error: "A capa foi enviada, mas não foi possível salvar o perfil." }, { status: 500 });
   return NextResponse.json({ profile: updated });
+}
+
+
+export async function GET(request: Request) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return new NextResponse("Entre no Clip Factory.", { status: 401 });
+
+  const profileId = new URL(request.url).searchParams.get("profileId") || "";
+  if (!profileId) return new NextResponse("Perfil inválido.", { status: 400 });
+
+  const admin = createAdminClient();
+  const { data: profile } = await admin
+    .from("influencer_profiles")
+    .select("cover_r2_key")
+    .eq("id", profileId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!profile?.cover_r2_key) return new NextResponse("Capa não configurada.", { status: 404 });
+
+  const accountId = process.env.R2_ACCOUNT_ID;
+  const bucket = process.env.R2_BUCKET_NAME;
+  const accessKeyId = process.env.R2_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
+  if (!accountId || !bucket || !accessKeyId || !secretAccessKey) {
+    return new NextResponse("Armazenamento R2 não configurado.", { status: 503 });
+  }
+
+  const client = new S3Client({
+    region: "auto",
+    endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+    credentials: { accessKeyId, secretAccessKey },
+  });
+
+  try {
+    const object = await client.send(new GetObjectCommand({ Bucket: bucket, Key: profile.cover_r2_key }));
+    if (!object.Body) return new NextResponse("Capa não encontrada.", { status: 404 });
+    const bytes = await object.Body.transformToByteArray();
+    return new NextResponse(bytes, {
+      headers: {
+        "Content-Type": object.ContentType || "image/jpeg",
+        "Cache-Control": "private, no-store",
+      },
+    });
+  } catch {
+    return new NextResponse("Capa não encontrada.", { status: 404 });
+  }
 }
