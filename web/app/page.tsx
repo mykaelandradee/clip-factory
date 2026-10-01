@@ -164,7 +164,7 @@ function ScheduleScreen() {
         <div>
           <span className="cf-kicker">02 / SCHEDULES</span>
           <h2>Agendamentos</h2>
-          <p>Gerencie em um só lugar as publicações programadas no Instagram e no YouTube.</p>
+          <p>Gerencie em um só lugar as publicações do Instagram, YouTube e Influencer Manager.</p>
         </div>
         <div className="cf-schedules-count">
           <strong>{activeCount}</strong>
@@ -181,6 +181,9 @@ function ScheduleScreen() {
         </button>
         <button type="button" className={filter === "youtube" ? "active" : ""} onClick={() => setFilter("youtube")}>
           <span>YOUTUBE</span><strong>{youtubeCount}</strong>
+        </button>
+        <button type="button" className={filter === "influencer" ? "active" : ""} onClick={() => setFilter("influencer")}>
+          <span>INFLUENCER</span><strong>{influencerCount}</strong>
         </button>
       </div>
 
