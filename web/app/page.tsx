@@ -54,7 +54,7 @@ function CaptionPreview({ id }: { id: string }) {
 
 type ScheduledItem = {
   id: string;
-  platform: "instagram" | "youtube";
+  platform: "instagram" | "youtube" | "influencer";
   jobId: string;
   file: string;
   title: string;
@@ -67,7 +67,7 @@ type ScheduledItem = {
 
 function ScheduleScreen() {
   const [items, setItems] = useState<ScheduledItem[]>([]);
-  const [filter, setFilter] = useState<"all" | "instagram" | "youtube">("all");
+  const [filter, setFilter] = useState<"all" | "instagram" | "youtube" | "influencer">("all");
   const [loading, setLoading] = useState(true);
   const [canceling, setCanceling] = useState("");
   const [error, setError] = useState("");
@@ -76,18 +76,20 @@ function ScheduleScreen() {
     setLoading(true);
     setError("");
     try {
-      const [instagramResponse, youtubeResponse] = await Promise.all([
+      const [instagramResponse, youtubeResponse, influencerResponse] = await Promise.all([
         fetch("/api/instagram/schedule", { cache: "no-store" }),
         fetch("/api/youtube/schedule", { cache: "no-store" }),
+        fetch("/api/influencer/schedule", { cache: "no-store" }),
       ]);
       const instagramData = await instagramResponse.json().catch(() => ({}));
       const youtubeData = await youtubeResponse.json().catch(() => ({}));
-      if (instagramResponse.status === 401 || youtubeResponse.status === 401) {
+      const influencerData = await influencerResponse.json().catch(() => ({}));
+      if (instagramResponse.status === 401 || youtubeResponse.status === 401 || influencerResponse.status === 401) {
         setItems([]);
         setError("Entre no Clip Factory para visualizar seus agendamentos.");
         return;
       }
-      if (!instagramResponse.ok && !youtubeResponse.ok) {
+      if (!instagramResponse.ok && !youtubeResponse.ok && !influencerResponse.ok) {
         throw new Error("Não foi possível carregar os agendamentos.");
       }
 
@@ -112,7 +114,17 @@ function ScheduleScreen() {
         status: post.status,
         videoId: post.video_id,
       }));
-      setItems([...instagram, ...youtube].sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()));
+      const influencer: ScheduledItem[] = (influencerData.scheduledPosts || []).map((post: any) => ({
+        id: post.id,
+        platform: "influencer",
+        jobId: "",
+        file: post.file || "reel.mp4",
+        title: post.title || "Reel do Influencer Manager",
+        scheduledAt: post.scheduledAt,
+        status: post.status,
+        lastError: post.lastError,
+      }));
+      setItems([...instagram, ...youtube, ...influencer].sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Não foi possível carregar os agendamentos.");
     } finally {
@@ -121,10 +133,10 @@ function ScheduleScreen() {
   }
 
   async function cancel(item: ScheduledItem) {
-    if (!window.confirm(`Deseja cancelar o agendamento do ${item.platform === "instagram" ? "Instagram" : "YouTube"}?`)) return;
+    if (!window.confirm(`Deseja cancelar o agendamento do ${item.platform === "instagram" ? "Instagram" : item.platform === "youtube" ? "YouTube" : "Influencer Manager"}?`)) return;
     setCanceling(item.id);
     try {
-      const endpoint = item.platform === "instagram" ? "/api/instagram/schedule" : "/api/youtube/schedule";
+      const endpoint = item.platform === "instagram" ? "/api/instagram/schedule" : item.platform === "youtube" ? "/api/youtube/schedule" : "/api/influencer/schedule";
       const response = await fetch(`${endpoint}?id=${encodeURIComponent(item.id)}`, { method: "DELETE" });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Não foi possível cancelar o agendamento.");
@@ -144,6 +156,7 @@ function ScheduleScreen() {
   const activeCount = items.filter((item) => item.status === "scheduled").length;
   const instagramCount = items.filter((item) => item.platform === "instagram" && item.status === "scheduled").length;
   const youtubeCount = items.filter((item) => item.platform === "youtube" && item.status === "scheduled").length;
+  const influencerCount = items.filter((item) => item.platform === "influencer" && item.status === "scheduled").length;
 
   return (
     <section className="cf-schedules">
@@ -196,14 +209,14 @@ function ScheduleScreen() {
         <div className="cf-schedule-list">
           {visible.map((item) => {
             const date = new Date(item.scheduledAt);
-            const platformLabel = item.platform === "instagram" ? "Instagram Reel" : "YouTube";
+            const platformLabel = item.platform === "instagram" ? "Instagram Reel" : item.platform === "youtube" ? "YouTube" : "Influencer Manager · Instagram Reel";
             const statusLabel = item.status === "scheduled" ? "Agendado" : item.status === "processing" ? "Publicando" : item.status === "published" ? "Publicado" : item.status === "failed" ? "Falhou" : "Cancelado";
             const dateLabel = date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }).replace(".", "");
             const timeLabel = date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
             return (
               <article className="cf-schedule-row" key={`${item.platform}-${item.id}`}>
                 <div className={`cf-schedule-platform ${item.platform}`}>
-                  <span>{item.platform === "instagram" ? "IG" : "YT"}</span>
+                  <span>{item.platform === "instagram" ? "IG" : item.platform === "youtube" ? "YT" : "IM"}</span>
                 </div>
                 <div className="cf-schedule-main">
                   <div className="cf-schedule-title">
