@@ -10,7 +10,13 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: "Entre no Clip Factory." }, { status: 401 });
   const admin = createAdminClient();
   const { data, error } = await admin.from("influencer_profiles").select("*").eq("user_id", user.id).order("created_at", { ascending: true });
-  if (error) {\n    console.error("Influencer profiles load failed:", error.message);\n    const message = error.code === "42P01"\n      ? "O banco do Influencer Manager ainda não foi configurado no Supabase. Execute a migration 20260930_influencer_manager.sql."\n      : "Não foi possível carregar os perfis.";\n    return NextResponse.json({ error: message }, { status: 500 });\n  }
+  if (error) {
+    console.error("Influencer profiles load failed:", error.message);
+    const message = error.code === "42P01"
+      ? "O banco do Influencer Manager ainda não foi configurado no Supabase. Execute a migration 20260930_influencer_manager.sql."
+      : "Não foi possível carregar os perfis.";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
   return NextResponse.json({ profiles: data || [] }, { headers: { "Cache-Control": "no-store" } });
 }
 
@@ -31,7 +37,13 @@ export async function POST(request: Request) {
     posts_per_day: postsPerDay, posting_times: postingTimes, caption_mode: captionMode,
     auto_publish: false, repeat_when_exhausted: false
   }).select("*").single();
-  if (error) {\n    console.error("Influencer profile creation failed:", { code: error.code, message: error.message, details: error.details });\n    const message = error.code === "42P01"\n      ? "O banco do Influencer Manager ainda não foi configurado no Supabase. Execute a migration 20260930_influencer_manager.sql."\n      : "Não foi possível criar o perfil.";\n    return NextResponse.json({ error: message }, { status: 500 });\n  }
+  if (error) {
+    console.error("Influencer profile creation failed:", { code: error.code, message: error.message, details: error.details });
+    const message = error.code === "42P01"
+      ? "O banco do Influencer Manager ainda não foi configurado no Supabase. Execute a migration 20260930_influencer_manager.sql."
+      : "Não foi possível criar o perfil.";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
   const defaultCaptions = [
     ["zh","真的太离谱了 😂"],["zh","这个瞬间太精彩了。"],["zh","看到这里真的笑了。"],["zh","今天也遇到了这种瞬间。"],
     ["zh","有时候现实比电影还精彩。"],["zh","这一幕真的值得看第二遍。"],["zh","完全没想到会这样。"],["zh","这也太有意思了吧。"],
