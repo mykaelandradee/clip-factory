@@ -2167,3 +2167,16 @@ html,body,button,input,select,textarea{
 @media(min-width:821px){
   .im-item-actions{max-width:330px;flex-wrap:wrap}
 }
+
+.im-queue-grid{display:grid;gap:6px;margin-top:14px}
+.im-queue-row{display:grid;grid-template-columns:70px 64px minmax(0,1fr);align-items:center;gap:10px;padding:9px 10px;border:1px solid rgba(255,255,255,.06);border-radius:9px;background:#0d0d12}
+.im-queue-row span{font-size:8px;color:#777b86;text-transform:uppercase;letter-spacing:.08em}
+.im-queue-row strong{font-size:11px;color:#f2f2f5;font-variant-numeric:tabular-nums}
+.im-queue-row small{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#a5a7b0;font-size:9px}
+.im-stock-warning{margin-top:12px;padding:12px;border:1px solid rgba(255,177,77,.18);border-radius:9px;background:rgba(255,177,77,.05);color:#c9c1b2;font-size:9px}
+.im-queue-note{display:block;margin-top:10px;color:#666a75;font-size:8px}
+@media(max-width:720px){
+ .im-queue-row{grid-template-columns:58px 52px minmax(0,1fr);gap:7px;padding:8px}
+ .im-queue-row strong{font-size:10px}
+ .im-queue-row small{font-size:8px}
+}
