@@ -53,7 +53,28 @@ export async function GET(request:Request) {
     const ids=shares.map((share:any)=>share.item_id);
     const {data:sourceItems}=await admin.from("influencer_content_items").select("*").in("id",ids).eq("user_id",user.id);
     const byId=new Map((sourceItems||[]).map((item:any)=>[item.id,item]));
-    sharedItems=shares.map((share:any)=>{const item=byId.get(share.item_id);return item?{...item,id:item.id,profile_id:profileId,share_id:share.id,shared:true,status:share.status,scheduled_at:share.scheduled_at,published_at:share.published_at,error_message:share.error_message}:null}).filter(Boolean);
+    sharedItems=shares.map((share:any)=>{
+      const item=byId.get(share.item_id);
+      return item?{
+        ...item,
+        id:item.id,
+        profile_id:profileId,
+        share_id:share.id,
+        shared:true,
+        source_profile_id:item.profile_id,
+        source_profile_name:undefined,
+        status:share.status,
+        scheduled_at:share.scheduled_at,
+        published_at:share.published_at,
+        error_message:share.error_message
+      }:null;
+    }).filter(Boolean);
+    if(sharedItems.length){
+      const sourceProfileIds=Array.from(new Set(sharedItems.map((item:any)=>item.source_profile_id).filter(Boolean)));
+      const {data:sourceProfiles}=await admin.from("influencer_profiles").select("id,name").in("id",sourceProfileIds);
+      const sourceNames=new Map((sourceProfiles||[]).map((profile:any)=>[profile.id,profile.name]));
+      sharedItems=sharedItems.map((item:any)=>({...item,source_profile_name:sourceNames.get(item.source_profile_id)||"Outro perfil"}));
+    }
   }
   const ownIds=new Set((data||[]).map((item:any)=>item.id));
   return NextResponse.json({items:[...(data||[]),...sharedItems.filter((item:any)=>!ownIds.has(item.id))].sort((a:any,b:any)=>String(b.created_at).localeCompare(String(a.created_at)))},{headers:{"Cache-Control":"no-store"}});
@@ -65,6 +86,22 @@ export async function POST(request:Request) {
   const body=await request.json().catch(()=>null);
   const profileId=typeof body?.profileId==="string"?body.profileId:"";
 
+  if(body?.action==="unshare-library"){
+    const targetProfileId=typeof body?.targetProfileId==="string"?body.targetProfileId:"";
+    if(!profileId||!targetProfileId||profileId===targetProfileId) return NextResponse.json({error:"Perfis de compartilhamento inválidos."},{status:400});
+    const admin=createAdminClient();
+    const {data:sourceProfile}=await admin.from("influencer_profiles").select("id").eq("id",profileId).eq("user_id",user.id).maybeSingle();
+    if(!sourceProfile) return NextResponse.json({error:"Perfil de origem não encontrado."},{status:404});
+    const {data:targetProfile}=await admin.from("influencer_profiles").select("id").eq("id",targetProfileId).eq("user_id",user.id).maybeSingle();
+    if(!targetProfile) return NextResponse.json({error:"Perfil de destino não encontrado."},{status:404});
+    const {data:sourceItems}=await admin.from("influencer_content_items").select("id").eq("profile_id",profileId).eq("user_id",user.id);
+    const itemIds=(sourceItems||[]).map((item:any)=>item.id);
+    if(itemIds.length){
+      const {error}=await admin.from("influencer_content_shares").delete().in("item_id",itemIds).eq("profile_id",targetProfileId).eq("user_id",user.id);
+      if(error){console.error("Influencer library unshare failed:",error);return NextResponse.json({error:"Não foi possível descompartilhar a biblioteca."},{status:500});}
+    }
+    return NextResponse.json({ok:true,unshared:true});
+  }
   if(body?.action==="share-library"){
     const targetProfileIds=Array.isArray(body?.targetProfileIds)?body.targetProfileIds.filter((v:unknown)=>typeof v==="string"): [];
     if(!profileId||!targetProfileIds.length) return NextResponse.json({error:"Selecione pelo menos um perfil de destino."},{status:400});
