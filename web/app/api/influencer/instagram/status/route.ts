@@ -12,11 +12,12 @@ export async function GET(request: Request) {
   if (!profileId) return NextResponse.json({ error:"Perfil inválido." }, { status:400 });
   const admin = createAdminClient();
   const { data, error } = await admin.from("influencer_instagram_connections")
-    .select("id,username,instagram_user_id,expires_at")
+    .select("id,username,instagram_user_id,expires_at,requires_reconnect")
     .eq("profile_id",profileId).eq("user_id",user.id).maybeSingle();
   if (error) return NextResponse.json({ error:"Não foi possível consultar a conta Instagram deste perfil." }, { status:500 });
   return NextResponse.json({
-    connected:Boolean(data),
+    connected:Boolean(data && !data.requires_reconnect),
+    requiresReconnect:Boolean(data?.requires_reconnect),
     username:data?.username ?? null,
     instagramUserId:data?.instagram_user_id ?? null,
     expiresAt:data?.expires_at ?? null,
