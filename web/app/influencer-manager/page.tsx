@@ -172,30 +172,24 @@ export default function InfluencerManagerPage(){
   if(r.ok)setItems(v=>v.filter(i=>i.id!==id));else setError(d.error||"Não foi possível excluir o conteúdo.");
  }
  const available=useMemo(()=>items.filter(i=>i.status==="available").length,[items]);
- const readyForNextSlot=useMemo(()=>{
-  if(!selected?.publishing_enabled||!selected.next_publish_at)return 0;
-  const nextPublishAt=new Date(selected.next_publish_at).getTime();
-  if(!Number.isFinite(nextPublishAt)||nextPublishAt<=Date.now())return 0;
-  return items.some(item=>item.status==="available"&&!item.shared)?1:0;
- },[items,selected?.publishing_enabled,selected?.next_publish_at]);
- const processing=useMemo(()=>items.filter(i=>i.status==="processing"||i.status==="queued").length,[items]);
- const scheduled=useMemo(()=>items.filter(i=>i.status==="scheduled").length,[items]);
+
  const published=useMemo(()=>items.filter(i=>i.status==="published").length,[items]);
  const failed=useMemo(()=>items.filter(i=>i.status==="failed").length,[items]);
- const lastPublished=useMemo(()=>{const done=items.filter(i=>i.status==="published").sort((a,b)=>String(b.published_at||b.created_at).localeCompare(String(a.published_at||a.created_at)));return done[0]?.published_at||done[0]?.created_at||null;},[items]);
  const formatDate=(value:string|null|undefined)=>{if(!value)return "—";try{return new Intl.DateTimeFormat("pt-BR",{dateStyle:"short",timeStyle:"short",timeZone:"America/Cuiaba"}).format(new Date(value));}catch{return "—";}};
  const expiresSoon=Boolean(instagramExpiresAt&&new Date(instagramExpiresAt).getTime()-Date.now()<7*24*60*60*1000);
- const days=selected&&selected.posts_per_day?Math.floor(available/selected.posts_per_day):0;
  const queuePreview=useMemo(()=>{
   if(!selected)return [];
   const times=(selected.posting_times||[]).filter((v)=>/^([01]\\d|2[0-3]):[0-5]\\d$/.test(v)).sort();
   const fallback=["09:00","11:30","14:00","16:30","19:00","21:30","23:00","08:00","12:00"];
   const slots=times.length?times:Array.from({length:selected.posts_per_day},(_,i)=>fallback[i]||"09:00");
-  const ready=items.filter((item)=>item.status==="available"&&!item.shared);
+  const availableItems=items.filter((item)=>item.status==="available"&&!item.shared);
+  const publishedItems=items.filter((item)=>item.status==="published"&&!item.shared).sort((a,b)=>String(a.published_at||a.created_at).localeCompare(String(b.published_at||b.created_at)));
+  const pool=selected.repeat_when_exhausted?[...availableItems,...publishedItems]:availableItems;
+  const limit=Math.min(pool.length>0?21:0,slots.length*7);
   const out:{day:number;time:string;item:Item|null}[]=[];
-  for(let day=0;day<7&&out.length<Math.min(ready.length,21);day++){
-   for(let i=0;i<slots.length&&out.length<Math.min(ready.length,21);i++){
-    out.push({day,time:slots[i],item:ready[out.length]||null});
+  for(let day=0;day<7&&out.length<limit;day++){
+   for(let i=0;i<slots.length&&out.length<limit;i++){
+    out.push({day,time:slots[i],item:pool[out.length%pool.length]||null});
    }
   }
   return out;
