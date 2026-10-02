@@ -332,7 +332,7 @@ export default function InfluencerManagerPage(){
        </div>
 
        <div className="im-config-section">
-      <div className="im-config-section">
+
         <div className="im-config-section-head"><div><span className="im-kicker">IDENTIDADE DO REEL</span><h3>Nome e descrição</h3><p>Vazio = automático.</p></div><span className={profileDraft.fixed_publish_title&&profileDraft.fixed_publish_description?"im-cover-ok":"im-status archived"}>{profileDraft.fixed_publish_title&&profileDraft.fixed_publish_description?"FIXO":"FLEXÍVEL"}</span></div>
         <div className="im-fixed-copy">
           <label>Nome do Reel <span className="im-field-help">Deixe vazio para gerar automaticamente.</span><input value={profileDraft.fixed_publish_title} onChange={e=>setProfileDraft(v=>({...v,fixed_publish_title:e.target.value}))} placeholder="Automático" /></label>
