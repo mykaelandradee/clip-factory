@@ -2819,3 +2819,37 @@ html,body,button,input,select,textarea{
   .im-time-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
   .im-time-grid label,.im-time-grid input{width:100%}
 }
+
+
+/* Influencer Manager — safe visual refinement */
+.im-manager-summary{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:16px;align-items:stretch}
+.im-manager-summary>div{display:flex;flex-direction:column;justify-content:center;min-height:76px;padding:12px 14px;box-sizing:border-box}
+.im-manager-summary .im-summary-highlight{background:rgba(255,255,255,.035)}
+.im-manager-summary .im-summary-highlight strong{font-size:14px;line-height:1.4}
+.im-manager-summary .im-summary-queue{grid-column:auto}
+.im-summary-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:2px}
+.im-summary-metrics b{display:flex;align-items:baseline;gap:4px;min-width:0;font-size:20px;line-height:1.1}
+.im-summary-metrics small{font-size:9px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;opacity:.58}
+.im-queue .im-card-head{align-items:flex-start}
+.im-queue .im-card-head>div:first-child{flex:1 1 420px}
+.im-queue .im-card-head .im-status{flex:0 0 auto;margin-left:auto}
+.im-queue-grid{display:grid;gap:8px;margin-top:14px}
+.im-queue-row{display:grid;grid-template-columns:72px 64px minmax(0,1fr);gap:10px;align-items:center;padding:10px 12px;border:1px solid rgba(255,255,255,.07);border-radius:10px;background:rgba(255,255,255,.018)}
+.im-queue-row span{font-size:10px;text-transform:uppercase;letter-spacing:.06em;opacity:.55}
+.im-queue-row strong{font-size:13px;white-space:nowrap}
+.im-queue-row small{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.im-queue-note{display:block;margin-top:10px}
+@media(max-width:900px){
+ .im-manager-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .im-manager-summary .im-summary-queue{grid-column:1/-1}
+}
+@media(max-width:600px){
+ .im-manager-summary{grid-template-columns:1fr}
+ .im-manager-summary .im-summary-queue{grid-column:auto}
+ .im-summary-metrics{gap:4px}
+ .im-summary-metrics b{font-size:18px}
+ .im-summary-metrics small{font-size:8px}
+ .im-queue .im-card-head .im-status{margin-left:0}
+ .im-queue-row{grid-template-columns:58px 54px minmax(0,1fr);gap:7px;padding:9px 10px}
+ .im-queue-row small{white-space:normal;overflow-wrap:anywhere}
+}
