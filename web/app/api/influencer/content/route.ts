@@ -31,6 +31,29 @@ function randomCopy(language:"zh"|"ja", currentTitle?:string|null, currentDescri
   return {title:tp[Math.floor(Math.random()*tp.length)],description:dp[Math.floor(Math.random()*dp.length)]};
 }
 
+function normalizeSourceUrl(value:string) {
+  try {
+    const u=new URL(value.trim());
+    const host=u.hostname.toLowerCase().replace(/^www\./,"");
+    if(host==="youtu.be"){
+      const id=u.pathname.replace(/^\//,"").split("/")[0];
+      return id ? `youtube:${id}` : `url:${u.toString().replace(/#.*$/,"")}`;
+    }
+    if(host==="youtube.com" || host.endsWith(".youtube.com")){
+      const id=u.searchParams.get("v");
+      if(id) return `youtube:${id}`;
+      const pathMatch=u.pathname.match(/^\/shorts\/([^/?#]+)/i);
+      if(pathMatch?.[1]) return `youtube:${pathMatch[1]}`;
+    }
+    if(host==="instagram.com" || host.endsWith(".instagram.com")){
+      return `instagram:${u.pathname.replace(/\/+$/,"").toLowerCase()}`;
+    }
+    return `url:${u.toString().replace(/#.*$/,"")}`;
+  } catch {
+    return `url:${value.trim()}`;
+  }
+}
+
 function githubHeaders() {
   const token = process.env.CLIP_FACTORY_GITHUB_TOKEN;
   if (!token) throw new Error("CLIP_FACTORY_GITHUB_TOKEN não configurado.");
@@ -179,6 +202,25 @@ export async function POST(request:Request) {
   if(isInstagram&&!isInstagramReel) return NextResponse.json({error:"Para Instagram, cole a URL de um Reel público."},{status:400});
   const admin=createAdminClient();
   const {data:profile}=await admin.from("influencer_profiles").select("id,fixed_publish_title,fixed_publish_description,caption_mode").eq("id",profileId).eq("user_id",user.id).maybeSingle();
+  const {data:existingItems,error:existingItemsError}=await admin
+    .from("influencer_content_items")
+    .select("id,source_url,title,status")
+    .eq("profile_id",profileId)
+    .eq("user_id",user.id);
+  if(existingItemsError){
+    console.error("Influencer duplicate check failed:",existingItemsError);
+    return NextResponse.json({error:"Não foi possível verificar se este vídeo já está na biblioteca."},{status:500});
+  }
+  const normalizedSource=normalizeSourceUrl(sourceUrl);
+  const duplicate=(existingItems||[]).find((item:any)=>normalizeSourceUrl(String(item.source_url||""))===normalizedSource);
+  if(duplicate){
+    return NextResponse.json({
+      error:"Este vídeo já está na biblioteca deste perfil.",
+      duplicate:true,
+      item:{id:duplicate.id,title:duplicate.title,status:duplicate.status}
+    },{status:409});
+  }
+
   if(!profile) return NextResponse.json({error:"Perfil não encontrado."},{status:404});
   if(!title){try{const o=await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(sourceUrl)}&format=json`,{cache:"no-store"});if(o.ok){const m=await o.json().catch(()=>({}));if(typeof m?.title==="string")title=m.title.trim().slice(0,500);}}catch{}}
   const {data:captionRows}=await admin.from("influencer_captions").select("id,language,caption").eq("profile_id",profileId).eq("active",true);
