@@ -52,7 +52,12 @@ export async function GET(request: Request) {
 
     const tokenData = await tokenResponse.json();
     if (!tokenResponse.ok || !tokenData.access_token || !tokenData.user_id) {
-      console.error("Instagram token exchange failed:", tokenData);
+      console.error("Instagram token exchange failed:", {
+        status: tokenResponse.status,
+        error: tokenData?.error,
+        error_type: tokenData?.error_type,
+        error_message: tokenData?.error_message,
+      });
       return NextResponse.redirect(new URL("/?instagram_error=token_exchange", publicOrigin));
     }
 
