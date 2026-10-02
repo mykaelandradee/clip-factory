@@ -264,7 +264,7 @@ export default function InfluencerManagerPage(){
   const slots=times.length?times:Array.from({length:selected.posts_per_day},(_,i)=>fallback[i]||"09:00");
   const availableItems=items.filter((item)=>item.status==="available");
   const publishedItems=items.filter((item)=>item.status==="published").sort((a,b)=>String(a.published_at||a.created_at).localeCompare(String(b.published_at||b.created_at)));
-  const pool=selected.repeat_when_exhausted?[...availableItems,...publishedItems]:availableItems;
+  const repeat=Boolean(selected.repeat_when_exhausted);
   const now=new Date();
   const parts=new Intl.DateTimeFormat("en-US",{timeZone:"America/Cuiaba",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).formatToParts(now);
   const get=(type:string)=>Number(parts.find(p=>p.type===type)?.value||0);
@@ -272,13 +272,24 @@ export default function InfluencerManagerPage(){
   const todaySlots=slots.filter(value=>{const [h,m]=value.split(":").map(Number);return h*60+m>currentMinutes;});
   const upcomingSlots=todaySlots.length?todaySlots:slots;
   const startDay=todaySlots.length?0:1;
-  const max=pool.length>0?Math.min(21,slots.length*7):0;
+  const maxSlots=slots.length*7;
+  const initialQueue=repeat?[...availableItems,...publishedItems]:availableItems;
+  if(!initialQueue.length)return [];
   const out:{day:number;time:string;item:Item|null}[]=[];
-  for(let day=startDay;day<7&&out.length<max;day++){
+  const repeatPool=publishedItems;
+  for(let day=startDay;day<7&&out.length<maxSlots;day++){
     const daySlots=day===0?upcomingSlots:slots;
     for(const time of daySlots){
-      if(out.length>=max)break;
-      out.push({day,time,item:pool[out.length%pool.length]||null});
+      if(out.length>=maxSlots)break;
+      let item:Item|null=null;
+      if(out.length<initialQueue.length){
+        item=initialQueue[out.length]||null;
+      }else if(repeat&&repeatPool.length){
+        item=repeatPool[(out.length-initialQueue.length)%repeatPool.length]||null;
+      }else{
+        return out;
+      }
+      if(item)out.push({day,time,item});
     }
   }
   return out;
