@@ -28,7 +28,7 @@ export default function InfluencerManagerPage(){
  const [sharedWith,setSharedWith]=useState<string[]>([]);
  const [sharing,setSharing]=useState(false);
  const [profileDraft,setProfileDraft]=useState<{posts_per_day:number;caption_mode:string;repeat_when_exhausted:boolean;posting_times:string[];fixed_publish_title:string;fixed_publish_description:string;share_to_feed:boolean}>({posts_per_day:3,caption_mode:"zh_ja_random",repeat_when_exhausted:false,posting_times:["09:00","11:30","14:00"],fixed_publish_title:"",fixed_publish_description:"",share_to_feed:true});
- const [profileSaving,setProfileSaving]=useState(false);
+ const [profileSaving,setProfileSaving]=useState(false);\n const [inlineError,setInlineError]=useState<{section:string;message:string}|null>(null);\n const showSectionError=(section:string,message:string)=>setInlineError({section,message});\n const clearSectionError=(section:string)=>setInlineError(v=>v?.section===section?null:v);
  const [shareOpen,setShareOpen]=useState(false);
  const coverPreviewUrl=selected?.cover_r2_key ? `/api/influencer/cover?profileId=${encodeURIComponent(selected.id)}&v=${encodeURIComponent(selected.cover_r2_key)}` : "";
 
@@ -107,10 +107,10 @@ export default function InfluencerManagerPage(){
   }catch(e){setError(e instanceof Error?e.message:"Erro ao criar perfil.");}finally{setSaving(false);}
  }
  async function addUrl(e:FormEvent){
-  e.preventDefault();if(!selected||!url.trim())return;setAdding(true);setError("");
+  e.preventDefault();if(!selected||!url.trim())return;setAdding(true);setError("");clearSectionError("add");
   try{const r=await fetch("/api/influencer/content",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({profileId:selected.id,sourceUrl:url})}),d=await r.json().catch(()=>({}));
    if(!r.ok)throw new Error(d.error||"Não foi possível adicionar o vídeo.");setItems(v=>[d.item,...v]);setUrl("");
-  }catch(e){setError(e instanceof Error?e.message:"Erro ao adicionar.");}finally{setAdding(false);}
+  }catch(e){showSectionError("add",e instanceof Error?e.message:"Erro ao adicionar.");}finally{setAdding(false);}
  }
  async function saveProfileSettings(){
   if(!selected)return;
@@ -139,7 +139,7 @@ export default function InfluencerManagerPage(){
     fixed_publish_description:d.profile.fixed_publish_description||"",
     share_to_feed:d.profile.share_to_feed!==false
    });
-  }catch(e){setError(e instanceof Error?e.message:"Erro ao salvar as configurações.");}
+  }catch(e){showSectionError("profile",e instanceof Error?e.message:"Erro ao salvar as configurações.");}
   finally{setProfileSaving(false);}
  }
  const profileDirty=useMemo(()=>{
@@ -170,7 +170,7 @@ export default function InfluencerManagerPage(){
    const d=await r.json().catch(()=>({}));
    if(!r.ok)throw new Error([d.error,d.code ? `Código: ${d.code}` : "",d.hint || ""].filter(Boolean).join(" "));
    setSelected(d.profile);setProfiles(all=>all.map(p=>p.id===d.profile.id?d.profile:p));setCoverFile(null);setCoverPreviewKey(d.profile.cover_r2_key||"");setLocalCoverPreview("");
-  }catch(e){setError(e instanceof Error?e.message:"Erro ao salvar a capa.");}finally{setUploadingCover(false);}
+  }catch(e){showSectionError("cover",e instanceof Error?e.message:"Erro ao salvar a capa.");}finally{setUploadingCover(false);}
  }
  function handleCoverFile(file:File|null){
   if(localCoverPreview) URL.revokeObjectURL(localCoverPreview);
@@ -195,14 +195,14 @@ export default function InfluencerManagerPage(){
  }
  async function publishItem(itemId:string){
   if(!selected)return;
-  setPublishingItem(itemId);setError("");
+  setPublishingItem(itemId);setError("");clearSectionError("publish");
   try{
    const r=await fetch("/api/influencer/publish",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"publish-item",profileId:selected.id,itemId})});
    const d=await r.json().catch(()=>({}));
    if(!r.ok)throw new Error(d.error||d.message||"Não foi possível publicar o Reel.");
    await loadItems(selected.id);
    await loadProfiles();
-  }catch(e){setError(e instanceof Error?e.message:"Erro ao publicar o Reel.");}
+  }catch(e){showSectionError("publish",e instanceof Error?e.message:"Erro ao publicar o Reel.");}
   finally{setPublishingItem(null);}
  }
  async function randomizeCopy(itemId:string){
@@ -238,7 +238,7 @@ export default function InfluencerManagerPage(){
    setShareTargets([]);
    setShareOpen(false);
    await loadItems(selected.id);
-  }catch(e){setError(e instanceof Error?e.message:"Erro ao compartilhar a biblioteca.");}
+  }catch(e){showSectionError("share",e instanceof Error?e.message:"Erro ao compartilhar a biblioteca.");}
   finally{setSharing(false);}
  }
  async function removeItem(id:string){
@@ -301,40 +301,40 @@ export default function InfluencerManagerPage(){
 
     <div className="im-card im-profile-config">
       <div className="im-card-head">
-        <div><span className="im-kicker">CONFIGURAÇÃO DO PERFIL</span><h2>Identidade e publicação</h2><p>Configure a identidade visual e o comportamento dos Reels deste perfil. As alterações ficam pendentes até você salvar.</p></div>
+        <div><span className="im-kicker">CONFIGURAÇÃO DO PERFIL</span><h2>Identidade e publicação</h2><p>Identidade, regras e horários do perfil.</p></div>
         <button className="im-primary" type="button" disabled={!profileDirty||profileSaving} onClick={()=>void saveProfileSettings()}>{profileSaving?"Salvando…":"Salvar alterações"}</button>
       </div>
 
       <div className="im-config-section">
-        <div className="im-config-section-head"><div><span className="im-kicker">IDENTIDADE</span><h3>Capa do perfil</h3><p>Uma única capa fixa será reutilizada nos Reels publicados por este perfil.</p></div><span className={selected.cover_r2_key?"im-cover-ok":"im-status archived"}>{selected.cover_r2_key?"CONFIGURADA":"NÃO CONFIGURADA"}</span></div>
+        <div className="im-config-section-head"><div><span className="im-kicker">IDENTIDADE</span><h3>Capa do perfil</h3><p>Capa fixa usada nos Reels deste perfil.</p></div><span className={selected.cover_r2_key?"im-cover-ok":"im-status archived"}>{selected.cover_r2_key?"CONFIGURADA":"NÃO CONFIGURADA"}</span></div>
         <div className="im-cover-upload">
-          <label>Capa fixa<input key={selected.id} type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>handleCoverFile(e.target.files?.[0]||null)} /></label>
+          <label>Arquivo da capa<input key={selected.id} type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>handleCoverFile(e.target.files?.[0]||null)} /></label>
           <div className="im-cover-row">
             <div className="im-cover-frame">{(localCoverPreview||coverPreviewUrl)?<img className="im-cover-preview" src={localCoverPreview||coverPreviewUrl} alt={`Capa de ${selected.name}`} />:<div className="im-cover-empty"><span>9:16</span><small>PRÉVIA DA CAPA</small></div>}<div className="im-cover-frame-glow" /></div>
-            <div className="im-cover-meta"><strong>{coverFile?coverFile.name:selected.cover_r2_key?"Capa configurada":"Escolha uma capa vertical"}</strong><span>Ela será aplicada como identidade visual dos Reels deste perfil.</span><button type="button" className="im-primary" disabled={!coverFile||uploadingCover} onClick={()=>void uploadCover()}>{uploadingCover?"Enviando…":"Salvar capa"}</button></div>
+            <div className="im-cover-meta"><strong>{coverFile?coverFile.name:selected.cover_r2_key?"Capa configurada":"Escolha uma capa vertical"}</strong><span>Capa usada nos Reels deste perfil.</span><button type="button" className="im-primary" disabled={!coverFile||uploadingCover} onClick={()=>void uploadCover()}>{uploadingCover?"Enviando…":"Salvar capa"}</button></div>
           </div>
-          <small>JPG, PNG ou WEBP · máximo 5 MB. A capa é exclusiva deste perfil.</small>
+          <small>JPG, PNG ou WEBP · até 5 MB.</small>
         </div>
       </div>
 
       <div className="im-config-section">
-        <div className="im-config-section-head"><div><span className="im-kicker">IDENTIDADE DO REEL</span><h3>Nome e descrição</h3><p>Defina o que será fixo. Se um campo ficar vazio, o sistema gera automaticamente em chinês ou japonês.</p></div><span className={profileDraft.fixed_publish_title&&profileDraft.fixed_publish_description?"im-cover-ok":"im-status archived"}>{profileDraft.fixed_publish_title&&profileDraft.fixed_publish_description?"FIXO":"FLEXÍVEL"}</span></div>
+        <div className="im-config-section-head"><div><span className="im-kicker">IDENTIDADE DO REEL</span><h3>Nome e descrição</h3><p>Vazio = automático.</p></div><span className={profileDraft.fixed_publish_title&&profileDraft.fixed_publish_description?"im-cover-ok":"im-status archived"}>{profileDraft.fixed_publish_title&&profileDraft.fixed_publish_description?"FIXO":"FLEXÍVEL"}</span></div>
         <div className="im-fixed-copy">
           <label>Nome do Reel <span className="im-field-help">Deixe vazio para gerar automaticamente.</span><input value={profileDraft.fixed_publish_title} onChange={e=>setProfileDraft(v=>({...v,fixed_publish_title:e.target.value}))} placeholder="Automático" /></label>
-          <label>Descrição <span className="im-field-help">Deixe vazio para gerar automaticamente em chinês/japonês.</span><textarea rows={5} value={profileDraft.fixed_publish_description} onChange={e=>setProfileDraft(v=>({...v,fixed_publish_description:e.target.value}))} placeholder="Automática em chinês/japonês" /></label>
+          <label>Descrição <span className="im-field-help">Vazio = automático.</span><textarea rows={5} value={profileDraft.fixed_publish_description} onChange={e=>setProfileDraft(v=>({...v,fixed_publish_description:e.target.value}))} placeholder="Automática em chinês/japonês" /></label>
         </div>
-        <label className="im-check"><input type="checkbox" checked={profileDraft.share_to_feed} onChange={e=>setProfileDraft(v=>({...v,share_to_feed:e.target.checked}))}/><span>Publicar também na Grade Principal do Instagram</span></label>
+        {inlineError?.section==="profile"&&<div className="im-inline-error">{inlineError.message}</div>}\n        <label className="im-check"><input type="checkbox" checked={profileDraft.share_to_feed} onChange={e=>setProfileDraft(v=>({...v,share_to_feed:e.target.checked}))}/><span>Publicar também na Grade Principal do Instagram</span></label>
       </div>
 
       <div className="im-config-section">
-        <div className="im-config-section-head"><div><span className="im-kicker">PUBLICAÇÃO</span><h3>Regras e horários</h3><p>Defina a frequência, os horários e o comportamento da fila. Nada é alterado no banco até salvar.</p></div><span className={"im-status "+(selected.publishing_enabled?"available":"archived")}>{selected.publishing_enabled?"EXECUTANDO":"PARADA"}</span></div>
+        <div className="im-config-section-head"><div><span className="im-kicker">PUBLICAÇÃO</span><h3>Regras e horários</h3><p>Frequência, horários e fila.</p></div><span className={"im-status "+(selected.publishing_enabled?"available":"archived")}>{selected.publishing_enabled?"EXECUTANDO":"PARADA"}</span></div>
         <div className="im-settings-grid">
           <label>Reels por dia<select value={profileDraft.posts_per_day} onChange={e=>setProfileDraft(v=>({...v,posts_per_day:Number(e.target.value)}))}>{[1,2,3,4,5,6,7,8,9].map(n=><option key={n}>{n}</option>)}</select></label>
           <label>Descrição<select value={profileDraft.caption_mode} onChange={e=>setProfileDraft(v=>({...v,caption_mode:e.target.value}))}><option value="zh_ja_random">Chinês + Japonês aleatório</option><option value="zh_random">Chinês</option><option value="ja_random">Japonês</option><option value="custom">Banco personalizado</option></select></label>
           <label className="im-check"><input type="checkbox" checked={selected.publishing_enabled} onChange={()=>void togglePublishing()}/><span>Publicação automática</span></label>
           <label className="im-check"><input type="checkbox" checked={profileDraft.repeat_when_exhausted} onChange={e=>setProfileDraft(v=>({...v,repeat_when_exhausted:e.target.checked}))}/><span>Repetir biblioteca quando acabar</span></label>
         </div>
-        <div className="im-times"><span className="im-kicker">HORÁRIOS DIÁRIOS</span><div className="im-time-grid">{Array.from({length:profileDraft.posts_per_day},(_,i)=><label key={i}>Post {i+1}<input type="time" value={profileDraft.posting_times?.[i]||["09:00","11:30","14:00","16:30","19:00","21:30","23:00","08:00","12:00"][i]} onChange={e=>setProfileDraft(v=>{const times=[...v.posting_times];while(times.length<v.posts_per_day)times.push("");times[i]=e.target.value;return {...v,posting_times:times};})} /></label>)}</div><small>A publicação automática usa estes horários. Para publicar um Reel imediatamente, use “Publicar Reel” na biblioteca.</small></div>
+        <div className="im-times"><span className="im-kicker">HORÁRIOS DIÁRIOS</span><div className="im-time-grid">{Array.from({length:profileDraft.posts_per_day},(_,i)=><label key={i}>Post {i+1}<input type="time" value={profileDraft.posting_times?.[i]||["09:00","11:30","14:00","16:30","19:00","21:30","23:00","08:00","12:00"][i]} onChange={e=>setProfileDraft(v=>{const times=[...v.posting_times];while(times.length<v.posts_per_day)times.push("");times[i]=e.target.value;return {...v,posting_times:times};})} /></label>)}</div><small>Os horários só são aplicados após salvar.</small></div>
         <div className="im-publish-controls"><button className="im-primary" disabled={publishing||selected.publishing_enabled} onClick={()=>void togglePublishing()}>{publishing?"Ativando…":"▶ Ativar publicação automática"}</button><button className="im-ghost" disabled={publishing||!selected.publishing_enabled} onClick={()=>void togglePublishing()}>■ Parar publicação</button></div>
       </div>
     </div>
@@ -343,7 +343,7 @@ export default function InfluencerManagerPage(){
      <form className="im-url-form" onSubmit={addUrl}><input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..." required /><button className="im-primary" disabled={adding}>{adding?"Processando…":"Adicionar vídeo"}</button></form>
     </div>
 
-    <div className="im-card im-agenda">
+    {inlineError?.section==="publish"&&<div className="im-inline-error im-page-inline-error">{inlineError.message}</div>}\n    <div className="im-card im-agenda">
       <div className="im-card-head">
         <div><span className="im-kicker">AGENDA E HISTÓRICO</span><h2>Publicações</h2><p>Veja o que está previsto para a fila e acompanhe as últimas publicações deste perfil.</p></div>
       </div>
@@ -480,5 +480,5 @@ export default function InfluencerManagerPage(){
 
   </section>
   {showProfiles&&<div className="im-modal-backdrop im-profiles-modal" role="dialog" aria-modal="true" aria-label="Seus perfis"><div className="im-modal im-profiles-modal-card"><div className="im-card-head"><div><span className="im-kicker">SEUS PERFIS</span><h2>Escolha um perfil</h2><p>Selecione o perfil que você quer gerenciar.</p></div><button className="im-ghost" onClick={()=>setShowProfiles(false)}>Fechar</button></div>{loading?<div className="im-empty">Carregando…</div>:profiles.length===0?<div className="im-empty">Crie seu primeiro perfil para começar.</div>:<div className="im-profile-modal-list">{profiles.map(p=><button key={p.id} className={"im-profile "+(selected?.id===p.id?"active":"")} onClick={()=>{setSelected(p);setShowProfiles(false)}}><span className="im-avatar">{p.name.slice(0,1).toUpperCase()}</span><span><strong>{p.name}</strong><small>{p.instagram_username?"@"+p.instagram_username:"Instagram não conectado"}</small></span><b>{p.posts_per_day}/dia</b></button>)}</div>}<button className="im-primary im-modal-new-profile" onClick={()=>{setShowProfiles(false);setShowNew(true)}}>+ Novo perfil</button></div></div>}
-  {shareOpen&&<div className="im-modal-backdrop" role="dialog" aria-modal="true"><div className="im-modal"><div className="im-card-head"><div><span className="im-kicker">BIBLIOTECA COMPARTILHADA</span><h2>Compartilhar biblioteca</h2><p>Selecione os perfis que devem receber esta biblioteca. Perfis já compartilhados aparecem abaixo, com opção de descompartilhar.</p></div><button className="im-ghost" onClick={()=>setShareOpen(false)}>Fechar</button></div><div className="im-share-list">{profiles.filter(p=>p.id!==selected?.id && !sharedWith.includes(p.id)).map(p=><label key={p.id} className="im-check"><input type="checkbox" checked={shareTargets.includes(p.id)} onChange={e=>setShareTargets(v=>e.target.checked?[...v,p.id]:v.filter(id=>id!==p.id))}/><span>{p.name} {p.instagram_username?("· @"+p.instagram_username.replace(/^@/,"")):""}</span></label>)}</div><div className="im-share-current"><strong>Bibliotecas atualmente compartilhadas</strong>{sharedWith.length===0?<p className="im-field-help">Nenhuma biblioteca compartilhada com outro perfil.</p>:profiles.filter(p=>sharedWith.includes(p.id)).map(p=><div key={"current-"+p.id} className="im-share-current-row"><span>{p.name}</span><button className="im-ghost" disabled={sharing} onClick={async()=>{setSharing(true);setError("");try{const r=await fetch("/api/influencer/content",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"unshare-library",profileId:selected?.id,targetProfileId:p.id})});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível descompartilhar a biblioteca.");await loadItems(selected!.id);}catch(e){setError(e instanceof Error?e.message:"Erro ao descompartilhar.");}finally{setSharing(false);}}}>Descompartilhar</button></div>)}</div><div className="im-modal-actions"><button className="im-primary" disabled={sharing||!shareTargets.length} onClick={()=>void shareLibrary()}>{sharing?"Compartilhando…":"Compartilhar biblioteca"}</button></div></div></div>} </main>);
+  {shareOpen&&<div className="im-modal-backdrop" role="dialog" aria-modal="true"><div className="im-modal"><div className="im-card-head"><div><span className="im-kicker">BIBLIOTECA COMPARTILHADA</span><h2>Compartilhar biblioteca</h2><p>Selecione os perfis que devem receber esta biblioteca. Perfis já compartilhados aparecem abaixo, com opção de descompartilhar.</p></div><button className="im-ghost" onClick={()=>setShareOpen(false)}>Fechar</button></div><div className="im-share-list">{profiles.filter(p=>p.id!==selected?.id && !sharedWith.includes(p.id)).map(p=><label key={p.id} className="im-check"><input type="checkbox" checked={shareTargets.includes(p.id)} onChange={e=>setShareTargets(v=>e.target.checked?[...v,p.id]:v.filter(id=>id!==p.id))}/><span>{p.name} {p.instagram_username?("· @"+p.instagram_username.replace(/^@/,"")):""}</span></label>)}</div><div className="im-share-current"><strong>Bibliotecas atualmente compartilhadas</strong>{sharedWith.length===0?<p className="im-field-help">Nenhuma biblioteca compartilhada com outro perfil.</p>:profiles.filter(p=>sharedWith.includes(p.id)).map(p=><div key={"current-"+p.id} className="im-share-current-row"><span>{p.name}</span><button className="im-ghost" disabled={sharing} onClick={async()=>{setSharing(true);setError("");try{const r=await fetch("/api/influencer/content",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"unshare-library",profileId:selected?.id,targetProfileId:p.id})});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível descompartilhar a biblioteca.");await loadItems(selected!.id);}catch(e){setError(e instanceof Error?e.message:"Erro ao descompartilhar.");}finally{setSharing(false);}}}>Descompartilhar</button></div>)}</div><div className="im-modal-actions">{inlineError?.section==="share"&&<div className="im-inline-error">{inlineError.message}</div>}<button className="im-primary" disabled={sharing||!shareTargets.length} onClick={()=>void shareLibrary()}>{sharing?"Compartilhando…":"Compartilhar biblioteca"}</button></div></div></div>} </main>);
 }
