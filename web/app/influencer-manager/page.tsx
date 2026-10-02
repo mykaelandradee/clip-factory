@@ -311,15 +311,15 @@ export default function InfluencerManagerPage(){
 
    <section className="im-main">{!selected?<div className="im-card im-empty-main"><strong>Crie um perfil para começar.</strong><span>Depois, adicione URLs de vídeos.</span></div>:<>
     <div className="im-card im-overview"><div><span className="im-kicker">PERFIL ATIVO</span><h2>{selected.name}</h2><p>{selected.instagram_username?"@"+selected.instagram_username:"Conecte um Instagram para publicar automaticamente."}</p></div><div className="im-overview-actions"><button className="im-ghost im-danger" disabled={saving} onClick={()=>void deleteProfile()}>Excluir perfil</button></div></div>
-    <div className="im-card im-account"><div className="im-card-head"><div><span className="im-kicker">CONTA VINCULADA</span><h2>Instagram</h2><p><span className="im-info" title="Esta conta do Instagram fica vinculada somente a este perfil.">i</span></p></div><span className={"im-status "+(instagramConnected?"available":"archived")}>{instagramReconnect?"RECONEXÃO NECESSÁRIA":instagramConnected?"CONECTADO":"NÃO CONECTADO"}</span></div><div className="im-account-row"><div><strong>{instagramAccount||"Nenhuma conta Instagram conectada"}</strong>{instagramExpiresAt&&<small className="im-field-help">Token válido até {formatDate(instagramExpiresAt)}{expiresSoon?" · renovação necessária em breve":""}</small>}</div>{(!instagramConnected||instagramReconnect)&&<a className="im-ghost" href={"/api/influencer/instagram/oauth?profileId="+encodeURIComponent(selected.id)}>{instagramReconnect?"Reconectar Instagram":"Conectar Instagram"}</a>}{(instagramConnected||instagramReconnect)&&<button type="button" className="im-ghost im-danger" disabled={saving} onClick={()=>void disconnectInstagram()}>Desvincular Instagram</button>}</div></div>
+    <div className="im-card im-account"><div className="im-card-head"><div><span className="im-kicker">CONTA VINCULADA</span><h2>Instagram</h2><p>Conta vinculada somente a este perfil.<span className="im-info" title="Esta conta do Instagram fica vinculada somente a este perfil.">i</span></p></div><span className={"im-status "+(instagramConnected?"available":"archived")}>{instagramReconnect?"RECONEXÃO NECESSÁRIA":instagramConnected?"CONECTADO":"NÃO CONECTADO"}</span></div><div className="im-account-row"><div><strong>{instagramAccount||"Nenhuma conta Instagram conectada"}</strong>{instagramExpiresAt&&<small className="im-field-help">Token válido até {formatDate(instagramExpiresAt)}{expiresSoon?" · renovação necessária em breve":""}</small>}</div>{(!instagramConnected||instagramReconnect)&&<a className="im-ghost" href={"/api/influencer/instagram/oauth?profileId="+encodeURIComponent(selected.id)}>{instagramReconnect?"Reconectar Instagram":"Conectar Instagram"}</a>}{(instagramConnected||instagramReconnect)&&<button type="button" className="im-ghost im-danger" disabled={saving} onClick={()=>void disconnectInstagram()}>Desvincular Instagram</button>}</div></div>
 
     <div className="im-card im-profile-config">
       <div className="im-card-head">
-        <div><span className="im-kicker">CONFIGURAÇÃO DO PERFIL</span><h2>Identidade e publicação</h2><p><span className="im-info" title="Defina aqui a identidade, os dados dos Reels e as regras de publicação deste perfil.">i</span></p></div>
+        <div><span className="im-kicker">CONFIGURAÇÃO DO PERFIL</span><h2>Identidade e publicação</h2><p>Identidade, dados dos Reels e regras de publicação.<span className="im-info" title="Defina aqui a identidade, os dados dos Reels e as regras de publicação deste perfil.">i</span></p></div>
       </div>
 
        <div className="im-config-section">
-         <div className="im-config-section-head"><div><span className="im-kicker">IDENTIDADE</span><h3>Capa do perfil</h3><p><span className="im-info" title="Esta capa será usada como identidade visual nos Reels publicados por este perfil.">i</span></p></div><span className={selected.cover_r2_key?"im-cover-ok":"im-status archived"}>{selected.cover_r2_key?"CONFIGURADA":"NÃO CONFIGURADA"}</span></div>
+         <div className="im-config-section-head"><div><span className="im-kicker">IDENTIDADE</span><h3>Capa do perfil</h3><p>Capa usada nos Reels deste perfil.<span className="im-info" title="Esta capa será usada como identidade visual nos Reels publicados por este perfil.">i</span></p></div><span className={selected.cover_r2_key?"im-cover-ok":"im-status archived"}>{selected.cover_r2_key?"CONFIGURADA":"NÃO CONFIGURADA"}</span></div>
          <div className="im-cover-upload">
            <label>Arquivo da capa<input key={selected.id} type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>handleCoverFile(e.target.files?.[0]||null)} /></label>
            <div className="im-cover-row">
@@ -332,7 +332,7 @@ export default function InfluencerManagerPage(){
 
        <div className="im-config-section">
 
-        <div className="im-config-section-head"><div><span className="im-kicker">IDENTIDADE DO REEL</span><h3>Nome e descrição</h3><p><span className="im-info" title="Se deixar os campos vazios, o sistema gera o nome e a descrição automaticamente.">i</span></p></div><span className={profileDraft.fixed_publish_title&&profileDraft.fixed_publish_description?"im-cover-ok":"im-status archived"}>{profileDraft.fixed_publish_title&&profileDraft.fixed_publish_description?"FIXO":"FLEXÍVEL"}</span></div>
+        <div className="im-config-section-head"><div><span className="im-kicker">IDENTIDADE DO REEL</span><h3>Nome e descrição</h3><p>Nome e descrição podem ser automáticos.<span className="im-info" title="Se deixar os campos vazios, o sistema gera o nome e a descrição automaticamente.">i</span></p></div><span className={profileDraft.fixed_publish_title&&profileDraft.fixed_publish_description?"im-cover-ok":"im-status archived"}>{profileDraft.fixed_publish_title&&profileDraft.fixed_publish_description?"FIXO":"FLEXÍVEL"}</span></div>
         <div className="im-fixed-copy">
           <label>Nome do Reel <span className="im-field-help">Deixe vazio para gerar automaticamente.</span><input value={profileDraft.fixed_publish_title} onChange={e=>setProfileDraft(v=>({...v,fixed_publish_title:e.target.value}))} placeholder="Automático" /></label>
           <label>Descrição <span className="im-field-help"><span className="im-info" title="Deixe vazio para gerar automaticamente.">i</span></span><textarea rows={5} value={profileDraft.fixed_publish_description} onChange={e=>setProfileDraft(v=>({...v,fixed_publish_description:e.target.value}))} placeholder="Automática em chinês/japonês" /></label>
@@ -340,7 +340,7 @@ export default function InfluencerManagerPage(){
       </div>
 
       <div className="im-config-section">
-        <div className="im-config-section-head"><div><span className="im-kicker">PUBLICAÇÃO</span><h3>Regras e horários</h3><p><span className="im-info" title="Defina quantos Reels serão publicados por dia, os horários e como a fila deve se comportar.">i</span></p></div><span className={"im-status "+(selected.publishing_enabled?"available":"archived")}>{selected.publishing_enabled?"EXECUTANDO":"PARADA"}</span></div>
+        <div className="im-config-section-head"><div><span className="im-kicker">PUBLICAÇÃO</span><h3>Regras e horários</h3><p>Frequência, horários e fila de publicação.<span className="im-info" title="Defina quantos Reels serão publicados por dia, os horários e como a fila deve se comportar.">i</span></p></div><span className={"im-status "+(selected.publishing_enabled?"available":"archived")}>{selected.publishing_enabled?"EXECUTANDO":"PARADA"}</span></div>
         <div className="im-settings-grid">
           <label>Reels por dia<select className="im-form-select" value={profileDraft.posts_per_day} onChange={e=>setProfileDraft(v=>({...v,posts_per_day:Number(e.target.value)}))}>{[1,2,3,4,5,6,7,8,9].map(n=><option key={n}>{n}</option>)}</select></label>
           <label>Descrição<select className="im-form-select" value={profileDraft.caption_mode} onChange={e=>setProfileDraft(v=>({...v,caption_mode:e.target.value}))}><option value="zh_ja_random">Chinês + Japonês aleatório</option><option value="zh_random">Chinês</option><option value="ja_random">Japonês</option><option value="custom">Banco personalizado</option></select></label>
@@ -361,13 +361,13 @@ export default function InfluencerManagerPage(){
         <div className="im-feedback-copy"><span className="im-kicker">ATENÇÃO</span><h2 id="im-feedback-title">Não foi possível concluir</h2><p>{feedbackMessage}</p></div>
         <button className="im-primary" type="button" onClick={()=>{setError("");setInlineError(null);}}>Entendi</button>
       </div>
-    </div>}<div className="im-card im-add"><div className="im-card-head"><div><span className="im-kicker">CONTEÚDO</span><h2>Adicionar vídeo</h2><p><span className="im-info" title="Cole uma URL de vídeo. O sistema baixa o arquivo uma vez, converte para 9:16 e armazena no R2.">i</span></p></div></div>
-     <form className="im-url-form" onSubmit={addUrl}><input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..." required /><button className="im-primary" disabled={adding}>{adding?"Processando…":"Adicionar vídeo"}</button></form>
+    </div>}<div className="im-card im-add"><div className="im-card-head"><div><span className="im-kicker">CONTEÚDO</span><h2>Adicionar vídeo</h2><p>Adicione um vídeo por URL.<span className="im-info" title="Cole uma URL do YouTube ou de um Reel público do Instagram. O sistema baixa o arquivo, converte para 9:16 e armazena no R2.">i</span></p></div></div>
+     <form className="im-url-form" onSubmit={addUrl}><input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://youtube.com/... ou https://instagram.com/reel/..." required /><button className="im-primary" disabled={adding}>{adding?"Processando…":"Adicionar vídeo"}</button></form>
     </div>
 
     {inlineError?.section==="publish"&&<div className="im-inline-error im-page-inline-error">{inlineError.message}</div>}    <div className="im-card im-agenda">
       <div className="im-card-head">
-        <div><span className="im-kicker">AGENDA E HISTÓRICO</span><h2>Publicações</h2><p><span className="im-info" title="Consulte os próximos horários da fila e o histórico das publicações deste perfil.">i</span></p></div>
+        <div><span className="im-kicker">AGENDA E HISTÓRICO</span><h2>Publicações</h2><p>Fila e histórico de publicações.<span className="im-info" title="Consulte os próximos horários da fila e o histórico das publicações deste perfil.">i</span></p></div>
       </div>
       <div className="im-agenda-grid">
         <div className="im-agenda-column">
@@ -386,7 +386,7 @@ export default function InfluencerManagerPage(){
         <div>
           <span className="im-kicker">BIBLIOTECA</span>
           <h2>Biblioteca de conteúdo</h2>
-          <p><span className="im-info" title="Conteúdo próprio e compartilhado são mantidos separados. Apenas o perfil proprietário pode editar ou excluir o vídeo original.">i</span></p>
+          <p>Conteúdo próprio e bibliotecas compartilhadas ficam separados.<span className="im-info" title="Apenas o perfil proprietário pode editar ou excluir o vídeo original.">i</span></p>
         </div>
         <div className="im-library-head-actions">
           <span className="im-count">{items.length}</span>
