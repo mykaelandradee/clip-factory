@@ -326,6 +326,27 @@ export async function POST(request:Request) {
     const results=[];
     const now=new Date();
     const claimUntil=new Date(now.getTime()+10*60*1000).toISOString();
+    const {data:activeProfiles}=await admin.from("influencer_profiles")
+      .select("id,user_id,next_publish_at,posting_times,posts_per_day")
+      .eq("auto_publish",true)
+      .eq("publishing_enabled",true)
+      .limit(100);
+
+    // Corrige agendas antigas que ficaram apontando para um horário posterior
+    // enquanto ainda existe um horário configurado anterior no mesmo dia.
+    for(const profile of activeProfiles||[]){
+      const expected=nextSlot((profile as any).posting_times||[],now,Number((profile as any).posts_per_day)||3);
+      const stored=profile.next_publish_at ? new Date(profile.next_publish_at) : null;
+      if(!stored || stored.getTime()>expected.getTime()){
+        await admin.from("influencer_profiles")
+          .update({next_publish_at:expected.toISOString(),updated_at:new Date().toISOString()})
+          .eq("id",profile.id)
+          .eq("user_id",profile.user_id)
+          .eq("auto_publish",true)
+          .eq("publishing_enabled",true);
+      }
+    }
+
     const {data:dueProfiles}=await admin.from("influencer_profiles")
       .select("id,user_id,next_publish_at")
       .eq("auto_publish",true)
