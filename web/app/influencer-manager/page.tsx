@@ -275,36 +275,45 @@ export default function InfluencerManagerPage(){
  const expiresSoon=Boolean(instagramExpiresAt&&new Date(instagramExpiresAt).getTime()-Date.now()<7*24*60*60*1000);
  const queuePreview=useMemo(()=>{
   if(!selected)return [];
-  const times=(selected.posting_times||[]).filter((v)=>/^([01]\d|2[0-3]):[0-5]\d$/.test(v)).sort();
+  const times=(selected.posting_times||[]).filter((v)=>/^([01]\\d|2[0-3]):[0-5]\\d$/.test(v)).sort();
   const fallback=["09:00","11:30","14:00","16:30","19:00","21:30","23:00","08:00","12:00"];
   const slots=times.length?times:Array.from({length:selected.posts_per_day},(_,i)=>fallback[i]||"09:00");
   const availableItems=items.filter((item)=>item.status==="available").sort((a,b)=>String(a.created_at||"").localeCompare(String(b.created_at||"")));
   const publishedItems=items.filter((item)=>item.status==="published").sort((a,b)=>String(a.published_at||a.created_at).localeCompare(String(b.published_at||b.created_at)));
   const repeat=Boolean(selected.repeat_when_exhausted);
-  const now=new Date();
-  const parts=new Intl.DateTimeFormat("en-US",{timeZone:"America/Cuiaba",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).formatToParts(now);
+  const anchor=selected.publishing_enabled&&selected.next_publish_at
+    ? new Date(selected.next_publish_at)
+    : new Date();
+  const parts=new Intl.DateTimeFormat("en-US",{timeZone:"America/Cuiaba",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).formatToParts(anchor);
   const get=(type:string)=>Number(parts.find(p=>p.type===type)?.value||0);
-  const currentMinutes=get("hour")*60+get("minute");
-  const todaySlots=slots.filter(value=>{const [h,m]=value.split(":").map(Number);return h*60+m>currentMinutes;});
-  const upcomingSlots=todaySlots.length?todaySlots:slots;
-  const startDay=todaySlots.length?0:1;
-  const maxSlots=slots.length*7;
+  const localAnchor={year:get("year"),month:get("month"),day:get("day"),hour:get("hour"),minute:get("minute")};
+  const localToUtc=(year:number,month:number,day:number,hour:number,minute:number)=>{
+    let guess=Date.UTC(year,month-1,day,hour,minute,0,0);
+    for(let i=0;i<3;i++){
+      const p=new Intl.DateTimeFormat("en-US",{timeZone:"America/Cuiaba",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).formatToParts(new Date(guess));
+      const value=(type:string)=>Number(p.find(part=>part.type===type)?.value||0);
+      guess+=Date.UTC(year,month-1,day,hour,minute)-Date.UTC(value("year"),value("month")-1,value("day"),value("hour"),value("minute"));
+    }
+    return new Date(guess);
+  };
+  const base=Date.UTC(localAnchor.year,localAnchor.month-1,localAnchor.day);
   const initialQueue=repeat?[...availableItems,...publishedItems]:availableItems;
   if(!initialQueue.length)return [];
-  const out:{day:number;time:string;item:Item|null}[]=[];
   const repeatPool=publishedItems;
-  for(let day=startDay;day<7&&out.length<maxSlots;day++){
-    const daySlots=day===0?upcomingSlots:slots;
-    for(const time of daySlots){
+  const maxSlots=slots.length*7;
+  const out:{day:number;time:string;item:Item|null}[]=[];
+  for(let day=0;day<7&&out.length<maxSlots;day++){
+    const date=new Date(base+day*24*60*60*1000);
+    const year=date.getUTCFullYear(),month=date.getUTCMonth()+1,dom=date.getUTCDate();
+    for(const time of slots){
       if(out.length>=maxSlots)break;
+      const [hour,minute]=time.split(":").map(Number);
+      const candidate=localToUtc(year,month,dom,hour,minute);
+      if(candidate.getTime()<anchor.getTime())continue;
       let item:Item|null=null;
-      if(out.length<initialQueue.length){
-        item=initialQueue[out.length]||null;
-      }else if(repeat&&repeatPool.length){
-        item=repeatPool[(out.length-initialQueue.length)%repeatPool.length]||null;
-      }else{
-        return out;
-      }
+      if(out.length<initialQueue.length)item=initialQueue[out.length]||null;
+      else if(repeat&&repeatPool.length)item=repeatPool[(out.length-initialQueue.length)%repeatPool.length]||null;
+      else return out;
       if(item)out.push({day,time,item});
     }
   }
