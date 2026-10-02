@@ -8,7 +8,7 @@ type Profile={
   repeat_when_exhausted:boolean; cover_r2_key?:string|null; fixed_publish_title?:string|null; fixed_publish_description?:string|null; share_to_feed?:boolean; publishing_enabled?:boolean; next_publish_at?:string|null; publish_retry_count?:number;
 };
 type Item={
-  id:string; source_url:string; title:string|null; status:string; created_at:string; share_id?:string|null; shared?:boolean;
+  id:string; source_url:string; title:string|null; status:string; created_at:string; published_at?:string|null; share_id?:string|null; shared?:boolean;
   r2_key?:string|null; result_url?:string|null; publish_title?:string|null;
   publish_description?:string|null; source_description?:string|null;
   error_message?:string|null; progress?:number; stage?:string|null; source_profile_id?:string|null; source_profile_name?:string|null;
@@ -176,7 +176,7 @@ export default function InfluencerManagerPage(){
  const scheduled=useMemo(()=>items.filter(i=>i.status==="scheduled").length,[items]);
  const published=useMemo(()=>items.filter(i=>i.status==="published").length,[items]);
  const failed=useMemo(()=>items.filter(i=>i.status==="failed").length,[items]);
- const lastPublished=useMemo(()=>{const done=items.filter(i=>i.status==="published").sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)));return done[0]?.created_at||null;},[items]);
+ const lastPublished=useMemo(()=>{const done=items.filter(i=>i.status==="published").sort((a,b)=>String(b.published_at||b.created_at).localeCompare(String(a.published_at||a.created_at)));return done[0]?.created_at||null;},[items]);
  const formatDate=(value:string|null|undefined)=>{if(!value)return "—";try{return new Intl.DateTimeFormat("pt-BR",{dateStyle:"short",timeStyle:"short",timeZone:"America/Cuiaba"}).format(new Date(value));}catch{return "—";}};
  const expiresSoon=Boolean(instagramExpiresAt&&new Date(instagramExpiresAt).getTime()-Date.now()<7*24*60*60*1000);
  const days=selected&&selected.posts_per_day?Math.floor(available/selected.posts_per_day):0;
