@@ -25,7 +25,7 @@ function localToUtc(year: number, month: number, day: number, hour: number, minu
 }
 
 function nextSlot(times: string[], from = new Date(), postsPerDay = 3) {
-  const valid = times.filter((value) => /^([01]\\d|2[0-3]):[0-5]\\d$/.test(value)).sort();
+  const valid = times.filter((value) => /^([01]\d|2[0-3]):[0-5]\d$/.test(value)).sort();
   if (!valid.length) {
     valid.push(...["09:00", "11:30", "14:00", "16:30", "19:00", "21:30", "23:00", "08:00", "12:00"].slice(0, Math.max(1, Math.min(9, postsPerDay))));
   }
