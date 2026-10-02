@@ -250,16 +250,26 @@ export async function POST(request:Request) {
 
       const result=await publishOne(admin,p.id,p.user_id);
       if(result.status==="error"){
-        const retryCount=Number((result as any).retryCount)||1;
+        const {data:retryProfile}=await admin.from("influencer_profiles")
+          .select("posting_times,posts_per_day,publish_retry_count")
+          .eq("id",p.id).eq("user_id",p.user_id).maybeSingle();
+        const retryCount=Number((retryProfile as any)?.publish_retry_count)||0;
+        const nextRetryCount=retryCount+1;
         const retryable=(result as any).retryable!==false;
-        const exhausted=(result as any).exhausted===true;
+        const exhausted=(result as any).exhausted===true || nextRetryCount>=3;
         const next=retryable && !exhausted
-          ? new Date(Date.now()+retryDelayMinutes(retryCount)*60*1000)
-          : nextSlot((await admin.from("influencer_profiles").select("posting_times,posts_per_day").eq("id",p.id).eq("user_id",p.user_id).maybeSingle()).data?.posting_times||[],new Date(),Number((await admin.from("influencer_profiles").select("posts_per_day").eq("id",p.id).eq("user_id",p.user_id).maybeSingle()).data?.posts_per_day)||3);
+          ? new Date(Date.now()+retryDelayMinutes(nextRetryCount)*60*1000)
+          : nextSlot((retryProfile as any)?.posting_times||[],new Date(),Number((retryProfile as any)?.posts_per_day)||3);
         await admin.from("influencer_profiles").update({
           next_publish_at:next.toISOString(),
+          publish_retry_count:exhausted?0:nextRetryCount,
           updated_at:new Date().toISOString()
         }).eq("id",p.id).eq("user_id",p.user_id).eq("auto_publish",true).eq("publishing_enabled",true);
+      } else if(result.status==="published"){
+        await admin.from("influencer_profiles").update({
+          publish_retry_count:0,
+          updated_at:new Date().toISOString()
+        }).eq("id",p.id).eq("user_id",p.user_id);
       }
       results.push({profileId:p.id,userId:p.user_id,...result});
     }
