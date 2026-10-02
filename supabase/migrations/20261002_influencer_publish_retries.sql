@@ -1,4 +1,7 @@
 -- Automatic publication recovery: track per-item and per-share publish retries.
+alter table public.influencer_profiles
+  add column if not exists publish_retry_count integer not null default 0;
+
 alter table public.influencer_content_items
   add column if not exists retry_count integer not null default 0;
 
