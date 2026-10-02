@@ -472,12 +472,6 @@ export default function InfluencerManagerPage(){
                           <label>Descrição do Reel<strong>{item.publish_description || "—"}</strong></label>
                         </div>
                       )}
-                      {item.source_description && (
-                        <div className="im-source-copy">
-                          <label>Descrição original do vídeo</label>
-                          <p>{item.source_description}</p>
-                        </div>
-                      )}
                     </div>
                     <div className="im-item-actions">
                       <span className={"im-status " + item.status}>{item.shared ? "COMPARTILHADO" : STATUS[item.status] || item.status}</span>
