@@ -25,6 +25,7 @@ export default function InfluencerManagerPage(){
  const [instagramConnected,setInstagramConnected]=useState(false),[instagramAccount,setInstagramAccount]=useState("");
  const [instagramReconnect,setInstagramReconnect]=useState(false),[instagramExpiresAt,setInstagramExpiresAt]=useState<string|null>(null);
  const [shareTargets,setShareTargets]=useState<string[]>([]);
+ const [sharedWith,setSharedWith]=useState<string[]>([]);
  const [sharing,setSharing]=useState(false);
  const [shareOpen,setShareOpen]=useState(false);
  const coverPreviewUrl=selected?.cover_r2_key ? `/api/influencer/cover?profileId=${encodeURIComponent(selected.id)}&v=${encodeURIComponent(selected.cover_r2_key)}` : "";
@@ -38,10 +39,26 @@ export default function InfluencerManagerPage(){
  }
  async function loadItems(id:string){
   try{const r=await fetch("/api/influencer/content?profileId="+encodeURIComponent(id),{cache:"no-store"}),d=await r.json().catch(()=>({}));
-   if(!r.ok)throw new Error(d.error||"Não foi possível carregar a biblioteca.");setItems(d.items||[]);setShareTargets(Array.isArray(d.sharedWith)?d.sharedWith:[]);
+   if(!r.ok)throw new Error(d.error||"Não foi possível carregar a biblioteca.");setItems(d.items||[]);setSharedWith(Array.isArray(d.sharedWith)?d.sharedWith:[]);setShareTargets([]);
   }catch(e){setError(e instanceof Error?e.message:"Erro ao carregar a biblioteca.");}
  }
  useEffect(()=>{void loadProfiles();},[]);
+ async function disconnectInstagram(){
+  if(!selected)return;
+  if(!window.confirm(`Desvincular o Instagram ${instagramAccount||"deste perfil"}? A publicação automática deste perfil será interrompida.`))return;
+  setSaving(true);setError("");
+  try{
+   const r=await fetch("/api/influencer/instagram/status?profileId="+encodeURIComponent(selected.id),{method:"DELETE"});
+   const d=await r.json().catch(()=>({}));
+   if(!r.ok)throw new Error(d.error||"Não foi possível desvincular o Instagram.");
+   setInstagramConnected(false);setInstagramReconnect(false);setInstagramExpiresAt(null);setInstagramAccount("");
+   if(d.profile){
+    setSelected(d.profile);
+    setProfiles(all=>all.map(p=>p.id===d.profile.id?d.profile:p));
+   }
+  }catch(e){setError(e instanceof Error?e.message:"Erro ao desvincular o Instagram.");}
+  finally{setSaving(false);}
+ }
  async function loadInstagramConnection(profileId:string){
   try{const r=await fetch("/api/influencer/instagram/status?profileId="+encodeURIComponent(profileId),{cache:"no-store"}),d=await r.json().catch(()=>({}));
    setInstagramConnected(Boolean(r.ok&&d.connected));
@@ -182,8 +199,8 @@ export default function InfluencerManagerPage(){
   const times=(selected.posting_times||[]).filter((v)=>/^([01]\\d|2[0-3]):[0-5]\\d$/.test(v)).sort();
   const fallback=["09:00","11:30","14:00","16:30","19:00","21:30","23:00","08:00","12:00"];
   const slots=times.length?times:Array.from({length:selected.posts_per_day},(_,i)=>fallback[i]||"09:00");
-  const availableItems=items.filter((item)=>item.status==="available"&&!item.shared);
-  const publishedItems=items.filter((item)=>item.status==="published"&&!item.shared).sort((a,b)=>String(a.published_at||a.created_at).localeCompare(String(b.published_at||b.created_at)));
+  const availableItems=items.filter((item)=>item.status==="available");
+  const publishedItems=items.filter((item)=>item.status==="published").sort((a,b)=>String(a.published_at||a.created_at).localeCompare(String(b.published_at||b.created_at)));
   const pool=selected.repeat_when_exhausted?[...availableItems,...publishedItems]:availableItems;
   const limit=Math.min(pool.length>0?21:0,slots.length*7);
   const out:{day:number;time:string;item:Item|null}[]=[];
@@ -198,15 +215,21 @@ export default function InfluencerManagerPage(){
  return (<main className="im-page">
   <header className="im-header"><div className="im-header-copy"><a className="im-back" href="/">← Clip Factory</a><span className="im-header-label">INFLUENCER MANAGER</span><h1>Transforme ideias<br /><em>em influência.</em></h1><p>Organize bibliotecas, padronize seus perfis e automatize a publicação dos seus Reels.</p><div className="im-hero-pills"><span>BIBLIOTECA</span><span>AUTOMAÇÃO</span><span>REELS 9:16</span></div></div><div className="im-hero-mark-wrap"><div className="im-hero-mark"><strong>IG</strong><span>INFLUENCER</span></div><div className="im-hero-orbit im-orbit-one" /><div className="im-hero-orbit im-orbit-two" /></div><div className="im-header-actions"><button className="im-ghost im-profiles-trigger" onClick={()=>setShowProfiles(true)}>SEUS PERFIS <b>{profiles.length}</b></button><button className="im-primary" onClick={()=>setShowNew(true)}>+ Novo perfil</button></div></header>
   {error&&<div className="im-alert">{error}</div>}
-  {showNew&&<section className="im-card im-form-card"><div className="im-card-head"><div><span className="im-kicker">NOVO PERFIL</span><h2>Criar perfil</h2></div><button className="im-ghost" onClick={()=>setShowNew(false)}>Fechar</button></div>
-   <form className="im-form" onSubmit={createProfile}><label>Nome do perfil<input value={name} onChange={e=>setName(e.target.value)} placeholder="Memes BR" required /></label><label>Reels por dia<select className="im-form-select" value={posts} onChange={e=>setPosts(e.target.value)}>{[1,2,3,4,5,6,7,8,9].map(n=><option key={n}>{n}</option>)}</select></label><div className="im-form-note">O Instagram será conectado depois que o perfil for criado.</div><button className="im-primary" disabled={saving}>{saving?"Criando…":"Criar perfil"}</button></form>
-  </section>}
+  {showNew&&<div className="im-modal-backdrop" role="dialog" aria-modal="true" aria-label="Criar novo perfil"><div className="im-modal im-new-profile-modal">
+   <div className="im-card-head"><div><span className="im-kicker">NOVO PERFIL</span><h2>Criar perfil</h2><p>Crie o perfil primeiro. Depois você poderá conectar o Instagram e configurar a publicação.</p></div><button className="im-ghost" type="button" onClick={()=>setShowNew(false)}>Fechar</button></div>
+   <form className="im-form im-new-profile-form" onSubmit={createProfile}>
+    <label>Nome do perfil<input value={name} onChange={e=>setName(e.target.value)} placeholder="Memes BR" required /></label>
+    <label>Reels por dia<select className="im-form-select" value={posts} onChange={e=>setPosts(e.target.value)}>{[1,2,3,4,5,6,7,8,9].map(n=><option key={n}>{n}</option>)}</select></label>
+    <div className="im-form-note">O Instagram será conectado depois que o perfil for criado.</div>
+    <div className="im-modal-actions"><button className="im-ghost" type="button" onClick={()=>setShowNew(false)}>Cancelar</button><button className="im-primary" disabled={saving}>{saving?"Criando…":"Criar perfil"}</button></div>
+   </form>
+  </div></div>}
   <section className="im-layout">
    <button type="button" className="im-mobile-profile-trigger" onClick={()=>setShowProfiles(true)}>SEUS PERFIS <b>{profiles.length}</b></button>
 
    <section className="im-main">{!selected?<div className="im-card im-empty-main"><strong>Crie um perfil para começar.</strong><span>Depois, adicione URLs de vídeos.</span></div>:<>
     <div className="im-card im-overview"><div><span className="im-kicker">PERFIL ATIVO</span><h2>{selected.name}</h2><p>{selected.instagram_username?"@"+selected.instagram_username:"Conecte um Instagram para publicar automaticamente."}</p></div><div className="im-overview-actions"><button className="im-ghost im-danger" disabled={saving} onClick={()=>void deleteProfile()}>Excluir perfil</button></div></div>
-    <div className="im-card im-account"><div className="im-card-head"><div><span className="im-kicker">CONTA VINCULADA</span><h2>Instagram</h2><p>Esta conta pertence somente a este perfil e é independente do Instagram conectado na tela principal.</p></div><span className={"im-status "+(instagramConnected?"available":"archived")}>{instagramReconnect?"RECONEXÃO NECESSÁRIA":instagramConnected?"CONECTADO":"NÃO CONECTADO"}</span></div><div className="im-account-row"><div><strong>{instagramAccount||"Nenhuma conta Instagram conectada"}</strong>{instagramExpiresAt&&<small className="im-field-help">Token válido até {formatDate(instagramExpiresAt)}{expiresSoon?" · renovação necessária em breve":""}</small>}</div>{(!instagramConnected||instagramReconnect)&&<a className="im-ghost" href={"/api/influencer/instagram/oauth?profileId="+encodeURIComponent(selected.id)}>{instagramReconnect?"Reconectar Instagram":"Conectar Instagram"}</a>}</div></div>
+    <div className="im-card im-account"><div className="im-card-head"><div><span className="im-kicker">CONTA VINCULADA</span><h2>Instagram</h2><p>Esta conta pertence somente a este perfil e é independente do Instagram conectado na tela principal.</p></div><span className={"im-status "+(instagramConnected?"available":"archived")}>{instagramReconnect?"RECONEXÃO NECESSÁRIA":instagramConnected?"CONECTADO":"NÃO CONECTADO"}</span></div><div className="im-account-row"><div><strong>{instagramAccount||"Nenhuma conta Instagram conectada"}</strong>{instagramExpiresAt&&<small className="im-field-help">Token válido até {formatDate(instagramExpiresAt)}{expiresSoon?" · renovação necessária em breve":""}</small>}</div>{(!instagramConnected||instagramReconnect)&&<a className="im-ghost" href={"/api/influencer/instagram/oauth?profileId="+encodeURIComponent(selected.id)}>{instagramReconnect?"Reconectar Instagram":"Conectar Instagram"}</a>}{(instagramConnected||instagramReconnect)&&<button type="button" className="im-ghost im-danger" disabled={saving} onClick={()=>void disconnectInstagram()}>Desvincular Instagram</button>}</div></div>
 
     <div className="im-card im-cover-card">
       <div className="im-card-head"><div><span className="im-kicker">IDENTIDADE</span><h2>Capa do perfil</h2><p>Uma única capa fixa será reutilizada nos Reels publicados por este perfil.</p></div><span className={selected.cover_r2_key?"im-cover-ok":"im-status archived"}>{selected.cover_r2_key?"CONFIGURADA":"NÃO CONFIGURADA"}</span></div>
@@ -383,5 +406,5 @@ export default function InfluencerManagerPage(){
 
   </section>
   {showProfiles&&<div className="im-modal-backdrop im-profiles-modal" role="dialog" aria-modal="true" aria-label="Seus perfis"><div className="im-modal im-profiles-modal-card"><div className="im-card-head"><div><span className="im-kicker">SEUS PERFIS</span><h2>Escolha um perfil</h2><p>Selecione o perfil que você quer gerenciar.</p></div><button className="im-ghost" onClick={()=>setShowProfiles(false)}>Fechar</button></div>{loading?<div className="im-empty">Carregando…</div>:profiles.length===0?<div className="im-empty">Crie seu primeiro perfil para começar.</div>:<div className="im-profile-modal-list">{profiles.map(p=><button key={p.id} className={"im-profile "+(selected?.id===p.id?"active":"")} onClick={()=>{setSelected(p);setShowProfiles(false)}}><span className="im-avatar">{p.name.slice(0,1).toUpperCase()}</span><span><strong>{p.name}</strong><small>{p.instagram_username?"@"+p.instagram_username:"Instagram não conectado"}</small></span><b>{p.posts_per_day}/dia</b></button>)}</div>}<button className="im-primary im-modal-new-profile" onClick={()=>{setShowProfiles(false);setShowNew(true)}}>+ Novo perfil</button></div></div>}
-  {shareOpen&&<div className="im-modal-backdrop" role="dialog" aria-modal="true"><div className="im-modal"><div className="im-card-head"><div><span className="im-kicker">BIBLIOTECA COMPARTILHADA</span><h2>Compartilhar biblioteca</h2><p>Todos os vídeos desta biblioteca serão disponibilizados nos perfis selecionados. Não é necessário escolher vídeo por vídeo.</p></div><button className="im-ghost" onClick={()=>setShareOpen(false)}>Fechar</button></div><div className="im-share-list">{profiles.filter(p=>p.id!==selected?.id).map(p=><label key={p.id} className="im-check"><input type="checkbox" checked={shareTargets.includes(p.id)} onChange={e=>setShareTargets(v=>e.target.checked?[...v,p.id]:v.filter(id=>id!==p.id))}/><span>{p.name} {p.instagram_username?("· @"+p.instagram_username.replace(/^@/,"")):""}</span></label>)}</div><div className="im-share-current"><strong>Bibliotecas atualmente compartilhadas</strong>{shareTargets.length===0?<p className="im-field-help">Nenhuma biblioteca compartilhada com outro perfil.</p>:profiles.filter(p=>shareTargets.includes(p.id)).map(p=><div key={"current-"+p.id} className="im-share-current-row"><span>{p.name}</span><button className="im-ghost" onClick={async()=>{setSharing(true);setError("");try{const r=await fetch("/api/influencer/content",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"unshare-library",profileId:selected?.id,targetProfileId:p.id})});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível descompartilhar a biblioteca.");await loadItems(selected!.id);}catch(e){setError(e instanceof Error?e.message:"Erro ao descompartilhar.");}finally{setSharing(false);}}}>Descompartilhar</button></div>)}</div><div className="im-modal-actions"><button className="im-primary" disabled={sharing||!shareTargets.length} onClick={()=>void shareLibrary()}>{sharing?"Compartilhando…":"Compartilhar biblioteca"}</button></div></div></div>} </main>);
+  {shareOpen&&<div className="im-modal-backdrop" role="dialog" aria-modal="true"><div className="im-modal"><div className="im-card-head"><div><span className="im-kicker">BIBLIOTECA COMPARTILHADA</span><h2>Compartilhar biblioteca</h2><p>Selecione os perfis que devem receber esta biblioteca. Perfis já compartilhados aparecem abaixo, com opção de descompartilhar.</p></div><button className="im-ghost" onClick={()=>setShareOpen(false)}>Fechar</button></div><div className="im-share-list">{profiles.filter(p=>p.id!==selected?.id).map(p=><label key={p.id} className="im-check"><input type="checkbox" checked={shareTargets.includes(p.id)} onChange={e=>setShareTargets(v=>e.target.checked?[...v,p.id]:v.filter(id=>id!==p.id))}/><span>{p.name} {p.instagram_username?("· @"+p.instagram_username.replace(/^@/,"")):""}</span></label>)}</div><div className="im-share-current"><strong>Bibliotecas atualmente compartilhadas</strong>{sharedWith.length===0?<p className="im-field-help">Nenhuma biblioteca compartilhada com outro perfil.</p>:profiles.filter(p=>sharedWith.includes(p.id)).map(p=><div key={"current-"+p.id} className="im-share-current-row"><span>{p.name}</span><button className="im-ghost" disabled={sharing} onClick={async()=>{setSharing(true);setError("");try{const r=await fetch("/api/influencer/content",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"unshare-library",profileId:selected?.id,targetProfileId:p.id})});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível descompartilhar a biblioteca.");await loadItems(selected!.id);}catch(e){setError(e instanceof Error?e.message:"Erro ao descompartilhar.");}finally{setSharing(false);}}}>Descompartilhar</button></div>)}</div><div className="im-modal-actions"><button className="im-primary" disabled={sharing||!shareTargets.length} onClick={()=>void shareLibrary()}>{sharing?"Compartilhando…":"Compartilhar biblioteca"}</button></div></div></div>} </main>);
 }
