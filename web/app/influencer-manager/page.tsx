@@ -242,48 +242,10 @@ export default function InfluencerManagerPage(){
       <div className="im-settings-grid"><label>Reels por dia<select value={selected.posts_per_day} onChange={e=>void updateProfile({posts_per_day:Number(e.target.value)})}>{[1,2,3,4,5,6,7,8,9].map(n=><option key={n}>{n}</option>)}</select></label>
        <label>Descrição<select value={selected.caption_mode} onChange={e=>void updateProfile({caption_mode:e.target.value})}><option value="zh_ja_random">Chinês + Japonês aleatório</option><option value="zh_random">Chinês</option><option value="ja_random">Japonês</option><option value="custom">Banco personalizado</option></select></label>
        <label className="im-check"><input type="checkbox" checked={selected.publishing_enabled} onChange={()=>void togglePublishing()}/><span>Publicação automática</span></label>
+       <label className="im-check"><input type="checkbox" checked={selected.repeat_when_exhausted} onChange={e=>void updateProfile({repeat_when_exhausted:e.target.checked})}/><span>Repetir biblioteca quando acabar</span></label>
       </div>
       <div className="im-publish-controls"><button className="im-primary" disabled={publishing||selected.publishing_enabled} onClick={()=>void togglePublishing()}>{publishing?"Ativando…":"▶ Ativar publicação automática"}</button><button className="im-ghost" disabled={publishing||!selected.publishing_enabled} onClick={()=>void togglePublishing()}>■ Parar publicação</button></div>
       <div className="im-times"><span className="im-kicker">HORÁRIOS DIÁRIOS</span><div className="im-time-grid">{Array.from({length:selected.posts_per_day},(_,i)=><label key={i}>Post {i+1}<input type="time" value={selected.posting_times?.[i]||["09:00","11:30","14:00","16:30","19:00","21:30","23:00","08:00","12:00"][i]} onChange={e=>{const times=[...(selected.posting_times||[])];while(times.length<selected.posts_per_day)times.push("");times[i]=e.target.value;void updateProfile({posting_times:times});}} /></label>)}</div><small>A publicação automática usa estes horários. Para publicar um Reel imediatamente, use “Publicar Reel” na biblioteca.</small></div>
-    </div>
-
-    <div className="im-card im-queue">
-      <div className="im-card-head">
-        <div><span className="im-kicker">FILA</span><h2>Próximas publicações</h2><p>Prévia da ordem usada pela publicação automática. O primeiro conteúdo disponível ocupa o próximo horário.</p></div>
-        <span className={"im-status "+(available?"available":"archived")}>{available} {available===1?"PRONTO":"PRONTOS"}</span>
-      </div>
-      {available===0 ? (
-        <div className="im-stock-warning">A biblioteca está sem vídeos prontos. Adicione conteúdo para preencher a fila.</div>
-      ) : days<1 ? (
-        <div className="im-stock-warning">Estoque baixo: há conteúdo para menos de 1 dia de publicação.</div>
-      ) : (
-        <div className="im-queue-grid">{queuePreview.length>0&&queuePreview[0]?.item&&<div className="im-queue-next"><span>PRÓXIMO</span><strong>{queuePreview[0].time}</strong><small>{queuePreview[0].item.title||"Próximo vídeo"}</small></div>}
-          {queuePreview.map((slot,index)=>(
-            <div className="im-queue-row" key={slot.day+"-"+slot.time+"-"+index}>
-              <span>Dia {slot.day+1}</span>
-              <strong>{slot.time}</strong>
-              <small>{slot.item?.title||"Próximo vídeo"}</small>
-            </div>
-          ))}
-        </div>
-      )}
-      {available>0&&<small className="im-queue-note">Estoque atual: {available} vídeo{available===1?"":"s"} pronto{available===1?"":"s"} · aproximadamente {days} dia{days===1?"":"s"}.</small>}
-    </div>
-
-    <div className="im-card im-agenda">
-      <div className="im-card-head">
-        <div><span className="im-kicker">AGENDA E HISTÓRICO</span><h2>Publicações</h2><p>Veja o que está previsto para a fila e acompanhe as últimas publicações deste perfil.</p></div>
-      </div>
-      <div className="im-agenda-grid">
-        <div className="im-agenda-column">
-          <div className="im-agenda-title"><strong>Próximos horários</strong><span>{queuePreview.length} na fila</span></div>
-          {queuePreview.length===0 ? <div className="im-agenda-empty">Nenhum vídeo pronto para os próximos horários.</div> : <div className="im-agenda-list">{queuePreview.slice(0,6).map((slot,index)=><div className={"im-agenda-row "+(index===0?"is-next":"")} key={slot.day+"-"+slot.time+"-"+(slot.item?.id||index)}><span>{index===0?"PRÓXIMO":"DIA "+(slot.day+1)}</span><strong>{slot.time}</strong><small>{slot.item?.title||"Próximo vídeo"}</small></div>)}</div>}
-        </div>
-        <div className="im-agenda-column">
-          <div className="im-agenda-title"><strong>Últimas publicações</strong><span>{published} publicadas</span></div>
-          {published===0 ? <div className="im-agenda-empty">Ainda não há publicações registradas.</div> : <div className="im-agenda-list">{items.filter(i=>i.status==="published").sort((a,b)=>String(b.published_at||b.created_at).localeCompare(String(a.published_at||a.created_at))).slice(0,6).map(item=><div className="im-agenda-row" key={"history-"+item.id}><span>PUBLICADO</span><strong>{formatDate(item.published_at||item.created_at)}</strong><small>{item.title||"Vídeo sem título"}</small></div>)}</div>}
-        </div>
-      </div>
     </div>
 
     <div className="im-card im-add"><div className="im-card-head"><div><span className="im-kicker">CONTEÚDO</span><h2>Adicionar vídeo</h2><p>Cole uma URL. O vídeo será baixado uma vez, convertido para 9:16 e salvo no R2.</p></div></div>
@@ -407,6 +369,22 @@ export default function InfluencerManagerPage(){
     </div>
 </>}
   </section>
+    <div className="im-card im-agenda">
+      <div className="im-card-head">
+        <div><span className="im-kicker">AGENDA E HISTÓRICO</span><h2>Publicações</h2><p>Veja o que está previsto para a fila e acompanhe as últimas publicações deste perfil.</p></div>
+      </div>
+      <div className="im-agenda-grid">
+        <div className="im-agenda-column">
+          <div className="im-agenda-title"><strong>Próximos horários</strong><span>{queuePreview.length} na fila</span></div>
+          {queuePreview.length===0 ? <div className="im-agenda-empty">Nenhum vídeo pronto para os próximos horários.</div> : <div className="im-agenda-list">{queuePreview.slice(0,6).map((slot,index)=><div className={"im-agenda-row "+(index===0?"is-next":"")} key={slot.day+"-"+slot.time+"-"+(slot.item?.id||index)}><span>{index===0?"PRÓXIMO":"DIA "+(slot.day+1)}</span><strong>{slot.time}</strong><small>{slot.item?.title||"Próximo vídeo"}</small></div>)}</div>}
+        </div>
+        <div className="im-agenda-column">
+          <div className="im-agenda-title"><strong>Últimas publicações</strong><span>{published} publicadas</span></div>
+          {published===0 ? <div className="im-agenda-empty">Ainda não há publicações registradas.</div> : <div className="im-agenda-list">{items.filter(i=>i.status==="published").sort((a,b)=>String(b.published_at||b.created_at).localeCompare(String(a.published_at||a.created_at))).slice(0,6).map(item=><div className="im-agenda-row" key={"history-"+item.id}><span>PUBLICADO</span><strong>{formatDate(item.published_at||item.created_at)}</strong><small>{item.title||"Vídeo sem título"}</small></div>)}</div>}
+        </div>
+      </div>
+    </div>
+
   </section>
   {showProfiles&&<div className="im-modal-backdrop im-profiles-modal" role="dialog" aria-modal="true" aria-label="Seus perfis"><div className="im-modal im-profiles-modal-card"><div className="im-card-head"><div><span className="im-kicker">SEUS PERFIS</span><h2>Escolha um perfil</h2><p>Selecione o perfil que você quer gerenciar.</p></div><button className="im-ghost" onClick={()=>setShowProfiles(false)}>Fechar</button></div>{loading?<div className="im-empty">Carregando…</div>:profiles.length===0?<div className="im-empty">Crie seu primeiro perfil para começar.</div>:<div className="im-profile-modal-list">{profiles.map(p=><button key={p.id} className={"im-profile "+(selected?.id===p.id?"active":"")} onClick={()=>{setSelected(p);setShowProfiles(false)}}><span className="im-avatar">{p.name.slice(0,1).toUpperCase()}</span><span><strong>{p.name}</strong><small>{p.instagram_username?"@"+p.instagram_username:"Instagram não conectado"}</small></span><b>{p.posts_per_day}/dia</b></button>)}</div>}<button className="im-primary im-modal-new-profile" onClick={()=>{setShowProfiles(false);setShowNew(true)}}>+ Novo perfil</button></div></div>}
   {shareOpen&&<div className="im-modal-backdrop" role="dialog" aria-modal="true"><div className="im-modal"><div className="im-card-head"><div><span className="im-kicker">BIBLIOTECA COMPARTILHADA</span><h2>Compartilhar biblioteca</h2><p>Todos os vídeos desta biblioteca serão disponibilizados nos perfis selecionados. Não é necessário escolher vídeo por vídeo.</p></div><button className="im-ghost" onClick={()=>setShareOpen(false)}>Fechar</button></div><div className="im-share-list">{profiles.filter(p=>p.id!==selected?.id).map(p=><label key={p.id} className="im-check"><input type="checkbox" checked={shareTargets.includes(p.id)} onChange={e=>setShareTargets(v=>e.target.checked?[...v,p.id]:v.filter(id=>id!==p.id))}/><span>{p.name} {p.instagram_username?("· @"+p.instagram_username.replace(/^@/,"")):""}</span></label>)}</div><div className="im-share-current"><strong>Bibliotecas atualmente compartilhadas</strong>{shareTargets.length===0?<p className="im-field-help">Nenhuma biblioteca compartilhada com outro perfil.</p>:profiles.filter(p=>shareTargets.includes(p.id)).map(p=><div key={"current-"+p.id} className="im-share-current-row"><span>{p.name}</span><button className="im-ghost" onClick={async()=>{setSharing(true);setError("");try{const r=await fetch("/api/influencer/content",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"unshare-library",profileId:selected?.id,targetProfileId:p.id})});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível descompartilhar a biblioteca.");await loadItems(selected!.id);}catch(e){setError(e instanceof Error?e.message:"Erro ao descompartilhar.");}finally{setSharing(false);}}}>Descompartilhar</button></div>)}</div><div className="im-modal-actions"><button className="im-primary" disabled={sharing||!shareTargets.length} onClick={()=>void shareLibrary()}>{sharing?"Compartilhando…":"Compartilhar biblioteca"}</button></div></div></div>} </main>);
