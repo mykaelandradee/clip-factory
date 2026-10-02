@@ -136,9 +136,11 @@ export default function InfluencerManagerPage(){
    })});
    const d=await r.json().catch(()=>({}));
    if(!r.ok)throw new Error(d.error||"Não foi possível salvar as configurações.");
-   // Recarrega o perfil salvo do banco para que a Agenda e o restante da tela
-   // usem exatamente os horários persistidos, sem depender do estado local.
-   await loadProfiles();
+   // Atualiza imediatamente o perfil exibido com o registro que acabou de ser
+   // persistido. A Agenda depende de selected.posting_times, então precisamos
+   // trocar o objeto selecionado no mesmo ciclo do salvamento.
+   setSelected(d.profile);
+   setProfiles(all=>all.map(p=>p.id===d.profile.id?d.profile:p));
    setProfileDraft({
     posts_per_day:d.profile.posts_per_day||3,
     caption_mode:d.profile.caption_mode||"zh_ja_random",
