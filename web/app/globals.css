@@ -3060,3 +3060,12 @@ html,body,button,input,select,textarea{
 }
 
 
+
+.im-url-form input{min-width:0}
+.im-title-edit{display:flex;align-items:center;gap:7px;min-width:0}
+.im-title-edit>strong{flex:1;min-width:0}
+.im-title-button{padding:6px 9px;font-size:10px;white-space:nowrap}
+.im-title-editor{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px;margin-top:2px}
+.im-title-editor input{min-width:0;border:1px solid rgba(255,255,255,.08);border-radius:9px;background:#0b0d10;color:#f5f5f7;padding:9px 11px;outline:none;font:inherit}
+.im-title-editor input:focus{border-color:rgba(185,167,255,.5)}
+@media(max-width:700px){.im-title-editor{grid-template-columns:1fr}.im-url-form{grid-template-columns:1fr}}
