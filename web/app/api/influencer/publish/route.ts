@@ -431,5 +431,3 @@ export async function POST(request:Request) {
   if(result.status==="error") return NextResponse.json({ok:false,publishingEnabled:true,...result},{status:502});
   return NextResponse.json({ok:true,publishingEnabled:true,...result});
 }
-
-export async function GET(request:Request) { return POST(request); }
