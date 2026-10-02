@@ -361,9 +361,7 @@ export default function InfluencerManagerPage(){
         <div className="im-feedback-copy"><span className="im-kicker">ATENÇÃO</span><h2 id="im-feedback-title">Não foi possível concluir</h2><p>{feedbackMessage}</p></div>
         <button className="im-primary" type="button" onClick={()=>{setError("");setInlineError(null);}}>Entendi</button>
       </div>
-    </div>
-
-    <div className="im-card im-add"><div className="im-card-head"><div><span className="im-kicker">CONTEÚDO</span><h2>Adicionar vídeo</h2><p>Cole uma URL. O vídeo será baixado uma vez, convertido para 9:16 e salvo no R2.</p></div></div>
+    </div>}<div className="im-card im-add"><div className="im-card-head"><div><span className="im-kicker">CONTEÚDO</span><h2>Adicionar vídeo</h2><p>Cole uma URL. O vídeo será baixado uma vez, convertido para 9:16 e salvo no R2.</p></div></div>
      <form className="im-url-form" onSubmit={addUrl}><input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..." required /><button className="im-primary" disabled={adding}>{adding?"Processando…":"Adicionar vídeo"}</button></form>
     </div>
 
