@@ -286,8 +286,14 @@ export default function InfluencerManagerPage(){
   const times=configuredTimes.filter((v)=>/^([01]\d|2[0-3]):[0-5]\d$/.test(v)).sort();
   const fallback=["09:00","11:30","14:00","16:30","19:00","21:30","23:00","08:00","12:00"];
   const slots=times.length?times:Array.from({length:profileDraft.posts_per_day},(_,i)=>fallback[i]||"09:00");
-  const availableItems=items.filter((item)=>item.status==="available").sort((a,b)=>String(a.created_at||"").localeCompare(String(b.created_at||"")));
-  const publishedItems=items.filter((item)=>item.status==="published").sort((a,b)=>String(a.published_at||a.created_at).localeCompare(String(b.published_at||b.created_at)));
+  const availableItems=items.filter((item)=>item.status==="available").sort((a,b)=>{
+    const sharedOrder=Number(Boolean(a.shared))-Number(Boolean(b.shared));
+    return sharedOrder || String(a.created_at||"").localeCompare(String(b.created_at||""));
+  });
+  const publishedItems=items.filter((item)=>item.status==="published").sort((a,b)=>{
+    const sharedOrder=Number(Boolean(a.shared))-Number(Boolean(b.shared));
+    return sharedOrder || String(a.published_at||a.created_at).localeCompare(String(b.published_at||b.created_at));
+  });
   const repeat=Boolean(profileDraft.repeat_when_exhausted);
   const anchor=new Date();
   const parts=new Intl.DateTimeFormat("en-US",{timeZone:"America/Cuiaba",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).formatToParts(anchor);
@@ -407,7 +413,10 @@ export default function InfluencerManagerPage(){
         </div>
         <div className="im-agenda-column">
           <div className="im-agenda-title"><strong>Últimas publicações</strong><span>{published} publicadas</span></div>
-          {published===0 ? <div className="im-agenda-empty">Ainda não há publicações registradas.</div> : <div className="im-agenda-list">{items.filter(i=>i.status==="published").sort((a,b)=>String(b.published_at||b.created_at).localeCompare(String(a.published_at||a.created_at))).slice(0,6).map(item=><div className="im-agenda-row" key={"history-"+item.id}><span>PUBLICADO</span><strong>{formatDate(item.published_at||item.created_at)}</strong><small>{item.title||"Vídeo sem título"}</small></div>)}</div>}
+          {published===0 ? <div className="im-agenda-empty">Ainda não há publicações registradas.</div> : <div className="im-agenda-list">{items.filter(i=>i.status==="published").sort((a,b)=>{
+            const sharedOrder=Number(Boolean(a.shared))-Number(Boolean(b.shared));
+            return sharedOrder || String(b.published_at||b.created_at).localeCompare(String(a.published_at||a.created_at));
+          }).slice(0,6).map(item=><div className="im-agenda-row" key={"history-"+item.id}><span>PUBLICADO</span><strong>{formatDate(item.published_at||item.created_at)}</strong><small>{item.title||"Vídeo sem título"}</small></div>)}</div>}
         </div>
       </div>
     </div>
