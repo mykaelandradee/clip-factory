@@ -5,7 +5,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 type Profile={
   id:string; name:string; description?:string|null; instagram_username:string|null; posts_per_day:number;
   posting_times:string[]; caption_mode:string; auto_publish:boolean;
-  repeat_when_exhausted:boolean; cover_r2_key?:string|null; fixed_publish_title?:string|null; fixed_publish_description?:string|null; share_to_feed?:boolean; publishing_enabled?:boolean; next_publish_at?:string|null;
+  repeat_when_exhausted:boolean; cover_r2_key?:string|null; fixed_publish_title?:string|null; fixed_publish_description?:string|null; share_to_feed?:boolean; publishing_enabled?:boolean; next_publish_at?:string|null; publish_retry_count?:number;
 };
 type Item={
   id:string; source_url:string; title:string|null; status:string; created_at:string; share_id?:string|null; shared?:boolean;
@@ -23,6 +23,7 @@ export default function InfluencerManagerPage(){
  const [coverPreviewKey,setCoverPreviewKey]=useState("");
  const [localCoverPreview,setLocalCoverPreview]=useState("");
  const [instagramConnected,setInstagramConnected]=useState(false),[instagramAccount,setInstagramAccount]=useState("");
+ const [instagramReconnect,setInstagramReconnect]=useState(false),[instagramExpiresAt,setInstagramExpiresAt]=useState<string|null>(null);
  const [shareTargets,setShareTargets]=useState<string[]>([]);
  const [sharing,setSharing]=useState(false);
  const [shareOpen,setShareOpen]=useState(false);
@@ -44,8 +45,10 @@ export default function InfluencerManagerPage(){
  async function loadInstagramConnection(profileId:string){
   try{const r=await fetch("/api/influencer/instagram/status?profileId="+encodeURIComponent(profileId),{cache:"no-store"}),d=await r.json().catch(()=>({}));
    setInstagramConnected(Boolean(r.ok&&d.connected));
+   setInstagramReconnect(Boolean(d.requiresReconnect));
+   setInstagramExpiresAt(typeof d.expiresAt==="string"?d.expiresAt:null);
    setInstagramAccount(typeof d.username==="string"&&d.username?`@${d.username.replace(/^@/,"")}`:"");
-  }catch{setInstagramConnected(false);setInstagramAccount("");}
+  }catch{setInstagramConnected(false);setInstagramReconnect(false);setInstagramExpiresAt(null);setInstagramAccount("");}
  }
  useEffect(()=>{
   setCoverFile(null);
@@ -169,6 +172,13 @@ export default function InfluencerManagerPage(){
   if(r.ok)setItems(v=>v.filter(i=>i.id!==id));else setError(d.error||"Não foi possível excluir o conteúdo.");
  }
  const available=useMemo(()=>items.filter(i=>i.status==="available").length,[items]);
+ const processing=useMemo(()=>items.filter(i=>i.status==="processing"||i.status==="queued").length,[items]);
+ const scheduled=useMemo(()=>items.filter(i=>i.status==="scheduled").length,[items]);
+ const published=useMemo(()=>items.filter(i=>i.status==="published").length,[items]);
+ const failed=useMemo(()=>items.filter(i=>i.status==="failed").length,[items]);
+ const lastPublished=useMemo(()=>{const done=items.filter(i=>i.status==="published").sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)));return done[0]?.created_at||null;},[items]);
+ const formatDate=(value:string|null|undefined)=>{if(!value)return "—";try{return new Intl.DateTimeFormat("pt-BR",{dateStyle:"short",timeStyle:"short",timeZone:"America/Cuiaba"}).format(new Date(value));}catch{return "—";}};
+ const expiresSoon=Boolean(instagramExpiresAt&&new Date(instagramExpiresAt).getTime()-Date.now()<7*24*60*60*1000);
  const days=selected&&selected.posts_per_day?Math.floor(available/selected.posts_per_day):0;
  const queuePreview=useMemo(()=>{
   if(!selected)return [];
@@ -195,9 +205,9 @@ export default function InfluencerManagerPage(){
    <button type="button" className="im-mobile-profile-trigger" onClick={()=>setShowProfiles(true)}>SEUS PERFIS <b>{profiles.length}</b></button>
 
    <section className="im-main">{!selected?<div className="im-card im-empty-main"><strong>Crie um perfil para começar.</strong><span>Depois, adicione URLs de vídeos.</span></div>:<>
-    <div className="im-card im-overview"><div><span className="im-kicker">PERFIL ATIVO</span><h2>{selected.name}</h2><p>{selected.instagram_username?"@"+selected.instagram_username:"Conecte um Instagram para publicar automaticamente."}</p></div><div className="im-overview-actions"><button className="im-ghost im-danger" disabled={saving} onClick={()=>void deleteProfile()}>Excluir perfil</button></div><div className="im-stats"><div><strong>{items.length}</strong><span>vídeos</span></div><div><strong>{available}</strong><span>prontos</span></div><div><strong>{days}</strong><span>dias</span></div></div></div>
+    <div className="im-card im-overview"><div><span className="im-kicker">PERFIL ATIVO</span><h2>{selected.name}</h2><p>{selected.instagram_username?"@"+selected.instagram_username:"Conecte um Instagram para publicar automaticamente."}</p></div><div className="im-overview-actions"><button className="im-ghost im-danger" disabled={saving} onClick={()=>void deleteProfile()}>Excluir perfil</button></div><div className="im-stats"><div><strong>{items.length}</strong><span>vídeos</span></div><div><strong>{available}</strong><span>prontos</span></div><div><strong>{days}</strong><span>dias</span></div></div><div className="im-manager-summary"><div><span>Próxima publicação</span><strong>{selected.publishing_enabled?formatDate(selected.next_publish_at):"Automação parada"}</strong></div><div><span>Última publicação</span><strong>{formatDate(lastPublished)}</strong></div><div><span>Fila</span><strong>{available} prontos · {processing} em processamento · {scheduled} agendados</strong></div><div><span>Resultado</span><strong>{published} publicados · {failed} com erro</strong></div>{(selected.publish_retry_count||0)>0&&<div><span>Recuperação</span><strong>{selected.publish_retry_count} tentativa(s) de recuperação</strong></div>}</div></div>
 
-    <div className="im-card im-account"><div className="im-card-head"><div><span className="im-kicker">CONTA VINCULADA</span><h2>Instagram</h2><p>Esta conta pertence somente a este perfil e é independente do Instagram conectado na tela principal.</p></div><span className={"im-status "+(instagramConnected?"available":"archived")}>{instagramConnected?"CONECTADO":"NÃO CONECTADO"}</span></div><div className="im-account-row"><strong>{instagramAccount||"Nenhuma conta Instagram conectada"}</strong>{!instagramConnected&&<a className="im-ghost" href={"/api/influencer/instagram/oauth?profileId="+encodeURIComponent(selected.id)}>Conectar Instagram</a>}</div></div>
+    <div className="im-card im-account"><div className="im-card-head"><div><span className="im-kicker">CONTA VINCULADA</span><h2>Instagram</h2><p>Esta conta pertence somente a este perfil e é independente do Instagram conectado na tela principal.</p></div><span className={"im-status "+(instagramConnected?"available":"archived")}>{instagramReconnect?"RECONEXÃO NECESSÁRIA":instagramConnected?"CONECTADO":"NÃO CONECTADO"}</span></div><div className="im-account-row"><div><strong>{instagramAccount||"Nenhuma conta Instagram conectada"}</strong>{instagramExpiresAt&&<small className="im-field-help">Token válido até {formatDate(instagramExpiresAt)}{expiresSoon?" · renovação necessária em breve":""}</small>}</div>{(!instagramConnected||instagramReconnect)&&<a className="im-ghost" href={"/api/influencer/instagram/oauth?profileId="+encodeURIComponent(selected.id)}>{instagramReconnect?"Reconectar Instagram":"Conectar Instagram"}</a>}</div></div>
 
     <div className="im-card im-cover-card">
       <div className="im-card-head"><div><span className="im-kicker">IDENTIDADE</span><h2>Capa do perfil</h2><p>Uma única capa fixa será reutilizada nos Reels publicados por este perfil.</p></div><span className={selected.cover_r2_key?"im-cover-ok":"im-status archived"}>{selected.cover_r2_key?"CONFIGURADA":"NÃO CONFIGURADA"}</span></div>
