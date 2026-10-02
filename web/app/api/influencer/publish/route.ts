@@ -78,6 +78,33 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
 
   const repeatWhenExhausted = Boolean((profile as any).repeat_when_exhausted);
 
+  // Reconcile shares created while the source video was still processing.
+  // The queue must not depend on the destination browser polling the source profile.
+  const { data: queuedShares } = await admin.from("influencer_content_shares")
+    .select("id,item_id")
+    .eq("profile_id",profileId)
+    .eq("user_id",userId)
+    .eq("status","queued")
+    .order("created_at",{ascending:true})
+    .limit(100);
+  if (queuedShares?.length) {
+    const sourceIds = queuedShares.map((share:any)=>share.item_id);
+    const { data: readySources } = await admin.from("influencer_content_items")
+      .select("id,status")
+      .in("id",sourceIds)
+      .eq("user_id",userId)
+      .in("status",["available","published"]);
+    const readyIds = (readySources || []).map((source:any)=>source.id);
+    if (readyIds.length) {
+      await admin.from("influencer_content_shares")
+        .update({status:"available",error_message:null,updated_at:new Date().toISOString()})
+        .eq("profile_id",profileId)
+        .eq("user_id",userId)
+        .eq("status","queued")
+        .in("item_id",readyIds);
+    }
+  }
+
   // Normal cycle: publish only items that are ready.
   // Repeat cycle: only when there are no ready items, reuse the oldest published item.
   const ownQuery = admin.from("influencer_content_items")
