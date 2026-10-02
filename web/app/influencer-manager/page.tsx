@@ -28,7 +28,10 @@ export default function InfluencerManagerPage(){
  const [sharedWith,setSharedWith]=useState<string[]>([]);
  const [sharing,setSharing]=useState(false);
  const [profileDraft,setProfileDraft]=useState<{posts_per_day:number;caption_mode:string;repeat_when_exhausted:boolean;posting_times:string[];fixed_publish_title:string;fixed_publish_description:string;share_to_feed:boolean}>({posts_per_day:3,caption_mode:"zh_ja_random",repeat_when_exhausted:false,posting_times:["09:00","11:30","14:00"],fixed_publish_title:"",fixed_publish_description:"",share_to_feed:true});
- const [profileSaving,setProfileSaving]=useState(false);\n const [inlineError,setInlineError]=useState<{section:string;message:string}|null>(null);\n const showSectionError=(section:string,message:string)=>setInlineError({section,message});\n const clearSectionError=(section:string)=>setInlineError(v=>v?.section===section?null:v);
+ const [profileSaving,setProfileSaving]=useState(false);
+ const [inlineError,setInlineError]=useState<{section:string;message:string}|null>(null);
+ const showSectionError=(section:string,message:string)=>setInlineError({section,message});
+ const clearSectionError=(section:string)=>setInlineError(v=>v?.section===section?null:v);
  const [shareOpen,setShareOpen]=useState(false);
  const coverPreviewUrl=selected?.cover_r2_key ? `/api/influencer/cover?profileId=${encodeURIComponent(selected.id)}&v=${encodeURIComponent(selected.cover_r2_key)}` : "";
 
