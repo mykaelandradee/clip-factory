@@ -326,19 +326,21 @@ export default function InfluencerManagerPage(){
           <label>Nome do Reel <span className="im-field-help">Deixe vazio para gerar automaticamente.</span><input value={profileDraft.fixed_publish_title} onChange={e=>setProfileDraft(v=>({...v,fixed_publish_title:e.target.value}))} placeholder="Automático" /></label>
           <label>Descrição <span className="im-field-help">Vazio = automático.</span><textarea rows={5} value={profileDraft.fixed_publish_description} onChange={e=>setProfileDraft(v=>({...v,fixed_publish_description:e.target.value}))} placeholder="Automática em chinês/japonês" /></label>
         </div>
-        {inlineError?.section==="profile"&&<div className="im-inline-error">{inlineError.message}</div>}\n        <label className="im-check"><input type="checkbox" checked={profileDraft.share_to_feed} onChange={e=>setProfileDraft(v=>({...v,share_to_feed:e.target.checked}))}/><span>Publicar também na Grade Principal do Instagram</span></label>
+        {inlineError?.section==="profile"&&<div className="im-inline-error">{inlineError.message}</div>}        <label className="im-check"><input type="checkbox" checked={profileDraft.share_to_feed} onChange={e=>setProfileDraft(v=>({...v,share_to_feed:e.target.checked}))}/><span>Publicar também na Grade Principal do Instagram</span></label>
       </div>
 
       <div className="im-config-section">
         <div className="im-config-section-head"><div><span className="im-kicker">PUBLICAÇÃO</span><h3>Regras e horários</h3><p>Frequência, horários e fila.</p></div><span className={"im-status "+(selected.publishing_enabled?"available":"archived")}>{selected.publishing_enabled?"EXECUTANDO":"PARADA"}</span></div>
         <div className="im-settings-grid">
-          <label>Reels por dia<select value={profileDraft.posts_per_day} onChange={e=>setProfileDraft(v=>({...v,posts_per_day:Number(e.target.value)}))}>{[1,2,3,4,5,6,7,8,9].map(n=><option key={n}>{n}</option>)}</select></label>
-          <label>Descrição<select value={profileDraft.caption_mode} onChange={e=>setProfileDraft(v=>({...v,caption_mode:e.target.value}))}><option value="zh_ja_random">Chinês + Japonês aleatório</option><option value="zh_random">Chinês</option><option value="ja_random">Japonês</option><option value="custom">Banco personalizado</option></select></label>
-          <label className="im-check"><input type="checkbox" checked={selected.publishing_enabled} onChange={()=>void togglePublishing()}/><span>Publicação automática</span></label>
-          <label className="im-check"><input type="checkbox" checked={profileDraft.repeat_when_exhausted} onChange={e=>setProfileDraft(v=>({...v,repeat_when_exhausted:e.target.checked}))}/><span>Repetir biblioteca quando acabar</span></label>
+          <label>Reels por dia<select className="im-form-select" value={profileDraft.posts_per_day} onChange={e=>setProfileDraft(v=>({...v,posts_per_day:Number(e.target.value)}))}>{[1,2,3,4,5,6,7,8,9].map(n=><option key={n}>{n}</option>)}</select></label>
+          <label>Descrição<select className="im-form-select" value={profileDraft.caption_mode} onChange={e=>setProfileDraft(v=>({...v,caption_mode:e.target.value}))}><option value="zh_ja_random">Chinês + Japonês aleatório</option><option value="zh_random">Chinês</option><option value="ja_random">Japonês</option><option value="custom">Banco personalizado</option></select></label>
         </div>
         <div className="im-times"><span className="im-kicker">HORÁRIOS DIÁRIOS</span><div className="im-time-grid">{Array.from({length:profileDraft.posts_per_day},(_,i)=><label key={i}>Post {i+1}<input type="time" value={profileDraft.posting_times?.[i]||["09:00","11:30","14:00","16:30","19:00","21:30","23:00","08:00","12:00"][i]} onChange={e=>setProfileDraft(v=>{const times=[...v.posting_times];while(times.length<v.posts_per_day)times.push("");times[i]=e.target.value;return {...v,posting_times:times};})} /></label>)}</div><small>Os horários só são aplicados após salvar.</small></div>
-        <div className="im-publish-controls"><button className="im-primary" disabled={publishing||selected.publishing_enabled} onClick={()=>void togglePublishing()}>{publishing?"Ativando…":"▶ Ativar publicação automática"}</button><button className="im-ghost" disabled={publishing||!selected.publishing_enabled} onClick={()=>void togglePublishing()}>■ Parar publicação</button></div>
+        <div className="im-publish-controls">
+          <button className="im-primary" disabled={publishing||selected.publishing_enabled} onClick={()=>void togglePublishing()}>{publishing?"Ativando…":"▶ Ativar publicação automática"}</button>
+          <button className="im-ghost" disabled={publishing||!selected.publishing_enabled} onClick={()=>void togglePublishing()}>■ Desativar publicação</button>
+          <label className="im-check im-repeat-toggle"><input type="checkbox" checked={profileDraft.repeat_when_exhausted} onChange={e=>setProfileDraft(v=>({...v,repeat_when_exhausted:e.target.checked}))}/><span>Repetir biblioteca quando acabar</span></label>
+        </div>
       </div>
     </div>
 
@@ -346,14 +348,14 @@ export default function InfluencerManagerPage(){
      <form className="im-url-form" onSubmit={addUrl}><input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..." required /><button className="im-primary" disabled={adding}>{adding?"Processando…":"Adicionar vídeo"}</button></form>
     </div>
 
-    {inlineError?.section==="publish"&&<div className="im-inline-error im-page-inline-error">{inlineError.message}</div>}\n    <div className="im-card im-agenda">
+    {inlineError?.section==="publish"&&<div className="im-inline-error im-page-inline-error">{inlineError.message}</div>}    <div className="im-card im-agenda">
       <div className="im-card-head">
         <div><span className="im-kicker">AGENDA E HISTÓRICO</span><h2>Publicações</h2><p>Veja o que está previsto para a fila e acompanhe as últimas publicações deste perfil.</p></div>
       </div>
       <div className="im-agenda-grid">
         <div className="im-agenda-column">
           <div className="im-agenda-title"><strong>Próximos horários</strong><span>{queuePreview.length} na fila</span></div>
-          {!selected.publishing_enabled ? <div className="im-agenda-empty"><strong>Publicação automática desativada</strong><span>Ative a publicação automática para visualizar a próxima sequência.</span></div> : queuePreview.length===0 ? <div className="im-agenda-empty">Nenhum vídeo pronto para os próximos horários.</div> : <div className="im-agenda-list">{queuePreview.slice(0,6).map((slot,index)=><div className={"im-agenda-row "+(index===0?"is-next":"")} key={slot.day+"-"+slot.time+"-"+(slot.item?.id||index)}><span>{index===0?"PRÓXIMO":"DIA "+(slot.day+1)}</span><strong>{slot.time}</strong><small>{slot.item?.title||"Próximo vídeo"}</small></div>)}</div>}
+          {!selected.publishing_enabled ? <div className="im-agenda-empty"><strong>Publicação automática desativada</strong><span>Ative a publicação automática para visualizar a próxima sequência.</span></div> : queuePreview.length===0 ? <div className="im-agenda-empty"><strong>Nenhum vídeo disponível para a fila</strong><span>{profileDraft.repeat_when_exhausted ? "A biblioteca será repetida quando houver conteúdo publicado." : "Todos os vídeos disponíveis já foram publicados. Ative a repetição da biblioteca para reutilizá-los."}</span></div> : <div className="im-agenda-list">{queuePreview.slice(0,6).map((slot,index)=><div className={"im-agenda-row "+(index===0?"is-next":"")} key={slot.day+"-"+slot.time+"-"+(slot.item?.id||index)}><span>{index===0?"PRÓXIMO":"DIA "+(slot.day+1)}</span><strong>{slot.time}</strong><small>{slot.item?.title||"Próximo vídeo"}</small></div>)}</div>}
         </div>
         <div className="im-agenda-column">
           <div className="im-agenda-title"><strong>Últimas publicações</strong><span>{published} publicadas</span></div>
