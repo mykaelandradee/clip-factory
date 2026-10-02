@@ -3043,3 +3043,18 @@ html,body,button,input,select,textarea{
 .im-profile-save{display:flex;justify-content:flex-end;margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,.06)}
 .im-profile-save .im-primary{min-width:160px}
 @media(max-width:600px){.im-profile-save .im-primary{width:100%}}
+
+/* Influencer info hints */
+.im-info{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;margin-left:5px;border:1px solid rgba(255,255,255,.16);border-radius:50%;color:#aeb1bd;font-size:9px;font-weight:700;line-height:1;vertical-align:middle;cursor:help}
+.im-info:hover{border-color:rgba(185,167,255,.45);color:#d7d0ff}
+.im-config-section-head p{display:flex;align-items:center;min-height:16px}
+.im-times>small{display:flex;align-items:center;margin-top:8px}
+.im-fixed-copy .im-field-help{display:inline-flex;align-items:center}
+.im-fixed-copy .im-field-help .im-info{margin-left:4px}
+.im-publish-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.im-publish-controls .im-repeat-toggle{margin-left:4px;flex:0 0 auto}
+@media(max-width:720px){
+  .im-publish-controls{display:grid;grid-template-columns:1fr 1fr;align-items:stretch}
+  .im-publish-controls .im-primary,.im-publish-controls>.im-ghost{width:100%}
+  .im-publish-controls .im-repeat-toggle{grid-column:1 / -1;margin-left:0}
+}
