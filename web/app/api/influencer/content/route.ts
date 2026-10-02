@@ -171,7 +171,12 @@ export async function POST(request:Request) {
   if(!profileId||!sourceUrl||sourceUrl.length>2048) return NextResponse.json({error:"Informe o perfil e a URL do vídeo."},{status:400});
   let parsed:URL;
   try{parsed=new URL(sourceUrl);}catch{return NextResponse.json({error:"URL inválida."},{status:400});}
-  if(parsed.protocol!=="https:"||(parsed.hostname!=="youtube.com"&&!parsed.hostname.endsWith(".youtube.com")&&parsed.hostname!=="youtu.be")) return NextResponse.json({error:"Informe uma URL válida do YouTube."},{status:400});
+  const host=parsed.hostname.toLowerCase();
+  const isYoutube=host==="youtube.com"||host.endsWith(".youtube.com")||host==="youtu.be";
+  const isInstagram=host==="instagram.com"||host.endsWith(".instagram.com");
+  const isInstagramReel=/^\/((reel|reels|p))\//i.test(parsed.pathname);
+  if(parsed.protocol!=="https:"||!isYoutube&&!isInstagram) return NextResponse.json({error:"Informe uma URL válida do YouTube ou de um Reel do Instagram."},{status:400});
+  if(isInstagram&&!isInstagramReel) return NextResponse.json({error:"Para Instagram, cole a URL de um Reel público."},{status:400});
   const admin=createAdminClient();
   const {data:profile}=await admin.from("influencer_profiles").select("id,fixed_publish_title,fixed_publish_description,caption_mode").eq("id",profileId).eq("user_id",user.id).maybeSingle();
   if(!profile) return NextResponse.json({error:"Perfil não encontrado."},{status:404});
