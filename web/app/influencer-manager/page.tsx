@@ -318,22 +318,20 @@ export default function InfluencerManagerPage(){
         <div><span className="im-kicker">CONFIGURAÇÃO DO PERFIL</span><h2>Identidade e publicação</h2><p>Identidade, regras e horários do perfil.</p></div>
       </div>
 
-      <div className="im-config-section">
-        <div className="im-config-section-head"><div><span className="im-kicker">IDENTIDADE</span><h3>Capa do perfil</h3><p>Capa fixa usada nos Reels deste perfil.</p></div><span className={selected.cover_r2_key?"im-cover-ok":"im-status archived"}>{selected.cover_r2_key?"CONFIGURADA":"NÃO CONFIGURADA"}</span></div>
-        <div className="im-cover-upload">
-          <label>Arquivo da capa<input key={selected.id} type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>handleCoverFile(e.target.files?.[0]||null)} /></label>
-          <div className="im-cover-row">
-            <div className="im-cover-frame">{(localCoverPreview||coverPreviewUrl)?<img className="im-cover-preview" src={localCoverPreview||coverPreviewUrl} alt={`Capa de ${selected.name}`} />:<div className="im-cover-empty"><span>9:16</span><small>PRÉVIA DA CAPA</small></div>}<div className="im-cover-frame-glow" /></div>
-            <div className="im-cover-meta"><strong>{coverFile?coverFile.name:selected.cover_r2_key?"Capa configurada":"Escolha uma capa vertical"}</strong><span>Capa usada nos Reels deste perfil.</span><button type="button" className="im-primary" disabled={!coverFile||uploadingCover} onClick={()=>void uploadCover()}>{uploadingCover?"Enviando…":"Salvar capa"}</button></div>
-          </div>
-          <small>JPG, PNG ou WEBP · até 5 MB.</small>
-        </div>
-      </div>
+       <div className="im-config-section">
+         <div className="im-config-section-head"><div><span className="im-kicker">IDENTIDADE</span><h3>Capa do perfil</h3><p>Capa fixa usada nos Reels deste perfil.</p></div><span className={selected.cover_r2_key?"im-cover-ok":"im-status archived"}>{selected.cover_r2_key?"CONFIGURADA":"NÃO CONFIGURADA"}</span></div>
+         <div className="im-cover-upload">
+           <label>Arquivo da capa<input key={selected.id} type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>handleCoverFile(e.target.files?.[0]||null)} /></label>
+           <div className="im-cover-row">
+             <div className="im-cover-frame">{(localCoverPreview||coverPreviewUrl)?<img className="im-cover-preview" src={localCoverPreview||coverPreviewUrl} alt={`Capa de ${selected.name}`} />:<div className="im-cover-empty"><span>9:16</span><small>PRÉVIA DA CAPA</small></div>}<div className="im-cover-frame-glow" /></div>
+             <div className="im-cover-meta"><strong>{coverFile?coverFile.name:selected.cover_r2_key?"Capa configurada":"Escolha uma capa vertical"}</strong><span>Capa usada nos Reels deste perfil.</span><button type="button" className="im-primary" disabled={!coverFile||uploadingCover} onClick={()=>void uploadCover()}>{uploadingCover?"Enviando…":"Salvar capa"}</button></div>
+           </div>
+           <small>JPG, PNG ou WEBP · até 5 MB.</small>
+         </div>
+         <div className="im-profile-save"><button className="im-primary" type="button" disabled={!profileDirty||profileSaving} onClick={()=>void saveProfileSettings()}>{profileSaving?"Salvando…":"Salvar alterações"}</button></div>
+       </div>
 
-
-        <div className="im-profile-save"><button className="im-primary" type="button" disabled={!profileDirty||profileSaving} onClick={()=>void saveProfileSettings()}>{profileSaving?"Salvando…":"Salvar alterações"}</button></div>
-      </div>
-
+       <div className="im-config-section">
       <div className="im-config-section">
         <div className="im-config-section-head"><div><span className="im-kicker">IDENTIDADE DO REEL</span><h3>Nome e descrição</h3><p>Vazio = automático.</p></div><span className={profileDraft.fixed_publish_title&&profileDraft.fixed_publish_description?"im-cover-ok":"im-status archived"}>{profileDraft.fixed_publish_title&&profileDraft.fixed_publish_description?"FIXO":"FLEXÍVEL"}</span></div>
         <div className="im-fixed-copy">
