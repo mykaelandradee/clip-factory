@@ -4,6 +4,8 @@ Gerador de clips curtos a partir de vídeos do YouTube, com transcrição, sele�
 
 ## Arquitetura atual
 
+O ambiente de produção atual usa Render para a aplicação web, GitHub Actions para processamento e agendamento, Supabase para autenticação/dados e Cloudflare R2 para armazenamento.
+
 ```
 Usuário
   │
@@ -89,7 +91,7 @@ Para desenvolvimento local, copie `.env.example` e preencha somente as variávei
 
 O ambiente atual usa:
 
-- **Render** para a aplicação web.
+- **Render** para a aplicação web e API.
 - **GitHub Actions** para o processamento dos jobs.
 - **Cloudflare R2** para os arquivos de saída.
 - **Supabase** para autenticação e dados.
@@ -148,4 +150,4 @@ O endpoint `/api/health` verifica as dependências necessárias e retorna `200` 
 
 ## Estado do projeto
 
-O pipeline principal de geração, armazenamento, download, cancelamento e observabilidade está operacional. A evolução seguinte deve seguir o roadmap documentado, sem reintroduzir limites artificiais para geração anônima.
+O pipeline principal de geração, armazenamento, download, cancelamento e observabilidade está operacional. A publicação e o agendamento de conteúdo do Influencer Manager também fazem parte do ambiente atual. A evolução seguinte deve seguir o roadmap documentado, sem reintroduzir limites artificiais para geração anônima.
