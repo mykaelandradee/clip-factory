@@ -175,9 +175,43 @@ export async function POST(request:Request) {
   const admin=createAdminClient();
 
   if(isScheduler){
-    const {data:profiles}=await admin.from("influencer_profiles").select("id,user_id,next_publish_at").eq("auto_publish",true).eq("publishing_enabled",true).lte("next_publish_at",new Date().toISOString()).limit(20);
     const results=[];
-    for(const p of profiles||[]) results.push({profileId:p.id,userId:p.user_id,...await publishOne(admin,p.id,p.user_id)});
+    const now=new Date();
+    const claimUntil=new Date(now.getTime()+10*60*1000).toISOString();
+    const {data:dueProfiles}=await admin.from("influencer_profiles")
+      .select("id,user_id,next_publish_at")
+      .eq("auto_publish",true)
+      .eq("publishing_enabled",true)
+      .lte("next_publish_at",now.toISOString())
+      .order("next_publish_at",{ascending:true})
+      .limit(20);
+
+    for(const p of dueProfiles||[]){
+      // Atomically claim the profile before doing the long Instagram upload.
+      // This prevents Supabase Cron and GitHub Actions from publishing the same Reel concurrently.
+      const {data:claimed}=await admin.from("influencer_profiles")
+        .update({next_publish_at:claimUntil,updated_at:new Date().toISOString()})
+        .eq("id",p.id)
+        .eq("user_id",p.user_id)
+        .eq("auto_publish",true)
+        .eq("publishing_enabled",true)
+        .lte("next_publish_at",now.toISOString())
+        .select("id,user_id")
+        .maybeSingle();
+
+      if(!claimed) continue;
+
+      const result=await publishOne(admin,p.id,p.user_id);
+      if(result.status==="error"){
+        // Release the claim with a short retry delay after a failed publication.
+        await admin.from("influencer_profiles").update({
+          next_publish_at:new Date(Date.now()+5*60*1000).toISOString(),
+          updated_at:new Date().toISOString()
+        }).eq("id",p.id).eq("user_id",p.user_id).eq("auto_publish",true).eq("publishing_enabled",true);
+      }
+      results.push({profileId:p.id,userId:p.user_id,...result});
+    }
+
     return NextResponse.json({ok:true,results},{headers:{"Cache-Control":"no-store"}});
   }
 
