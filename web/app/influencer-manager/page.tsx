@@ -281,9 +281,10 @@ export default function InfluencerManagerPage(){
   const availableItems=items.filter((item)=>item.status==="available").sort((a,b)=>String(a.created_at||"").localeCompare(String(b.created_at||"")));
   const publishedItems=items.filter((item)=>item.status==="published").sort((a,b)=>String(a.published_at||a.created_at).localeCompare(String(b.published_at||b.created_at)));
   const repeat=Boolean(selected.repeat_when_exhausted);
-  const anchor=selected.publishing_enabled&&selected.next_publish_at
-    ? new Date(selected.next_publish_at)
-    : new Date();
+  // A agenda visual deve partir do horário atual e dos horários configurados.
+  // next_publish_at é operacional para o scheduler e pode estar temporariamente
+  // defasado enquanto o scheduler ainda não executou a autocorreção.
+  const anchor=new Date();
   const parts=new Intl.DateTimeFormat("en-US",{timeZone:"America/Cuiaba",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).formatToParts(anchor);
   const get=(type:string)=>Number(parts.find(p=>p.type===type)?.value||0);
   const localAnchor={year:get("year"),month:get("month"),day:get("day"),hour:get("hour"),minute:get("minute")};
