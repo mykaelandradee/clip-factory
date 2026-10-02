@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "../../../../lib/supabase/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
+import { getClientKey, rateLimit } from "../../../../lib/rate-limit";
 
 export const runtime = "nodejs";
+const MAX_BODY_BYTES = 32 * 1024;
 
 const GITHUB_API = "https://api.github.com";
 const OWNER = "mykaelandradee";
@@ -90,8 +92,12 @@ export async function GET(request:Request) {
 }
 
 export async function POST(request:Request) {
+  const contentLength=Number(request.headers.get("content-length")||0);
+  if(contentLength>MAX_BODY_BYTES)return NextResponse.json({error:"Requisição muito grande."},{status:413});
   const user=await auth();
   if(!user) return NextResponse.json({error:"Entre no Clip Factory."},{status:401});
+  const mutationRate=rateLimit(getClientKey(request,user.id),30,60*60*1000);
+  if(!mutationRate.allowed)return NextResponse.json({error:"Limite de alterações do Influencer Manager atingido. Aguarde antes de tentar novamente."},{status:429,headers:{"Retry-After":String(mutationRate.retryAfterSeconds)}});
   const body=await request.json().catch(()=>null);
   const profileId=typeof body?.profileId==="string"?body.profileId:"";
 
@@ -204,6 +210,8 @@ export async function POST(request:Request) {
 export async function PATCH(request:Request) {
   const user=await auth();
   if(!user) return NextResponse.json({error:"Entre no Clip Factory."},{status:401});
+  const mutationRate=rateLimit(getClientKey(request,user.id),60,60*60*1000);
+  if(!mutationRate.allowed)return NextResponse.json({error:"Limite de alterações do conteúdo atingido. Aguarde antes de tentar novamente."},{status:429,headers:{"Retry-After":String(mutationRate.retryAfterSeconds)}});
   const body=await request.json().catch(()=>null);
   const id=typeof body?.id==="string"?body.id:"";
   if(!id) return NextResponse.json({error:"Conteúdo inválido."},{status:400});
@@ -231,6 +239,8 @@ export async function PATCH(request:Request) {
 export async function DELETE(request:Request) {
   const user=await auth();
   if(!user) return NextResponse.json({error:"Entre no Clip Factory."},{status:401});
+  const mutationRate=rateLimit(getClientKey(request,user.id),30,60*60*1000);
+  if(!mutationRate.allowed)return NextResponse.json({error:"Limite de exclusões do conteúdo atingido. Aguarde antes de tentar novamente."},{status:429,headers:{"Retry-After":String(mutationRate.retryAfterSeconds)}});
   const requestUrl=new URL(request.url);
   const id=requestUrl.searchParams.get("id")||"";
   const shareId=requestUrl.searchParams.get("shareId")||"";
