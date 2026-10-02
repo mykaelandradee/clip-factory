@@ -258,7 +258,7 @@ export default function InfluencerManagerPage(){
       ) : days<1 ? (
         <div className="im-stock-warning">Estoque baixo: há conteúdo para menos de 1 dia de publicação.</div>
       ) : (
-        <div className="im-queue-grid">
+        <div className="im-queue-grid">{queuePreview.length>0&&queuePreview[0]?.item&&<div className="im-queue-next"><span>PRÓXIMO</span><strong>{queuePreview[0].time}</strong><small>{queuePreview[0].item.title||"Próximo vídeo"}</small></div>}
           {queuePreview.map((slot,index)=>(
             <div className="im-queue-row" key={slot.day+"-"+slot.time+"-"+index}>
               <span>Dia {slot.day+1}</span>
@@ -299,7 +299,7 @@ export default function InfluencerManagerPage(){
               </div>
               <div className="im-items">
                 {items.filter(item => item.shared).map(item => (
-                  <article className="im-item" key={item.id + ":" + (item.share_id || "shared")}>
+                  <article className={"im-item "+(item.status==="available"?"im-item-ready":"")+" "+(item.status==="published"?"im-item-published":"")} key={item.id + ":" + (item.share_id || "shared")}>
                     <div className="im-item-main">
                       <strong>{item.title || "Vídeo sem título"}</strong>
                       <span>Biblioteca de {item.source_profile_name || "outro perfil"}</span>
@@ -336,7 +336,7 @@ export default function InfluencerManagerPage(){
               </div>
               <div className="im-items">
                 {items.filter(item => !item.shared).map(item => (
-                  <article className="im-item" key={item.id}>
+                  <article className={"im-item "+(item.status==="available"?"im-item-ready":"")+" "+(item.status==="published"?"im-item-published":"")} key={item.id}>
                     <div className="im-item-main">
                       <strong>{item.title || "Vídeo sem título"}</strong>
                       <span>{item.source_url}</span>
