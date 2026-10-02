@@ -423,22 +423,12 @@ export default function InfluencerManagerPage(){
                 {items.filter(item => item.shared).map(item => (
                   <article className={"im-item "+(item.status==="available"?"im-item-ready":"")+" "+(item.status==="published"?"im-item-published":"")} key={item.id + ":" + (item.share_id || "shared")}>
                     <div className="im-item-main">
-                      <div className="im-title-edit"><div className="im-reel-name"><span>Nome do Reel</span><strong>{item.title || "Vídeo sem título"}</strong></div><button type="button" className="im-ghost im-title-button" onClick={()=>{setRenamingItem(item.id);setTitleDraft(item.title||"");}}>Renomear</button></div>
-                      {renamingItem===item.id && <div className="im-title-editor"><input value={titleDraft} onChange={e=>setTitleDraft(e.target.value)} maxLength={500} autoFocus /><button type="button" className="im-primary" disabled={!titleDraft.trim()||renamingItem!==item.id} onClick={()=>void renameTitle(item.id)}>Salvar</button><button type="button" className="im-ghost" onClick={()=>{setRenamingItem(null);setTitleDraft("");}}>Cancelar</button></div>}
-                      <div className="im-reel-description"><span>Descrição do Reel</span><p>{item.publish_description || "—"}</p></div>
                       <span>Biblioteca de {item.source_profile_name || "outro perfil"}</span>
                       {item.result_url && <video className="im-video-preview" src={item.result_url} controls preload="metadata" />}
                       <div className="im-reel-copy">
                         <label>Nome do Reel<strong>{item.publish_title || "—"}</strong></label>
                         <label>Descrição do Reel<strong>{item.publish_description || "—"}</strong></label>
                       </div>
-                      {!item.title && item.status !== "processing" && (
-                        <div className="im-rename-empty">
-                          <span>Este vídeo está sem nome.</span>
-                          <button type="button" className="im-ghost im-title-button" onClick={()=>{setRenamingItem(item.id);setTitleDraft("");}}>Renomear vídeo</button>
-                        </div>
-                      )}
-                      {renamingItem===item.id && !item.title && <div className="im-title-editor"><input value={titleDraft} onChange={e=>setTitleDraft(e.target.value)} maxLength={500} placeholder="Nome do vídeo" autoFocus /><button type="button" className="im-primary" disabled={!titleDraft.trim()||renamingItem!==item.id} onClick={()=>void renameTitle(item.id)}>Salvar</button><button type="button" className="im-ghost" onClick={()=>{setRenamingItem(null);setTitleDraft("");}}>Cancelar</button></div>}
                       {item.error_message && <small className="im-error-text">{item.error_message}</small>}
                     </div>
                     <div className="im-item-actions">
@@ -479,7 +469,7 @@ export default function InfluencerManagerPage(){
                       {(item.publish_title || item.publish_description) && (
                         <div className="im-reel-copy">
                           <label>Nome do Reel<strong>{item.publish_title || "—"}</strong></label>
-                          <label>Descrição para publicação<strong>{item.publish_description || "—"}</strong></label>
+                          <label>Descrição do Reel<strong>{item.publish_description || "—"}</strong></label>
                         </div>
                       )}
                       {item.source_description && (
