@@ -136,7 +136,9 @@ export default function InfluencerManagerPage(){
    })});
    const d=await r.json().catch(()=>({}));
    if(!r.ok)throw new Error(d.error||"Não foi possível salvar as configurações.");
-   setSelected(d.profile);setProfiles(all=>all.map(p=>p.id===d.profile.id?d.profile:p));
+   // Recarrega o perfil salvo do banco para que a Agenda e o restante da tela
+   // usem exatamente os horários persistidos, sem depender do estado local.
+   await loadProfiles();
    setProfileDraft({
     posts_per_day:d.profile.posts_per_day||3,
     caption_mode:d.profile.caption_mode||"zh_ja_random",
