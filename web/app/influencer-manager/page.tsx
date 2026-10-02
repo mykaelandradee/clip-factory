@@ -182,7 +182,7 @@ export default function InfluencerManagerPage(){
  const scheduled=useMemo(()=>items.filter(i=>i.status==="scheduled").length,[items]);
  const published=useMemo(()=>items.filter(i=>i.status==="published").length,[items]);
  const failed=useMemo(()=>items.filter(i=>i.status==="failed").length,[items]);
- const lastPublished=useMemo(()=>{const done=items.filter(i=>i.status==="published").sort((a,b)=>String(b.published_at||b.created_at).localeCompare(String(a.published_at||a.created_at)));return done[0]?.created_at||null;},[items]);
+ const lastPublished=useMemo(()=>{const done=items.filter(i=>i.status==="published").sort((a,b)=>String(b.published_at||b.created_at).localeCompare(String(a.published_at||a.created_at)));return done[0]?.published_at||done[0]?.created_at||null;},[items]);
  const formatDate=(value:string|null|undefined)=>{if(!value)return "—";try{return new Intl.DateTimeFormat("pt-BR",{dateStyle:"short",timeStyle:"short",timeZone:"America/Cuiaba"}).format(new Date(value));}catch{return "—";}};
  const expiresSoon=Boolean(instagramExpiresAt&&new Date(instagramExpiresAt).getTime()-Date.now()<7*24*60*60*1000);
  const days=selected&&selected.posts_per_day?Math.floor(available/selected.posts_per_day):0;
@@ -269,6 +269,22 @@ export default function InfluencerManagerPage(){
         </div>
       )}
       {available>0&&<small className="im-queue-note">Estoque atual: {available} vídeo{available===1?"":"s"} pronto{available===1?"":"s"} · aproximadamente {days} dia{days===1?"":"s"}.</small>}
+    </div>
+
+    <div className="im-card im-agenda">
+      <div className="im-card-head">
+        <div><span className="im-kicker">AGENDA E HISTÓRICO</span><h2>Publicações</h2><p>Veja o que está previsto para a fila e acompanhe as últimas publicações deste perfil.</p></div>
+      </div>
+      <div className="im-agenda-grid">
+        <div className="im-agenda-column">
+          <div className="im-agenda-title"><strong>Próximos horários</strong><span>{queuePreview.length} na fila</span></div>
+          {queuePreview.length===0 ? <div className="im-agenda-empty">Nenhum vídeo pronto para os próximos horários.</div> : <div className="im-agenda-list">{queuePreview.slice(0,6).map((slot,index)=><div className={"im-agenda-row "+(index===0?"is-next":"")} key={slot.day+"-"+slot.time+"-"+(slot.item?.id||index)}><span>{index===0?"PRÓXIMO":"DIA "+(slot.day+1)}</span><strong>{slot.time}</strong><small>{slot.item?.title||"Próximo vídeo"}</small></div>)}</div>}
+        </div>
+        <div className="im-agenda-column">
+          <div className="im-agenda-title"><strong>Últimas publicações</strong><span>{published} publicadas</span></div>
+          {published===0 ? <div className="im-agenda-empty">Ainda não há publicações registradas.</div> : <div className="im-agenda-list">{items.filter(i=>i.status==="published").sort((a,b)=>String(b.published_at||b.created_at).localeCompare(String(a.published_at||a.created_at))).slice(0,6).map(item=><div className="im-agenda-row" key={"history-"+item.id}><span>PUBLICADO</span><strong>{formatDate(item.published_at||item.created_at)}</strong><small>{item.title||"Vídeo sem título"}</small></div>)}</div>}
+        </div>
+      </div>
     </div>
 
     <div className="im-card im-add"><div className="im-card-head"><div><span className="im-kicker">CONTEÚDO</span><h2>Adicionar vídeo</h2><p>Cole uma URL. O vídeo será baixado uma vez, convertido para 9:16 e salvo no R2.</p></div></div>
