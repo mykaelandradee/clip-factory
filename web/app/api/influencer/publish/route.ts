@@ -102,11 +102,15 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
   }
 
   const { data: connection } = await admin.from("influencer_instagram_connections")
-    .select("access_token_encrypted,expires_at").eq("profile_id",profileId).eq("user_id",userId).maybeSingle();
-  if (!connection) return { status:"error", error:"Conecte o Instagram deste perfil antes de executar a publicação." };
+     .select("access_token_encrypted,expires_at,requires_reconnect,last_refresh_error").eq("profile_id",profileId).eq("user_id",userId).maybeSingle();
+  if (!connection) return { status:"error", error:"Conecte o Instagram deste perfil antes de executar a publicação.", tokenNeedsReconnect:true };
+  if (connection.requires_reconnect) return { status:"error", error:"A conexão do Instagram precisa ser reconectada para continuar as publicações.", tokenNeedsReconnect:true };
 
   let accessToken = decryptInstagramAccessToken(connection.access_token_encrypted);
-  if (!accessToken) return { status:"error", error:"Não foi possível ler a conexão do Instagram. Conecte novamente." };
+  if (!accessToken) {
+    await admin.from("influencer_instagram_connections").update({requires_reconnect:true,last_refresh_error:"Não foi possível descriptografar o token.",updated_at:new Date().toISOString()}).eq("profile_id",profileId).eq("user_id",userId);
+    return { status:"error", error:"Não foi possível ler a conexão do Instagram. Conecte novamente.", tokenNeedsReconnect:true };
+  }
 
   if (connection.expires_at && Date.parse(connection.expires_at) < Date.now()+7*24*60*60*1000) {
     try {
@@ -116,8 +120,16 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
         access_token_encrypted:encryptInstagramAccessToken(accessToken),
         expires_at: refreshed.expiresIn > 0 ? new Date(Date.now()+refreshed.expiresIn*1000).toISOString() : connection.expires_at,
         updated_at:new Date().toISOString()
+        requires_reconnect:false,
+        last_refresh_error:null,
+        updated_at:new Date().toISOString()
       }).eq("profile_id",profileId).eq("user_id",userId);
-    } catch { return { status:"error", error:"A sessão do Instagram expirou. Conecte novamente." }; }
+    } catch(error) {
+      const message=error instanceof Error?error.message:"Não foi possível renovar o token do Instagram.";
+      await admin.from("influencer_instagram_connections").update({requires_reconnect:true,last_refresh_error:message.slice(0,1000),updated_at:new Date().toISOString()}).eq("profile_id",profileId).eq("user_id",userId);
+      await admin.from("influencer_profiles").update({publishing_enabled:false,updated_at:new Date().toISOString()}).eq("id",profileId).eq("user_id",userId);
+      return { status:"error", error:"A conexão do Instagram expirou ou não pode mais ser renovada. Reconecte o Instagram deste perfil.", tokenNeedsReconnect:true };
+    }
   }
 
   const publicUrl = (process.env.R2_PUBLIC_URL || "").replace(/\/$/,"");
@@ -187,7 +199,12 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
     return {status:"published",itemId:item.id,mediaId:String(publishData.id),nextPublishAt:next.toISOString()};
   } catch(error) {
     const message=error instanceof Error?error.message:"Falha na publicação.";
-    const retryable=isRetryablePublishError(message);
+    const tokenInvalid=/(invalid.*access token|access token.*invalid|oauth|token.*expired|session.*expired|(#190)|error code.*190)/i.test(message);
+    if (tokenInvalid) {
+      await admin.from("influencer_instagram_connections").update({requires_reconnect:true,last_refresh_error:message.slice(0,1000),updated_at:new Date().toISOString()}).eq("profile_id",profileId).eq("user_id",userId);
+      await admin.from("influencer_profiles").update({publishing_enabled:false,updated_at:new Date().toISOString()}).eq("id",profileId).eq("user_id",userId);
+    }
+    const retryable=tokenInvalid ? false : isRetryablePublishError(message);
     const retryCount=Number(item.retry_count)||0;
     const nextRetryCount=retryCount+1;
     const exhausted=nextRetryCount>=3;
