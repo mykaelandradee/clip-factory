@@ -62,7 +62,7 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
 
   const ownQuery = admin.from("influencer_content_items")
     .select("id,profile_id,user_id,r2_key,publish_title,publish_description,status,scheduled_at")
-    .eq("profile_id",profileId).eq("user_id",userId).in("status",itemId?["available","published"]:["available"]);
+    .eq("profile_id",profileId).eq("user_id",userId).in("status",["available"]);
   const own = await (itemId ? ownQuery.eq("id",itemId) : ownQuery.order("created_at",{ascending:true}).limit(1)).maybeSingle();
   if (own.data) item = own.data;
 
@@ -114,8 +114,22 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
   }
 
   const originalStatus=item.status;
-  if (shareId) await admin.from("influencer_content_shares").update({status:"scheduled",scheduled_at:new Date().toISOString(),}).eq("id",shareId).eq("user_id",userId);
-  else await admin.from("influencer_content_items").update({status:"scheduled",scheduled_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq("id",item.id).eq("user_id",userId);
+  const claimTime=new Date().toISOString();
+  let claimedItem=false;
+  if (shareId) {
+    const {data:claimed}=await admin.from("influencer_content_shares")
+      .update({status:"scheduled",scheduled_at:claimTime,error_message:null})
+      .eq("id",shareId).eq("user_id",userId).eq("status","available")
+      .select("id").maybeSingle();
+    claimedItem=Boolean(claimed);
+  } else {
+    const {data:claimed}=await admin.from("influencer_content_items")
+      .update({status:"scheduled",scheduled_at:claimTime,updated_at:claimTime,error_message:null})
+      .eq("id",item.id).eq("user_id",userId).eq("status","available")
+      .select("id").maybeSingle();
+    claimedItem=Boolean(claimed);
+  }
+  if (!claimedItem) return {status:"busy",itemId:item.id,error:"Este Reel já está em processamento ou foi publicado por outro processo."};
 
   try {
     const fixedTitle = String(profile.fixed_publish_title || "").trim();
@@ -225,6 +239,7 @@ export async function POST(request:Request) {
     if(!itemId) return NextResponse.json({error:"Reel inválido."},{status:400});
     const result=await publishOne(admin,profileId,userId,itemId);
     if(result.status==="error") return NextResponse.json({ok:false,...result},{status:502});
+    if(result.status==="busy") return NextResponse.json({ok:false,...result},{status:409});
     if(result.status!=="published") return NextResponse.json({ok:false,error:"Este Reel não está disponível para publicação."},{status:409});
     return NextResponse.json({ok:true,...result});
   }
