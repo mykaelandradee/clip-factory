@@ -32,6 +32,21 @@ function localToUtc(year:number,month:number,day:number,hour:number,minute:numbe
   }
   return new Date(guess);
 }
+const DESTINATION_TITLES={
+  zh:["你可能不知道的一个瞬间","这个细节真的很有意思","一个值得注意的小事实","原来还有这样的事情"],
+  ja:["意外と知らない瞬間","この細かい部分が面白い","知っておきたい小さな事実","実はこんなことがあります"],
+} as const;
+const DESTINATION_DESCRIPTIONS={
+  zh:["你知道吗？很多看似普通的瞬间，其实都藏着一些有趣的细节。","有趣的是，人们往往只关注结果，却很少观察过程中的细节。","这个瞬间看起来很简单，但背后其实有一个值得注意的小事实。","生活里有很多意想不到的瞬间，它们总能让人停下来多看几秒。"],
+  ja:["知っていますか？一見すると普通の瞬間でも、よく見ると意外と面白い細かな部分が隠れています。","面白いのは、人は結果ばかりに注目して途中の細かな動きを見落としやすいことです。","この瞬間はシンプルに見えますが、実はちょっとした豆知識につながるポイントがあります。","日常には予想していなかった瞬間がたくさんあります。少し視点を変えるだけで面白く見えることがあります。"],
+} as const;
+function destinationCopy(captionMode:string,itemId:string){
+  const language=captionMode==="ja_random" ? "ja" : captionMode==="zh_random" ? "zh" : (itemId.charCodeAt(0)%2 ? "ja" : "zh");
+  const titles=DESTINATION_TITLES[language], descriptions=DESTINATION_DESCRIPTIONS[language];
+  const seed=[...itemId].reduce((sum,char)=>sum+char.charCodeAt(0),0);
+  return {title:titles[seed%titles.length],description:descriptions[(seed+1)%descriptions.length]};
+}
+
 function isRetryablePublishError(message:string) {
   const value=message.toLowerCase();
   return ![
@@ -69,7 +84,7 @@ function nextSlot(times:string[], from=new Date(), postsPerDay=3) {
 
 async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId: string, userId: string, itemId?: string) {
   const { data: profile } = await admin.from("influencer_profiles")
-    .select("id,user_id,posting_times,posts_per_day,next_publish_at,publishing_enabled,repeat_when_exhausted,cover_r2_key,share_to_feed,fixed_publish_title,fixed_publish_description")
+    .select("id,user_id,posting_times,posts_per_day,next_publish_at,publishing_enabled,repeat_when_exhausted,cover_r2_key,share_to_feed,fixed_publish_title,fixed_publish_description,caption_mode")
     .eq("id",profileId).eq("user_id",userId).maybeSingle();
   if (!profile || (!itemId && !profile.publishing_enabled)) return { status:"stopped" };
 
@@ -243,7 +258,11 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
   try {
     const fixedTitle = String(profile.fixed_publish_title || "").trim();
     const fixedDescription = String(profile.fixed_publish_description || "").trim();
-    const captionParts = [fixedTitle || String(item.publish_title || "").trim(), fixedDescription || String(item.publish_description || "").trim()].filter(Boolean);
+    const sharedCopy = shareId ? destinationCopy(String((profile as any).caption_mode || "zh_ja_random"), String(item.id)) : null;
+    const captionParts = [
+      fixedTitle || sharedCopy?.title || String(item.publish_title || "").trim(),
+      fixedDescription || sharedCopy?.description || String(item.publish_description || "").trim()
+    ].filter(Boolean);
     const caption = captionParts.join("\n\n") || "✨";
     let coverUrl = "";
     if (profile.cover_r2_key) {
