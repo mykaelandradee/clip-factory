@@ -43,7 +43,8 @@ export async function GET() {
       .limit(30);
 
     if (error) {
-      return NextResponse.json({ error: "Não foi possível carregar o histórico.", detail: error.message }, { status: 500 });
+      console.error("History lookup failed:", error.message);
+      return NextResponse.json({ error: "Não foi possível carregar o histórico." }, { status: 500 });
     }
 
     let runs: Array<{ id: number; display_title?: string; run_name?: string; status?: string; conclusion?: string }> = [];
@@ -81,8 +82,9 @@ export async function GET() {
 
     return NextResponse.json({ history }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
+    console.error("History endpoint failed:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Erro ao carregar histórico." },
+      { error: "Erro ao carregar histórico." },
       { status: 500, headers: { "Cache-Control": "no-store" } },
     );
   }
