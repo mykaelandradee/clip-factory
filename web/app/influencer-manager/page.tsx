@@ -346,12 +346,12 @@ export default function InfluencerManagerPage(){
           <label>Descrição<select className="im-form-select" value={profileDraft.caption_mode} onChange={e=>setProfileDraft(v=>({...v,caption_mode:e.target.value}))}><option value="zh_ja_random">Chinês + Japonês aleatório</option><option value="zh_random">Chinês</option><option value="ja_random">Japonês</option><option value="custom">Banco personalizado</option></select></label>
         </div>
         <div className="im-times"><span className="im-kicker">HORÁRIOS DIÁRIOS</span><div className="im-time-grid">{Array.from({length:profileDraft.posts_per_day},(_,i)=><label key={i}>Post {i+1}<input type="time" value={profileDraft.posting_times?.[i]||["09:00","11:30","14:00","16:30","19:00","21:30","23:00","08:00","12:00"][i]} onChange={e=>setProfileDraft(v=>{const times=[...v.posting_times];while(times.length<v.posts_per_day)times.push("");times[i]=e.target.value;return {...v,posting_times:times};})} /></label>)}</div><small><span className="im-info" title="As alterações nos horários ficam pendentes até você clicar em Salvar alterações.">i</span></small></div>
-        <div className="im-profile-save"><button className="im-primary" type="button" disabled={!profileDirty||profileSaving} onClick={()=>void saveProfileSettings()}>{profileSaving?"Salvando…":"Salvar alterações"}</button></div>
         <div className="im-publish-controls">
           <button className="im-primary" disabled={publishing||selected.publishing_enabled} onClick={()=>void togglePublishing()}>{publishing?"Ativando…":"▶ Ativar publicação automática"}</button>
           <button className="im-ghost" disabled={publishing||!selected.publishing_enabled} onClick={()=>void togglePublishing()}>■ Desativar publicação</button>
           <label className="im-check im-repeat-toggle"><input type="checkbox" checked={profileDraft.repeat_when_exhausted} onChange={e=>setProfileDraft(v=>({...v,repeat_when_exhausted:e.target.checked}))}/><span>Repetir biblioteca quando acabar</span></label>
         </div>
+        <div className="im-profile-save"><button className="im-primary" type="button" disabled={!profileDirty||profileSaving} onClick={()=>void saveProfileSettings()}>{profileSaving?"Salvando…":"Salvar alterações"}</button></div>
       </div>
     </div>
 
