@@ -56,7 +56,7 @@ export async function GET(request: Request) {
     if(error) { console.error("Influencer Instagram connection save failed:",error.message); return NextResponse.redirect(new URL("/influencer-manager?instagram_profile_error=save_failed",publicOrigin)); }
 
     await admin.from("influencer_profiles").update({instagram_username:instagramProfile.username ?? null,updated_at:new Date().toISOString()}).eq("id",profileId).eq("user_id",user.id);
-    const response=NextResponse.redirect(new URL("/influencer-manager?instagram_profile_connected=1",publicOrigin));
+    const response=NextResponse.redirect(new URL("/influencer-manager?profileId="+encodeURIComponent(profileId)+"&instagram_profile_connected=1",publicOrigin));
     response.cookies.delete(getInstagramOAuthStateCookieName());
     response.cookies.delete("cf_influencer_instagram_profile");
     return response;
