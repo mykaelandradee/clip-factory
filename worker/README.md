@@ -1,12 +1,14 @@
 # Clip Factory Worker
 
-O worker executa o processamento pesado: download do YouTube, Whisper, seleção por IA e renderização FFmpeg. O dashboard fica hospedado na Vercel e se comunica com o worker por uma API protegida por token.
+O worker executa o processamento pesado: download do YouTube, Whisper, seleção local de trechos e renderização FFmpeg. Em produção, o processamento é executado pelos workflows do GitHub Actions; o worker também pode ser executado localmente para desenvolvimento.
 
-## Arquitetura atual
+## Ambiente de produção
 
-`Vercel → Worker Docker → yt-dlp → Whisper → IA → FFmpeg → MP4`
+O fluxo principal é:
 
-O worker pode rodar localmente durante o desenvolvimento ou em uma VM Linux na nuvem. Para o ambiente cloud, consulte `DEPLOY_ORACLE.md`.
+`Render → GitHub Actions → worker Python → yt-dlp/Whisper/FFmpeg → Cloudflare R2`
+
+O workflow `Clip Factory Worker` processa os jobs de geração. O workflow `Influencer Manager Worker` processa os vídeos do Influencer Manager. Os arquivos de saída são enviados para o Cloudflare R2.
 
 ## Windows — desenvolvimento local
 
@@ -14,21 +16,20 @@ O worker pode rodar localmente durante o desenvolvimento ou em uma VM Linux na n
 2. Instale FFmpeg e deixe `ffmpeg` disponível no PATH.
 3. Abra PowerShell nesta pasta.
 4. Execute `./setup.ps1`.
-5. Edite `worker/.env` e informe a chave do provedor de IA escolhido.
-6. Execute `./start_worker.ps1`.
+5. Execute `./start_worker.ps1`.
 
-O worker ficará disponível em `http://127.0.0.1:8765`.
+O worker local ficará disponível em `http://127.0.0.1:8765`.
 
 ## Cloud
 
-A imagem Docker configura o worker para escutar em `0.0.0.0:8765` e possui health check em `/health`.
-
-O diretório `/data` deve ser montado em armazenamento persistente. O token `CLIP_FACTORY_WORKER_TOKEN` deve ser configurado tanto no worker quanto na Vercel.
+A imagem Docker continua disponível para execução independente do worker, mas não é o caminho usado pelo processamento principal em produção neste momento.
 
 ## Estrutura do processamento
 
-`YouTube → yt-dlp → Whisper → IA → FFmpeg → MP4 9:16`
+`YouTube → yt-dlp → Whisper → seleção local → FFmpeg → MP4 9:16`
 
-Os arquivos ficam em `data/projects/<id>/`, incluindo a transcrição, os candidatos e os MP4 renderizados.
+Os arquivos temporários ficam em `data/`.
 
-A publicação automática para YouTube Shorts e Instagram será adicionada depois que o pipeline principal estiver estável.
+## Observação
+
+A publicação automática para YouTube e Instagram é tratada pelas APIs e workflows do aplicativo, separadamente do processamento do vídeo.
