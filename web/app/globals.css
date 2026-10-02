@@ -3038,3 +3038,8 @@ html,body,button,input,select,textarea{
   .im-item{min-height:0}
   .im-video-preview{height:auto;max-height:430px}
 }
+
+/* Profile save action */
+.im-profile-save{display:flex;justify-content:flex-end;margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,.06)}
+.im-profile-save .im-primary{min-width:160px}
+@media(max-width:600px){.im-profile-save .im-primary{width:100%}}
