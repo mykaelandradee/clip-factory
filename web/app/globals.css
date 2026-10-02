@@ -2878,3 +2878,20 @@ html,body,button,input,select,textarea{
  .im-summary-metrics b{font-size:17px}
  .im-summary-metrics small{font-size:7px}
 }
+
+
+/* Influencer Manager — agenda/history */
+.im-agenda-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}
+.im-agenda-column{min-width:0;padding:12px;border:1px solid rgba(255,255,255,.06);border-radius:12px;background:rgba(7,9,12,.45)}
+.im-agenda-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px}
+.im-agenda-title strong{font-size:11px}
+.im-agenda-title span{font-size:8px;letter-spacing:.06em;text-transform:uppercase;opacity:.5;white-space:nowrap}
+.im-agenda-list{display:grid;gap:6px}
+.im-agenda-row{display:grid;grid-template-columns:64px 68px minmax(0,1fr);gap:8px;align-items:center;padding:8px 9px;border:1px solid rgba(255,255,255,.055);border-radius:8px;background:rgba(255,255,255,.015);min-width:0}
+.im-agenda-row span{font-size:7px;letter-spacing:.06em;text-transform:uppercase;opacity:.52}
+.im-agenda-row strong{font-size:10px;white-space:nowrap}
+.im-agenda-row small{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:9px;opacity:.75}
+.im-agenda-row.is-next{border-color:rgba(141,124,255,.28);background:rgba(141,124,255,.06);box-shadow:inset 2px 0 0 rgba(141,124,255,.7)}
+.im-agenda-empty{padding:18px 8px;text-align:center;font-size:9px;line-height:1.5;opacity:.5}
+@media(max-width:900px){.im-agenda-grid{grid-template-columns:1fr}}
+@media(max-width:600px){.im-agenda-column{padding:10px}.im-agenda-row{grid-template-columns:58px 58px minmax(0,1fr);gap:6px}.im-agenda-row small{white-space:normal;overflow-wrap:anywhere}.im-agenda-title{align-items:flex-start;flex-direction:column;gap:3px}}
