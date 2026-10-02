@@ -101,7 +101,13 @@ export async function GET(request:Request) {
       const sourceProfileIds=Array.from(new Set(sharedItems.map((item:any)=>item.source_profile_id).filter(Boolean)));
       const {data:sourceProfiles}=await admin.from("influencer_profiles").select("id,name").in("id",sourceProfileIds);
       const sourceNames=new Map((sourceProfiles||[]).map((profile:any)=>[profile.id,profile.name]));
-      sharedItems=sharedItems.map((item:any)=>({...item,source_profile_name:sourceNames.get(item.source_profile_id)||"Outro perfil"}));
+      const {data:destinationProfile}=await admin.from("influencer_profiles").select("id,fixed_publish_title,fixed_publish_description").eq("id",profileId).eq("user_id",user.id).maybeSingle();
+      sharedItems=sharedItems.map((item:any)=>({
+        ...item,
+        source_profile_name:sourceNames.get(item.source_profile_id)||"Outro perfil",
+        publish_title:destinationProfile?.fixed_publish_title?.trim() || item.publish_title,
+        publish_description:destinationProfile?.fixed_publish_description?.trim() || item.publish_description
+      }));
     }
   }
   const ownIds=new Set((data||[]).map((item:any)=>item.id));
