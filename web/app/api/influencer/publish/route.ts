@@ -69,35 +69,77 @@ function nextSlot(times:string[], from=new Date(), postsPerDay=3) {
 
 async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId: string, userId: string, itemId?: string) {
   const { data: profile } = await admin.from("influencer_profiles")
-    .select("id,user_id,posting_times,posts_per_day,next_publish_at,publishing_enabled,cover_r2_key,share_to_feed,fixed_publish_title,fixed_publish_description")
+    .select("id,user_id,posting_times,posts_per_day,next_publish_at,publishing_enabled,repeat_when_exhausted,cover_r2_key,share_to_feed,fixed_publish_title,fixed_publish_description")
     .eq("id",profileId).eq("user_id",userId).maybeSingle();
   if (!profile || (!itemId && !profile.publishing_enabled)) return { status:"stopped" };
 
   let item: any = null;
   let shareId: string | null = null;
 
+  const repeatWhenExhausted = Boolean((profile as any).repeat_when_exhausted);
+
+  // Normal cycle: publish only items that are ready.
+  // Repeat cycle: only when there are no ready items, reuse the oldest published item.
   const ownQuery = admin.from("influencer_content_items")
-    .select("id,profile_id,user_id,r2_key,publish_title,publish_description,status,scheduled_at,retry_count")
-    .eq("profile_id",profileId).eq("user_id",userId).in("status",["available"]);
-  const own = await (itemId ? ownQuery.eq("id",itemId) : ownQuery.order("created_at",{ascending:true}).limit(1)).maybeSingle();
+    .select("id,profile_id,user_id,r2_key,publish_title,publish_description,status,scheduled_at,retry_count,created_at,published_at")
+    .eq("profile_id",profileId).eq("user_id",userId);
+
+  let own = await (itemId
+    ? ownQuery.eq("id",itemId).in("status",["available","published"])
+    : ownQuery.eq("status","available").order("created_at",{ascending:true}).limit(1)
+  ).maybeSingle();
   if (own.data) item = own.data;
+
+  if (!item && !itemId && repeatWhenExhausted) {
+    own = await ownQuery
+      .eq("status","published")
+      .order("published_at",{ascending:true})
+      .order("created_at",{ascending:true})
+      .limit(1)
+      .maybeSingle();
+    if (own.data) item = own.data;
+  }
 
   if (!item) {
     const shareQuery = admin.from("influencer_content_shares")
-      .select("id,item_id,profile_id,status,scheduled_at")
-      .eq("profile_id",profileId).eq("user_id",userId).in("status",itemId?["available","published"]:["available"]);
-    const shareResult = await (itemId ? shareQuery.eq("item_id",itemId) : shareQuery.order("created_at",{ascending:true}).limit(1)).maybeSingle();
+      .select("id,item_id,profile_id,status,scheduled_at,retry_count,created_at,published_at")
+      .eq("profile_id",profileId).eq("user_id",userId);
+
+    let shareResult = await (itemId
+      ? shareQuery.in("status",["available","published"]).eq("item_id",itemId)
+      : shareQuery.eq("status","available").order("created_at",{ascending:true}).limit(1)
+    ).maybeSingle();
+
     if (shareResult.data) {
       shareId = shareResult.data.id;
       const { data: source } = await admin.from("influencer_content_items")
-        .select("id,profile_id,user_id,r2_key,publish_title,publish_description,status,scheduled_at,retry_count")
+        .select("id,profile_id,user_id,r2_key,publish_title,publish_description,status,scheduled_at,retry_count,created_at,published_at")
         .eq("id",shareResult.data.item_id).eq("user_id",userId).maybeSingle();
       if (source) item = source;
+    }
+
+    if (!item && !itemId && repeatWhenExhausted) {
+      shareResult = await shareQuery
+        .eq("status","published")
+        .order("published_at",{ascending:true})
+        .order("created_at",{ascending:true})
+        .limit(1)
+        .maybeSingle();
+
+      if (shareResult.data) {
+        shareId = shareResult.data.id;
+        const { data: source } = await admin.from("influencer_content_items")
+          .select("id,profile_id,user_id,r2_key,publish_title,publish_description,status,scheduled_at,retry_count,created_at,published_at")
+          .eq("id",shareResult.data.item_id).eq("user_id",userId).maybeSingle();
+        if (source) item = source;
+      }
     }
   }
 
   if (!item) {
-    if (!itemId) await admin.from("influencer_profiles").update({publishing_enabled:false,next_publish_at:null,updated_at:new Date().toISOString()}).eq("id",profileId).eq("user_id",userId);
+    if (!itemId && !repeatWhenExhausted) {
+      await admin.from("influencer_profiles").update({publishing_enabled:false,next_publish_at:null,updated_at:new Date().toISOString()}).eq("id",profileId).eq("user_id",userId);
+    }
     return { status:"empty" };
   }
 
@@ -143,16 +185,20 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
   const originalStatus=item.status;
   const claimTime=new Date().toISOString();
   let claimedItem=false;
+  const claimableStatuses = repeatWhenExhausted && originalStatus === "published"
+    ? ["published"]
+    : ["available"];
+
   if (shareId) {
     const {data:claimed}=await admin.from("influencer_content_shares")
       .update({status:"scheduled",scheduled_at:claimTime,error_message:null})
-      .eq("id",shareId).eq("user_id",userId).eq("status","available")
+      .eq("id",shareId).eq("user_id",userId).in("status",claimableStatuses)
       .select("id").maybeSingle();
     claimedItem=Boolean(claimed);
   } else {
     const {data:claimed}=await admin.from("influencer_content_items")
       .update({status:"scheduled",scheduled_at:claimTime,updated_at:claimTime,error_message:null})
-      .eq("id",item.id).eq("user_id",userId).eq("status","available")
+      .eq("id",item.id).eq("user_id",userId).in("status",claimableStatuses)
       .select("id").maybeSingle();
     claimedItem=Boolean(claimed);
   }
@@ -192,7 +238,7 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
     if(!publishResponse.ok || !publishData.id) throw new Error(publishData?.error?.message || "O Instagram não conseguiu publicar o Reel.");
 
     const next=nextSlot((profile.posting_times||[]) as string[],new Date(),Number(profile.posts_per_day)||3);
-    if (shareId) await admin.from("influencer_content_shares").update({status:"published",published_at:new Date().toISOString(),scheduled_at:null,error_message:null}).eq("id",shareId).eq("user_id",userId);
+    if (shareId) await admin.from("influencer_content_shares").update({status:"published",published_at:new Date().toISOString(),scheduled_at:null,error_message:null,retry_count:0}).eq("id",shareId).eq("user_id",userId);
     else await admin.from("influencer_content_items").update({status:"published",published_at:new Date().toISOString(),scheduled_at:null,error_message:null,retry_count:0,updated_at:new Date().toISOString()}).eq("id",item.id).eq("user_id",userId);
     await admin.from("influencer_profiles").update({next_publish_at:next.toISOString(),updated_at:new Date().toISOString()}).eq("id",profileId).eq("user_id",userId);
     return {status:"published",itemId:item.id,mediaId:String(publishData.id),nextPublishAt:next.toISOString()};
@@ -204,14 +250,16 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
       await admin.from("influencer_profiles").update({publishing_enabled:false,updated_at:new Date().toISOString()}).eq("id",profileId).eq("user_id",userId);
     }
     const retryable=tokenInvalid ? false : isRetryablePublishError(message);
-    const retryCount=Number(item.retry_count)||0;
+    const retryCount=Number(shareId ? (await admin.from("influencer_content_shares").select("retry_count").eq("id",shareId).eq("user_id",userId).maybeSingle()).data?.retry_count : item.retry_count)||0;
     const nextRetryCount=retryCount+1;
     const exhausted=nextRetryCount>=3;
+    const wasRepeatedPublished = repeatWhenExhausted && originalStatus === "published";
     if (shareId) {
       await admin.from("influencer_content_shares").update({
-        status:exhausted?"failed":"available",
+        status:exhausted ? "failed" : (wasRepeatedPublished ? "published" : "available"),
         scheduled_at:null,
-        error_message:message.slice(0,1000)
+        error_message:message.slice(0,1000),
+        retry_count:nextRetryCount
       }).eq("id",shareId).eq("user_id",userId);
     } else {
       await admin.from("influencer_content_items").update({
