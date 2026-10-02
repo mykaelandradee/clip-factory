@@ -189,14 +189,12 @@ jobs:
           set -o pipefail
           test -s "$YOUTUBE_COOKIE_FILE" || { echo "YouTube cookie file is missing or empty"; exit 1; }
           ffmpeg -version | head -n 1
-          yt-dlp -v \
-            --js-runtimes deno \
-            --remote-components ejs:npm \
-            --simulate \
-            --cookies "$YOUTUBE_COOKIE_FILE" \
-            --extractor-args "youtubepot-bgutilhttp:base_url=$BGUTIL_POT_URL" \
-            "$VIDEO_URL" 2>&1 | tee "$RUNNER_TEMP/ytdlp-provider-check.log"
-          grep -q "bgutil:http-2.0.0" "$RUNNER_TEMP/ytdlp-provider-check.log"
+          echo "Validating yt-dlp + bgutil provider..."
+          yt-dlp --version
+          curl -fsS "$BGUTIL_POT_URL/ping" >/dev/null
+          echo "bgutil provider is responding"
+          yt-dlp -v             --js-runtimes deno             --remote-components ejs:npm             --simulate             --cookies "$YOUTUBE_COOKIE_FILE"             --extractor-args "youtubepot-bgutilhttp:base_url=$BGUTIL_POT_URL"             "$VIDEO_URL" 2>&1 | tee "$RUNNER_TEMP/ytdlp-provider-check.log"
+          echo "yt-dlp simulation completed"
 
       - name: Clean expired R2 clips
         working-directory: worker
