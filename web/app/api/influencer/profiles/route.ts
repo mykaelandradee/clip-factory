@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "../../../../lib/supabase/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
+import { getClientKey, rateLimit } from "../../../../lib/rate-limit";
 
 export const runtime = "nodejs";
 function localParts(date: Date) {
@@ -61,6 +62,8 @@ export async function POST(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Entre no Clip Factory." }, { status: 401 });
+  const mutationRate = rateLimit(getClientKey(request, user.id), 20, 60 * 60 * 1000);
+  if (!mutationRate.allowed) return NextResponse.json({ error: "Limite de criação de perfis atingido. Aguarde antes de tentar novamente." }, { status: 429, headers: { "Retry-After": String(mutationRate.retryAfterSeconds) } });
   const body = await request.json().catch(() => null);
   const name = typeof body?.name === "string" ? body.name.trim() : "";
   const instagramUsername = typeof body?.instagramUsername === "string" ? body.instagramUsername.trim().replace(/^@/, "") : "";
@@ -105,6 +108,8 @@ export async function PATCH(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Entre no Clip Factory." }, { status: 401 });
+  const mutationRate = rateLimit(getClientKey(request, user.id), 60, 60 * 60 * 1000);
+  if (!mutationRate.allowed) return NextResponse.json({ error: "Limite de alterações do perfil atingido. Aguarde antes de tentar novamente." }, { status: 429, headers: { "Retry-After": String(mutationRate.retryAfterSeconds) } });
   const body = await request.json().catch(() => null);
   const id = typeof body?.id === "string" ? body.id : "";
   if (!id) return NextResponse.json({ error: "Perfil inválido." }, { status: 400 });
@@ -137,6 +142,8 @@ export async function DELETE(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Entre no Clip Factory." }, { status: 401 });
+  const mutationRate = rateLimit(getClientKey(request, user.id), 30, 60 * 60 * 1000);
+  if (!mutationRate.allowed) return NextResponse.json({ error: "Limite de exclusões de perfil atingido. Aguarde antes de tentar novamente." }, { status: 429, headers: { "Retry-After": String(mutationRate.retryAfterSeconds) } });
   const id = new URL(request.url).searchParams.get("id") || "";
   if (!id) return NextResponse.json({ error: "Perfil inválido." }, { status: 400 });
   const admin = createAdminClient();
