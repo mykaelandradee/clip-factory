@@ -330,6 +330,7 @@ export default function InfluencerManagerPage(){
         </div>
       </div>
 
+
         <div className="im-profile-save"><button className="im-primary" type="button" disabled={!profileDirty||profileSaving} onClick={()=>void saveProfileSettings()}>{profileSaving?"Salvando…":"Salvar alterações"}</button></div>
       </div>
 
@@ -338,8 +339,7 @@ export default function InfluencerManagerPage(){
         <div className="im-fixed-copy">
           <label>Nome do Reel <span className="im-field-help">Deixe vazio para gerar automaticamente.</span><input value={profileDraft.fixed_publish_title} onChange={e=>setProfileDraft(v=>({...v,fixed_publish_title:e.target.value}))} placeholder="Automático" /></label>
           <label>Descrição <span className="im-field-help">Vazio = automático.</span><textarea rows={5} value={profileDraft.fixed_publish_description} onChange={e=>setProfileDraft(v=>({...v,fixed_publish_description:e.target.value}))} placeholder="Automática em chinês/japonês" /></label>
-        </div>
-        {inlineError?.section==="profile"&&<div className="im-inline-error">{inlineError.message}</div>}        <label className="im-check"><input type="checkbox" checked={profileDraft.share_to_feed} onChange={e=>setProfileDraft(v=>({...v,share_to_feed:e.target.checked}))}/><span>Publicar também na Grade Principal do Instagram</span></label>
+        </div>        <label className="im-check"><input type="checkbox" checked={profileDraft.share_to_feed} onChange={e=>setProfileDraft(v=>({...v,share_to_feed:e.target.checked}))}/><span>Publicar também na Grade Principal do Instagram</span></label>
       </div>
 
       <div className="im-config-section">
