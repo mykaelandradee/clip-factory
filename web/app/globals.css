@@ -3058,3 +3058,5 @@ html,body,button,input,select,textarea{
   .im-publish-controls .im-primary,.im-publish-controls>.im-ghost{width:100%}
   .im-publish-controls .im-repeat-toggle{grid-column:1 / -1;margin-left:0}
 }
+
+.im-kicker .im-info{margin-left:6px;vertical-align:middle}.im-kicker{display:inline-flex;align-items:center;gap:0}.im-config-section-head .im-kicker .im-info{margin-left:6px}
