@@ -1,5 +1,7 @@
 "use client";
 
+// Keep title editing available for every own library item, including untitled Instagram sources.
+
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 type Profile={
