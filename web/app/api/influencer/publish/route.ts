@@ -9,6 +9,7 @@ export const maxDuration = 300;
 
 const API_VERSION = "v25.0";
 const GRAPH = `https://graph.instagram.com/${API_VERSION}`;
+const FIXED_REEL_COMMENT = "https://giphy.com/gifs/homeless-follower-beggar-c0UrKEwQnDOY0YoZRX";
 
 function schedulerAuthorized(request: Request) {
   const secret = process.env.CLIP_FACTORY_SCHEDULER_TOKEN || "";
@@ -272,6 +273,21 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
     const publishResponse=await fetch(`${GRAPH}/me/media_publish`,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:new URLSearchParams({creation_id:creationId,access_token:accessToken}),cache:"no-store"});
     const publishData=await publishResponse.json().catch(()=>({}));
     if(!publishResponse.ok || !publishData.id) throw new Error(publishData?.error?.message || "O Instagram não conseguiu publicar o Reel.");
+
+    try {
+      const commentResponse = await fetch(`${GRAPH}/${encodeURIComponent(String(publishData.id))}/comments`, {
+        method:"POST",
+        headers:{"Content-Type":"application/x-www-form-urlencoded"},
+        body:new URLSearchParams({message:FIXED_REEL_COMMENT,access_token:accessToken}),
+        cache:"no-store"
+      });
+      if(!commentResponse.ok) {
+        const commentData = await commentResponse.json().catch(()=>({}));
+        console.warn("Influencer fixed comment failed:", commentData?.error?.message || commentResponse.status);
+      }
+    } catch(error) {
+      console.warn("Influencer fixed comment request failed:", error);
+    }
 
     const next=nextSlot((profile.posting_times||[]) as string[],new Date(),Number(profile.posts_per_day)||3);
     if (shareId) await admin.from("influencer_content_shares").update({status:"published",published_at:new Date().toISOString(),scheduled_at:null,error_message:null,retry_count:0}).eq("id",shareId).eq("user_id",userId);
