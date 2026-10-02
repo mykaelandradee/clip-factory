@@ -193,7 +193,7 @@ jobs:
           yt-dlp --version
           curl -fsS "$BGUTIL_POT_URL/ping" >/dev/null
           echo "bgutil provider is responding"
-          yt-dlp -v             --js-runtimes deno             --remote-components ejs:npm             --simulate             --cookies "$YOUTUBE_COOKIE_FILE"             --extractor-args "youtubepot-bgutilhttp:base_url=$BGUTIL_POT_URL"             "$VIDEO_URL" 2>&1 | tee "$RUNNER_TEMP/ytdlp-provider-check.log"
+          yt-dlp -v --no-playlist --js-runtimes deno --remote-components ejs:npm --simulate --cookies "$YOUTUBE_COOKIE_FILE" --extractor-args "youtubepot-bgutilhttp:base_url=$BGUTIL_POT_URL" "$VIDEO_URL" 2>&1 | tee "$RUNNER_TEMP/ytdlp-provider-check.log"
           echo "yt-dlp simulation completed"
 
       - name: Clean expired R2 clips
