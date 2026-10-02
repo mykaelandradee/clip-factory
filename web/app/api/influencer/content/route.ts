@@ -224,7 +224,7 @@ export async function PATCH(request:Request) {
   const id=typeof body?.id==="string"?body.id:"";
   if(!id) return NextResponse.json({error:"Conteúdo inválido."},{status:400});
   const admin=createAdminClient();
-  const {data:item,error:itemError}=await admin.from("influencer_content_items").select("id,profile_id,publish_title,publish_description").eq("id",id).eq("user_id",user.id).maybeSingle();
+  const {data:item,error:itemError}=await admin.from("influencer_content_items").select("id,profile_id,title,publish_title,publish_description").eq("id",id).eq("user_id",user.id).maybeSingle();
   if(itemError||!item) return NextResponse.json({error:"Conteúdo não encontrado."},{status:404});
   if(body?.randomize===true){
     const {data:profile}=await admin.from("influencer_profiles").select("caption_mode").eq("id",item.profile_id).eq("user_id",user.id).maybeSingle();
@@ -236,6 +236,7 @@ export async function PATCH(request:Request) {
     return NextResponse.json({item:updated});
   }
   const allowed:Record<string,unknown>={};
+  if(typeof body?.title==="string") allowed.title=body.title.trim().slice(0,500)||null;
   if(typeof body?.publishTitle==="string") allowed.publish_title=body.publishTitle.trim().slice(0,500)||null;
   if(typeof body?.publishDescription==="string") allowed.publish_description=body.publishDescription.trim().slice(0,5000)||null;
   if(!Object.keys(allowed).length)return NextResponse.json({error:"Nenhuma alteração informada."},{status:400});
