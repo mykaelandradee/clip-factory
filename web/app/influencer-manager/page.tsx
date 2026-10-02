@@ -283,7 +283,7 @@ export default function InfluencerManagerPage(){
   // alteração como 19:00 -> 20:00, o horário visual é atualizado imediatamente
   // sem depender de uma segunda leitura do perfil selecionado.
   const configuredTimes=profileDraft.posting_times||[];
-  const times=configuredTimes.filter((v)=>/^([01]\\d|2[0-3]):[0-5]\\d$/.test(v)).sort();
+  const times=configuredTimes.filter((v)=>/^([01]\d|2[0-3]):[0-5]\d$/.test(v)).sort();
   const fallback=["09:00","11:30","14:00","16:30","19:00","21:30","23:00","08:00","12:00"];
   const slots=times.length?times:Array.from({length:profileDraft.posts_per_day},(_,i)=>fallback[i]||"09:00");
   const availableItems=items.filter((item)=>item.status==="available").sort((a,b)=>String(a.created_at||"").localeCompare(String(b.created_at||"")));
