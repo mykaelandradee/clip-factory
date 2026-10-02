@@ -246,6 +246,22 @@ export default function InfluencerManagerPage(){
      <form className="im-url-form" onSubmit={addUrl}><input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..." required /><button className="im-primary" disabled={adding}>{adding?"Processando…":"Adicionar vídeo"}</button></form>
     </div>
 
+    <div className="im-card im-agenda">
+      <div className="im-card-head">
+        <div><span className="im-kicker">AGENDA E HISTÓRICO</span><h2>Publicações</h2><p>Veja o que está previsto para a fila e acompanhe as últimas publicações deste perfil.</p></div>
+      </div>
+      <div className="im-agenda-grid">
+        <div className="im-agenda-column">
+          <div className="im-agenda-title"><strong>Próximos horários</strong><span>{queuePreview.length} na fila</span></div>
+          {queuePreview.length===0 ? <div className="im-agenda-empty">Nenhum vídeo pronto para os próximos horários.</div> : <div className="im-agenda-list">{queuePreview.slice(0,6).map((slot,index)=><div className={"im-agenda-row "+(index===0?"is-next":"")} key={slot.day+"-"+slot.time+"-"+(slot.item?.id||index)}><span>{index===0?"PRÓXIMO":"DIA "+(slot.day+1)}</span><strong>{slot.time}</strong><small>{slot.item?.title||"Próximo vídeo"}</small></div>)}</div>}
+        </div>
+        <div className="im-agenda-column">
+          <div className="im-agenda-title"><strong>Últimas publicações</strong><span>{published} publicadas</span></div>
+          {published===0 ? <div className="im-agenda-empty">Ainda não há publicações registradas.</div> : <div className="im-agenda-list">{items.filter(i=>i.status==="published").sort((a,b)=>String(b.published_at||b.created_at).localeCompare(String(a.published_at||a.created_at))).slice(0,6).map(item=><div className="im-agenda-row" key={"history-"+item.id}><span>PUBLICADO</span><strong>{formatDate(item.published_at||item.created_at)}</strong><small>{item.title||"Vídeo sem título"}</small></div>)}</div>}
+        </div>
+      </div>
+    </div>
+
     <div className="im-card im-library">
       <div className="im-card-head">
         <div>
@@ -363,21 +379,7 @@ export default function InfluencerManagerPage(){
     </div>
 </>}
   </section>
-    <div className="im-card im-agenda">
-      <div className="im-card-head">
-        <div><span className="im-kicker">AGENDA E HISTÓRICO</span><h2>Publicações</h2><p>Veja o que está previsto para a fila e acompanhe as últimas publicações deste perfil.</p></div>
-      </div>
-      <div className="im-agenda-grid">
-        <div className="im-agenda-column">
-          <div className="im-agenda-title"><strong>Próximos horários</strong><span>{queuePreview.length} na fila</span></div>
-          {queuePreview.length===0 ? <div className="im-agenda-empty">Nenhum vídeo pronto para os próximos horários.</div> : <div className="im-agenda-list">{queuePreview.slice(0,6).map((slot,index)=><div className={"im-agenda-row "+(index===0?"is-next":"")} key={slot.day+"-"+slot.time+"-"+(slot.item?.id||index)}><span>{index===0?"PRÓXIMO":"DIA "+(slot.day+1)}</span><strong>{slot.time}</strong><small>{slot.item?.title||"Próximo vídeo"}</small></div>)}</div>}
-        </div>
-        <div className="im-agenda-column">
-          <div className="im-agenda-title"><strong>Últimas publicações</strong><span>{published} publicadas</span></div>
-          {published===0 ? <div className="im-agenda-empty">Ainda não há publicações registradas.</div> : <div className="im-agenda-list">{items.filter(i=>i.status==="published").sort((a,b)=>String(b.published_at||b.created_at).localeCompare(String(a.published_at||a.created_at))).slice(0,6).map(item=><div className="im-agenda-row" key={"history-"+item.id}><span>PUBLICADO</span><strong>{formatDate(item.published_at||item.created_at)}</strong><small>{item.title||"Vídeo sem título"}</small></div>)}</div>}
-        </div>
-      </div>
-    </div>
+
 
   </section>
   {showProfiles&&<div className="im-modal-backdrop im-profiles-modal" role="dialog" aria-modal="true" aria-label="Seus perfis"><div className="im-modal im-profiles-modal-card"><div className="im-card-head"><div><span className="im-kicker">SEUS PERFIS</span><h2>Escolha um perfil</h2><p>Selecione o perfil que você quer gerenciar.</p></div><button className="im-ghost" onClick={()=>setShowProfiles(false)}>Fechar</button></div>{loading?<div className="im-empty">Carregando…</div>:profiles.length===0?<div className="im-empty">Crie seu primeiro perfil para começar.</div>:<div className="im-profile-modal-list">{profiles.map(p=><button key={p.id} className={"im-profile "+(selected?.id===p.id?"active":"")} onClick={()=>{setSelected(p);setShowProfiles(false)}}><span className="im-avatar">{p.name.slice(0,1).toUpperCase()}</span><span><strong>{p.name}</strong><small>{p.instagram_username?"@"+p.instagram_username:"Instagram não conectado"}</small></span><b>{p.posts_per_day}/dia</b></button>)}</div>}<button className="im-primary im-modal-new-profile" onClick={()=>{setShowProfiles(false);setShowNew(true)}}>+ Novo perfil</button></div></div>}
