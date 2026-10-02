@@ -19,11 +19,12 @@ export default function InfluencerManagerPage(){
  const [profiles,setProfiles]=useState<Profile[]>([]),[selected,setSelected]=useState<Profile|null>(null),[items,setItems]=useState<Item[]>([]);
  const [loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[error,setError]=useState("");
  const [showNew,setShowNew]=useState(false),[showProfiles,setShowProfiles]=useState(false),[name,setName]=useState(""),[posts,setPosts]=useState("3");
- const [url,setUrl]=useState(""),[adding,setAdding]=useState(false),[publishing,setPublishing]=useState(false),[publishingItem,setPublishingItem]=useState<string|null>(null),[randomizingItem,setRandomizingItem]=useState<string|null>(null),[coverFile,setCoverFile]=useState<File|null>(null),[uploadingCover,setUploadingCover]=useState(false);
+ const [url,setUrl]=useState(""),[videoTitle,setVideoTitle]=useState(""),[adding,setAdding]=useState(false),[publishing,setPublishing]=useState(false),[publishingItem,setPublishingItem]=useState<string|null>(null),[randomizingItem,setRandomizingItem]=useState<string|null>(null),[coverFile,setCoverFile]=useState<File|null>(null),[uploadingCover,setUploadingCover]=useState(false);
  const [coverPreviewKey,setCoverPreviewKey]=useState("");
  const [localCoverPreview,setLocalCoverPreview]=useState("");
  const [instagramConnected,setInstagramConnected]=useState(false),[instagramAccount,setInstagramAccount]=useState("");
  const [instagramReconnect,setInstagramReconnect]=useState(false),[instagramExpiresAt,setInstagramExpiresAt]=useState<string|null>(null);
+ const [renamingItem,setRenamingItem]=useState<string|null>(null),[titleDraft,setTitleDraft]=useState("");
  const [shareTargets,setShareTargets]=useState<string[]>([]);
  const [sharedWith,setSharedWith]=useState<string[]>([]);
  const [sharing,setSharing]=useState(false);
@@ -112,8 +113,8 @@ export default function InfluencerManagerPage(){
  }
  async function addUrl(e:FormEvent){
   e.preventDefault();if(!selected||!url.trim())return;setAdding(true);setError("");clearSectionError("add");
-  try{const r=await fetch("/api/influencer/content",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({profileId:selected.id,sourceUrl:url})}),d=await r.json().catch(()=>({}));
-   if(!r.ok)throw new Error(d.error||"Não foi possível adicionar o vídeo.");setItems(v=>[d.item,...v]);setUrl("");
+  try{const r=await fetch("/api/influencer/content",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({profileId:selected.id,sourceUrl:url,title:videoTitle})}),d=await r.json().catch(()=>({}));
+   if(!r.ok)throw new Error(d.error||"Não foi possível adicionar o vídeo.");setItems(v=>[d.item,...v]);setUrl("");setVideoTitle("");
   }catch(e){showSectionError("add",e instanceof Error?e.message:"Erro ao adicionar.");}finally{setAdding(false);}
  }
  async function saveProfileSettings(){
@@ -208,6 +209,19 @@ export default function InfluencerManagerPage(){
    await loadProfiles();
   }catch(e){showSectionError("publish",e instanceof Error?e.message:"Erro ao publicar o Reel.");}
   finally{setPublishingItem(null);}
+ }
+ async function renameTitle(itemId:string){
+  const title=titleDraft.trim();
+  if(!title)return;
+  setRenamingItem(itemId);setError("");
+  try{
+   const r=await fetch("/api/influencer/content",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:itemId,title})});
+   const d=await r.json().catch(()=>({}));
+   if(!r.ok)throw new Error(d.error||"Não foi possível renomear o vídeo.");
+   if(d.item)setItems(all=>all.map(item=>item.id===itemId?d.item:item));
+   setTitleDraft("");
+  }catch(e){setError(e instanceof Error?e.message:"Erro ao renomear o vídeo.");}
+  finally{setRenamingItem(null);}
  }
  async function randomizeCopy(itemId:string){
   setRandomizingItem(itemId);setError("");
@@ -362,7 +376,7 @@ export default function InfluencerManagerPage(){
         <button className="im-primary" type="button" onClick={()=>{setError("");setInlineError(null);}}>Entendi</button>
       </div>
     </div>}<div className="im-card im-add"><div className="im-card-head"><div><span className="im-kicker">CONTEÚDO </span><h2>Adicionar vídeo</h2><p>Adicione um vídeo por URL.</p></div></div>
-     <form className="im-url-form" onSubmit={addUrl}><input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://youtube.com/... ou https://instagram.com/reel/..." required /><button className="im-primary" disabled={adding}>{adding?"Processando…":"Adicionar vídeo"}</button></form>
+     <form className="im-url-form" onSubmit={addUrl}><input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://youtube.com/... ou https://instagram.com/reel/..." required /><input value={videoTitle} onChange={e=>setVideoTitle(e.target.value)} placeholder="Título do vídeo (opcional)" maxLength={500} /><button className="im-primary" disabled={adding}>{adding?"Processando…":"Adicionar vídeo"}</button></form>
     </div>
 
     <div className="im-card im-agenda">
@@ -444,7 +458,8 @@ export default function InfluencerManagerPage(){
                 {items.filter(item => !item.shared).map(item => (
                   <article className={"im-item "+(item.status==="available"?"im-item-ready":"")+" "+(item.status==="published"?"im-item-published":"")} key={item.id}>
                     <div className="im-item-main">
-                      <strong>{item.title || "Vídeo sem título"}</strong>
+                      <div className="im-title-edit"><strong>{item.title || "Vídeo sem título"}</strong>{item.status!=="processing" && <button type="button" className="im-ghost im-title-button" onClick={()=>{setRenamingItem(item.id);setTitleDraft(item.title||"");}}>Renomear</button>}</div>
+                      {renamingItem===item.id && <div className="im-title-editor"><input value={titleDraft} onChange={e=>setTitleDraft(e.target.value)} maxLength={500} autoFocus /><button type="button" className="im-primary" disabled={!titleDraft.trim()||renamingItem!==item.id} onClick={()=>void renameTitle(item.id)}>Salvar</button><button type="button" className="im-ghost" onClick={()=>{setRenamingItem(null);setTitleDraft("");}}>Cancelar</button></div>}
                       <span>{item.source_url}</span>
                       {item.status === "processing" && (
                         <div className="im-progress">
