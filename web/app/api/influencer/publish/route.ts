@@ -119,7 +119,6 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
       await admin.from("influencer_instagram_connections").update({
         access_token_encrypted:encryptInstagramAccessToken(accessToken),
         expires_at: refreshed.expiresIn > 0 ? new Date(Date.now()+refreshed.expiresIn*1000).toISOString() : connection.expires_at,
-        updated_at:new Date().toISOString()
         requires_reconnect:false,
         last_refresh_error:null,
         updated_at:new Date().toISOString()
@@ -281,12 +280,12 @@ export async function POST(request:Request) {
           next_publish_at:next.toISOString(),
           publish_retry_count:exhausted?0:nextRetryCount,
           updated_at:new Date().toISOString()
-        }).eq("id",p.id).eq("user_id",p.user_id).eq("auto_publish",true).eq("publishing_enabled",true);
+        }).eq("id",p.id).eq("user_id",p.userId).eq("auto_publish",true).eq("publishing_enabled",true);
       } else if(result.status==="published"){
         await admin.from("influencer_profiles").update({
           publish_retry_count:0,
           updated_at:new Date().toISOString()
-        }).eq("id",p.id).eq("user_id",p.user_id);
+        }).eq("id",p.id).eq("user_id",p.userId);
       }
       results.push({profileId:p.id,userId:p.user_id,...result});
     }
