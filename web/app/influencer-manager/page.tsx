@@ -279,15 +279,16 @@ export default function InfluencerManagerPage(){
  const expiresSoon=Boolean(instagramExpiresAt&&new Date(instagramExpiresAt).getTime()-Date.now()<7*24*60*60*1000);
  const queuePreview=useMemo(()=>{
   if(!selected)return [];
-  const times=(selected.posting_times||[]).filter((v)=>/^([01]\\d|2[0-3]):[0-5]\\d$/.test(v)).sort();
+  // A agenda usa o rascunho atualmente exibido. Assim, depois de salvar uma
+  // alteração como 19:00 -> 20:00, o horário visual é atualizado imediatamente
+  // sem depender de uma segunda leitura do perfil selecionado.
+  const configuredTimes=profileDraft.posting_times||[];
+  const times=configuredTimes.filter((v)=>/^([01]\\d|2[0-3]):[0-5]\\d$/.test(v)).sort();
   const fallback=["09:00","11:30","14:00","16:30","19:00","21:30","23:00","08:00","12:00"];
-  const slots=times.length?times:Array.from({length:selected.posts_per_day},(_,i)=>fallback[i]||"09:00");
+  const slots=times.length?times:Array.from({length:profileDraft.posts_per_day},(_,i)=>fallback[i]||"09:00");
   const availableItems=items.filter((item)=>item.status==="available").sort((a,b)=>String(a.created_at||"").localeCompare(String(b.created_at||"")));
   const publishedItems=items.filter((item)=>item.status==="published").sort((a,b)=>String(a.published_at||a.created_at).localeCompare(String(b.published_at||b.created_at)));
-  const repeat=Boolean(selected.repeat_when_exhausted);
-  // A agenda visual deve partir do horário atual e dos horários configurados.
-  // next_publish_at é operacional para o scheduler e pode estar temporariamente
-  // defasado enquanto o scheduler ainda não executou a autocorreção.
+  const repeat=Boolean(profileDraft.repeat_when_exhausted);
   const anchor=new Date();
   const parts=new Intl.DateTimeFormat("en-US",{timeZone:"America/Cuiaba",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).formatToParts(anchor);
   const get=(type:string)=>Number(parts.find(p=>p.type===type)?.value||0);
@@ -323,7 +324,7 @@ export default function InfluencerManagerPage(){
     }
   }
   return out;
- },[items,selected]);
+ },[items,selected,profileDraft.posting_times,profileDraft.posts_per_day,profileDraft.repeat_when_exhausted]);
 
  return (<main className="im-page">
   <header className="im-header"><div className="im-header-copy"><a className="im-back" href="/">← Clip Factory</a><span className="im-header-label">INFLUENCER MANAGER</span><h1>Transforme ideias<br /><em>em influência.</em></h1><p>Organize bibliotecas, padronize seus perfis e automatize a publicação dos seus Reels.</p><div className="im-hero-pills"><span>BIBLIOTECA</span><span>AUTOMAÇÃO</span><span>REELS 9:16</span></div></div><div className="im-hero-mark-wrap"><div className="im-hero-mark"><strong>IG</strong><span>INFLUENCER</span></div><div className="im-hero-orbit im-orbit-one" /><div className="im-hero-orbit im-orbit-two" /></div><div className="im-header-actions"><button className="im-ghost im-profiles-trigger" onClick={()=>setShowProfiles(true)}>SEUS PERFIS <b>{profiles.length}</b></button><button className="im-primary" onClick={()=>setShowNew(true)}>+ Novo perfil</button></div></header>
