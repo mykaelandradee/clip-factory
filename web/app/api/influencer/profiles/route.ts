@@ -3,6 +3,43 @@ import { createClient } from "../../../../lib/supabase/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
 
 export const runtime = "nodejs";
+function localParts(date: Date) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Cuiaba", year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hourCycle: "h23"
+  }).formatToParts(date);
+  const get = (type: string) => Number(parts.find((part) => part.type === type)?.value || 0);
+  return { year: get("year"), month: get("month"), day: get("day"), hour: get("hour"), minute: get("minute") };
+}
+
+function localToUtc(year: number, month: number, day: number, hour: number, minute: number) {
+  let guess = Date.UTC(year, month - 1, day, hour, minute, 0, 0);
+  for (let i = 0; i < 3; i += 1) {
+    const local = localParts(new Date(guess));
+    const rendered = Date.UTC(local.year, local.month - 1, local.day, local.hour, local.minute, 0, 0);
+    const desired = Date.UTC(year, month - 1, day, hour, minute, 0, 0);
+    guess += desired - rendered;
+  }
+  return new Date(guess);
+}
+
+function nextSlot(times: string[], from = new Date(), postsPerDay = 3) {
+  const valid = times.filter((value) => /^([01]\\d|2[0-3]):[0-5]\\d$/.test(value)).sort();
+  if (!valid.length) {
+    valid.push(...["09:00", "11:30", "14:00", "16:30", "19:00", "21:30", "23:00", "08:00", "12:00"].slice(0, Math.max(1, Math.min(9, postsPerDay))));
+  }
+  const local = localParts(from);
+  const base = Date.UTC(local.year, local.month - 1, local.day);
+  for (const value of valid) {
+    const [hour, minute] = value.split(":").map(Number);
+    const candidate = localToUtc(local.year, local.month, local.day, hour, minute);
+    if (candidate.getTime() > from.getTime()) return candidate;
+  }
+  const [hour, minute] = valid[0].split(":").map(Number);
+  const tomorrow = new Date(base + 24 * 60 * 60 * 1000);
+  return localToUtc(tomorrow.getUTCFullYear(), tomorrow.getUTCMonth() + 1, tomorrow.getUTCDate(), hour, minute);
+}
+
 
 export async function GET() {
   const supabase = await createClient();
@@ -76,6 +113,21 @@ export async function PATCH(request: Request) {
     if (body && Object.prototype.hasOwnProperty.call(body, key)) allowed[key] = body[key];
   }
   const admin = createAdminClient();
+  const { data: current, error: currentError } = await admin.from("influencer_profiles")
+    .select("posting_times,posts_per_day,auto_publish,publishing_enabled,next_publish_at")
+    .eq("id", id).eq("user_id", user.id).maybeSingle();
+  if (currentError || !current) return NextResponse.json({ error: "Perfil não encontrado." }, { status: 404 });
+
+  const merged = { ...current, ...allowed };
+  const scheduleChanged = Object.prototype.hasOwnProperty.call(allowed, "posting_times")
+    || Object.prototype.hasOwnProperty.call(allowed, "posts_per_day")
+    || Object.prototype.hasOwnProperty.call(allowed, "auto_publish");
+  if (scheduleChanged && merged.auto_publish && merged.publishing_enabled) {
+    const postingTimes = Array.isArray(merged.posting_times) ? merged.posting_times.filter((value: unknown): value is string => typeof value === "string") : [];
+    const postsPerDay = Number(merged.posts_per_day) || 3;
+    allowed.next_publish_at = nextSlot(postingTimes, new Date(), postsPerDay).toISOString();
+  }
+
   const { data, error } = await admin.from("influencer_profiles").update(allowed).eq("id", id).eq("user_id", user.id).select("*").single();
   if (error) return NextResponse.json({ error: "Não foi possível atualizar o perfil." }, { status: 500 });
   return NextResponse.json({ profile: data });
