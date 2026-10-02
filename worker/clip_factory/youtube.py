@@ -84,9 +84,13 @@ def download_video(url: str, output_dir: Path) -> tuple[Path, dict]:
         "sleep_interval_requests": 1,
     }
 
-    cookie_path = prepare_youtube_cookies()
-    if cookie_path:
-        options["cookiefile"] = str(cookie_path)
+    from urllib.parse import urlparse
+    host = (urlparse(url).hostname or "").lower()
+    is_youtube = host == "youtube.com" or host.endswith(".youtube.com") or host == "youtu.be"
+    if is_youtube:
+        cookie_path = prepare_youtube_cookies()
+        if cookie_path:
+            options["cookiefile"] = str(cookie_path)
 
     with yt_dlp.YoutubeDL(options) as ydl:
         info = ydl.extract_info(url, download=True)
