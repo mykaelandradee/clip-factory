@@ -262,7 +262,7 @@ export default function InfluencerManagerPage(){
   const times=(selected.posting_times||[]).filter((v)=>/^([01]\d|2[0-3]):[0-5]\d$/.test(v)).sort();
   const fallback=["09:00","11:30","14:00","16:30","19:00","21:30","23:00","08:00","12:00"];
   const slots=times.length?times:Array.from({length:selected.posts_per_day},(_,i)=>fallback[i]||"09:00");
-  const availableItems=items.filter((item)=>item.status==="available");
+  const availableItems=items.filter((item)=>item.status==="available").sort((a,b)=>String(a.created_at||"").localeCompare(String(b.created_at||"")));
   const publishedItems=items.filter((item)=>item.status==="published").sort((a,b)=>String(a.published_at||a.created_at).localeCompare(String(b.published_at||b.created_at)));
   const repeat=Boolean(selected.repeat_when_exhausted);
   const now=new Date();
@@ -328,7 +328,6 @@ export default function InfluencerManagerPage(){
            </div>
            <small>JPG, PNG ou WEBP · até 5 MB.</small>
          </div>
-         <div className="im-profile-save"><button className="im-primary" type="button" disabled={!profileDirty||profileSaving} onClick={()=>void saveProfileSettings()}>{profileSaving?"Salvando…":"Salvar alterações"}</button></div>
        </div>
 
        <div className="im-config-section">
@@ -347,6 +346,7 @@ export default function InfluencerManagerPage(){
           <label>Descrição<select className="im-form-select" value={profileDraft.caption_mode} onChange={e=>setProfileDraft(v=>({...v,caption_mode:e.target.value}))}><option value="zh_ja_random">Chinês + Japonês aleatório</option><option value="zh_random">Chinês</option><option value="ja_random">Japonês</option><option value="custom">Banco personalizado</option></select></label>
         </div>
         <div className="im-times"><span className="im-kicker">HORÁRIOS DIÁRIOS</span><div className="im-time-grid">{Array.from({length:profileDraft.posts_per_day},(_,i)=><label key={i}>Post {i+1}<input type="time" value={profileDraft.posting_times?.[i]||["09:00","11:30","14:00","16:30","19:00","21:30","23:00","08:00","12:00"][i]} onChange={e=>setProfileDraft(v=>{const times=[...v.posting_times];while(times.length<v.posts_per_day)times.push("");times[i]=e.target.value;return {...v,posting_times:times};})} /></label>)}</div><small>Os horários só são aplicados após salvar.</small></div>
+        <div className="im-profile-save"><button className="im-primary" type="button" disabled={!profileDirty||profileSaving} onClick={()=>void saveProfileSettings()}>{profileSaving?"Salvando…":"Salvar alterações"}</button></div>
         <div className="im-publish-controls">
           <button className="im-primary" disabled={publishing||selected.publishing_enabled} onClick={()=>void togglePublishing()}>{publishing?"Ativando…":"▶ Ativar publicação automática"}</button>
           <button className="im-ghost" disabled={publishing||!selected.publishing_enabled} onClick={()=>void togglePublishing()}>■ Desativar publicação</button>
