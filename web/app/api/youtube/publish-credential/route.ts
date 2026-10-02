@@ -5,7 +5,7 @@ import { decryptYouTubeRefreshToken } from "../../../../lib/youtube-auth";
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
-  const expected = process.env.CLIP_FACTORY_TOKEN_ENCRYPTION_KEY;
+  const expected = process.env.CLIP_FACTORY_PUBLISH_API_KEY;
   if (!expected) return NextResponse.json({ error: "Publicação segura não configurada." }, { status: 503 });
   if (request.headers.get("authorization") !== `Bearer ${expected}`) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
 
