@@ -432,7 +432,7 @@ export default function InfluencerManagerPage(){
             <>
               <div className="im-library-section-title">
                 <span>CONTEÚDO COMPARTILHADO</span>
-                <small>Vídeos disponibilizados por outros perfis</small>
+                <small>{items.filter(item => item.shared).length} {items.filter(item => item.shared).length === 1 ? "vídeo" : "vídeos"} disponibilizados por {Array.from(new Set(items.filter(item => item.shared).map(item => item.source_profile_name).filter(Boolean))).join(", ") || "outros perfis"}</small>
               </div>
               <div className="im-items">
                 {items.filter(item => item.shared).map(item => (
