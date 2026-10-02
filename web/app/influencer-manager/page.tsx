@@ -18,7 +18,7 @@ const STATUS:Record<string,string>={queued:"Na fila",processing:"Processando",av
 export default function InfluencerManagerPage(){
  const [profiles,setProfiles]=useState<Profile[]>([]),[selected,setSelected]=useState<Profile|null>(null),[items,setItems]=useState<Item[]>([]);
  const [loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[error,setError]=useState("");
- const [showNew,setShowNew]=useState(false),[showProfiles,setShowProfiles]=useState(false),[name,setName]=useState(""),[profileDescription,setProfileDescription]=useState(""),[instagram,setInstagram]=useState(""),[posts,setPosts]=useState("3");
+ const [showNew,setShowNew]=useState(false),[showProfiles,setShowProfiles]=useState(false),[name,setName]=useState(""),[posts,setPosts]=useState("3");
  const [url,setUrl]=useState(""),[adding,setAdding]=useState(false),[publishing,setPublishing]=useState(false),[publishingItem,setPublishingItem]=useState<string|null>(null),[randomizingItem,setRandomizingItem]=useState<string|null>(null),[coverFile,setCoverFile]=useState<File|null>(null),[uploadingCover,setUploadingCover]=useState(false);
  const [coverPreviewKey,setCoverPreviewKey]=useState("");
  const [localCoverPreview,setLocalCoverPreview]=useState("");
@@ -65,9 +65,9 @@ export default function InfluencerManagerPage(){
  async function createProfile(e:FormEvent){
   e.preventDefault();setSaving(true);setError("");
   try{const r=await fetch("/api/influencer/profiles",{method:"POST",headers:{"Content-Type":"application/json"},
-   body:JSON.stringify({name,description:profileDescription,instagramUsername:"",postsPerDay:Number(posts)||3,postingTimes:["09:00","11:30","14:00","16:30","19:00","21:30","23:00","08:00","12:00"].slice(0,Number(posts)||3),captionMode:"zh_ja_random",fixedPublishTitle:name,fixedPublishDescription:profileDescription,shareToFeed:true})}),d=await r.json().catch(()=>({}));
+   body:JSON.stringify({name,description:"",instagramUsername:"",postsPerDay:Number(posts)||3,postingTimes:["09:00","11:30","14:00","16:30","19:00","21:30","23:00","08:00","12:00"].slice(0,Number(posts)||3),captionMode:"zh_ja_random",fixedPublishTitle:name,fixedPublishDescription:"",shareToFeed:true})}),d=await r.json().catch(()=>({}));
    if(!r.ok)throw new Error(d.error||"Não foi possível criar o perfil.");
-   setProfiles(p=>[...p,d.profile]);setSelected(d.profile);setName("");setProfileDescription("");setInstagram("");setPosts("3");setShowNew(false);
+   setProfiles(p=>[...p,d.profile]);setSelected(d.profile);setName("");setPosts("3");setShowNew(false);
   }catch(e){setError(e instanceof Error?e.message:"Erro ao criar perfil.");}finally{setSaving(false);}
  }
  async function addUrl(e:FormEvent){
@@ -199,7 +199,7 @@ export default function InfluencerManagerPage(){
   <header className="im-header"><div className="im-header-copy"><a className="im-back" href="/">← Clip Factory</a><span className="im-header-label">INFLUENCER MANAGER</span><h1>Transforme ideias<br /><em>em influência.</em></h1><p>Organize bibliotecas, padronize seus perfis e automatize a publicação dos seus Reels.</p><div className="im-hero-pills"><span>BIBLIOTECA</span><span>AUTOMAÇÃO</span><span>REELS 9:16</span></div></div><div className="im-hero-mark-wrap"><div className="im-hero-mark"><strong>IG</strong><span>INFLUENCER</span></div><div className="im-hero-orbit im-orbit-one" /><div className="im-hero-orbit im-orbit-two" /></div><div className="im-header-actions"><button className="im-ghost im-profiles-trigger" onClick={()=>setShowProfiles(true)}>SEUS PERFIS <b>{profiles.length}</b></button><button className="im-primary" onClick={()=>setShowNew(true)}>+ Novo perfil</button></div></header>
   {error&&<div className="im-alert">{error}</div>}
   {showNew&&<section className="im-card im-form-card"><div className="im-card-head"><div><span className="im-kicker">NOVO PERFIL</span><h2>Criar perfil</h2></div><button className="im-ghost" onClick={()=>setShowNew(false)}>Fechar</button></div>
-   <form className="im-form" onSubmit={createProfile}><label>Nome do perfil<input value={name} onChange={e=>setName(e.target.value)} placeholder="Memes BR" required /></label><label>Descrição do perfil<textarea rows={3} value={profileDescription} onChange={e=>setProfileDescription(e.target.value)} placeholder="Ex.: Memes brasileiros para publicação diária." required /></label><label>Reels por dia<select value={posts} onChange={e=>setPosts(e.target.value)}>{[1,2,3,4,5,6,7,8,9].map(n=><option key={n}>{n}</option>)}</select></label><label>Instagram<span className="im-field-help">A conta será conectada agora e ficará vinculada a este perfil.</span></label><button className="im-primary" disabled={saving}>{saving?"Criando…":"Criar perfil"}</button></form>
+   <form className="im-form" onSubmit={createProfile}><label>Nome do perfil<input value={name} onChange={e=>setName(e.target.value)} placeholder="Memes BR" required /></label><label>Reels por dia<select className="im-form-select" value={posts} onChange={e=>setPosts(e.target.value)}>{[1,2,3,4,5,6,7,8,9].map(n=><option key={n}>{n}</option>)}</select></label><div className="im-form-note">O Instagram será conectado depois que o perfil for criado.</div><button className="im-primary" disabled={saving}>{saving?"Criando…":"Criar perfil"}</button></form>
   </section>}
   <section className="im-layout">
    <button type="button" className="im-mobile-profile-trigger" onClick={()=>setShowProfiles(true)}>SEUS PERFIS <b>{profiles.length}</b></button>

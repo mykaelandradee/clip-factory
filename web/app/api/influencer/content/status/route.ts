@@ -48,10 +48,16 @@ export async function GET(request:Request){
     const sourceDescription = item.source_description || await fetchSourceDescription(item.source_url);
     const updated={status:"available",progress:100,stage:"ready",r2_key:`influencer/${user.id}/${item.profile_id}/${item.id}/video.mp4`,result_url:resultUrl,title:item.title||null,source_description:sourceDescription,duration_seconds:item.duration_seconds||null,error_message:null,updated_at:new Date().toISOString()};
     const {data:done}=await admin.from("influencer_content_items").update(updated).eq("id",id).eq("user_id",user.id).select("*").single();
+    await admin.from("influencer_content_shares")
+      .update({status:"available",error_message:null,updated_at:new Date().toISOString()})
+      .eq("item_id",id).eq("user_id",user.id).eq("status","queued");
     return NextResponse.json({item:done||{...item,...updated}},{headers:{"Cache-Control":"no-store"}});
    }
    const updated={status:"failed",progress,stage:"error",error_message:run.conclusion==="cancelled"?"Processamento cancelado.":"O Influencer Manager Worker terminou com erro.",updated_at:new Date().toISOString()};
    const {data:failed}=await admin.from("influencer_content_items").update(updated).eq("id",id).eq("user_id",user.id).select("*").single();
+   await admin.from("influencer_content_shares")
+     .update({status:"failed",error_message:updated.error_message,updated_at:new Date().toISOString()})
+     .eq("item_id",id).eq("user_id",user.id).eq("status","queued");
    return NextResponse.json({item:failed||{...item,...updated}},{headers:{"Cache-Control":"no-store"}});
   }
   if(!item.worker_run_id){await admin.from("influencer_content_items").update({worker_run_id:run.id,progress,stage,updated_at:new Date().toISOString()}).eq("id",id).eq("user_id",user.id);}

@@ -132,7 +132,10 @@ export async function POST(request:Request) {
       item_id:item.id,
       profile_id:targetId,
       user_id:user.id,
-      status:item.status==="processing"||item.status==="queued" ? "queued" : "available"
+      status:
+        item.status==="processing"||item.status==="queued" ? "queued" :
+        item.status==="failed" ? "failed" :
+        "available"
     })));
     const {data:existingShares,error:existingError}=await admin
       .from("influencer_content_shares")

@@ -2895,3 +2895,5 @@ html,body,button,input,select,textarea{
 .im-agenda-empty{padding:18px 8px;text-align:center;font-size:9px;line-height:1.5;opacity:.5}
 @media(max-width:900px){.im-agenda-grid{grid-template-columns:1fr}}
 @media(max-width:600px){.im-agenda-column{padding:10px}.im-agenda-row{grid-template-columns:58px 58px minmax(0,1fr);gap:6px}.im-agenda-row small{white-space:normal;overflow-wrap:anywhere}.im-agenda-title{align-items:flex-start;flex-direction:column;gap:3px}}
+
+.im-form-select{height:42px;border:1px solid rgba(255,255,255,.08);border-radius:9px;background:#0b0d10;color:#f5f5f7;padding:0 11px;outline:none;font:inherit}.im-form-select:focus{border-color:rgba(185,167,255,.5)}.im-form-note{display:flex;align-items:center;min-height:42px;padding:0 10px;border:1px solid rgba(255,255,255,.06);border-radius:9px;background:#0b0d10;color:#777b86;font-size:8px;line-height:1.35}.im-form{grid-template-columns:2fr 1fr 1.5fr auto}@media(max-width:820px){.im-form{grid-template-columns:1fr 1fr}.im-form-note{grid-column:1 / -1}.im-form .im-primary{grid-column:1 / -1;justify-self:start}}
