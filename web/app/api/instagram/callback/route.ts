@@ -109,7 +109,7 @@ export async function GET(request: Request) {
     }
 
     const response = NextResponse.redirect(new URL(
-      influencerProfileId ? "/influencer-manager?instagram_profile_connected=1" : "/?instagram_connected=1#",
+      influencerProfileId ? "/influencer-manager?profileId=" + encodeURIComponent(influencerProfileId) + "&instagram_profile_connected=1" : "/?instagram_connected=1#",
       publicOrigin
     ));
     response.cookies.delete(getInstagramOAuthStateCookieName());
