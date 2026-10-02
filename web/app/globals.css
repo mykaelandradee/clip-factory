@@ -2900,3 +2900,29 @@ html,body,button,input,select,textarea{
 /* Unified influencer profile settings */
 .im-profile-config{overflow:hidden}.im-profile-config>.im-card-head{padding-bottom:18px}.im-config-section{padding:22px 0;border-top:1px solid rgba(255,255,255,.07)}.im-config-section:first-of-type{border-top:0;padding-top:8px}.im-config-section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:18px}.im-config-section-head h3{margin:4px 0 5px;font-size:17px}.im-config-section-head p{margin:0;color:#777b86;font-size:12px;line-height:1.5}.im-profile-config .im-card-head>button{white-space:nowrap}.im-profile-config .im-cover-upload,.im-profile-config .im-fixed-copy,.im-profile-config .im-settings-grid,.im-profile-config .im-times{margin-top:0}.im-profile-config .im-cover-meta .im-primary{margin-top:10px}.im-profile-config .im-publish-controls{margin-top:18px}.im-profile-config .im-times{padding-top:18px;margin-top:18px;border-top:1px solid rgba(255,255,255,.05)}
 @media(max-width:700px){.im-config-section-head{flex-direction:column;gap:10px}.im-profile-config>.im-card-head{align-items:flex-start;flex-direction:column}.im-profile-config .im-card-head>button{width:100%}}
+
+/* Influencer Manager — inline feedback and cover presentation */
+.im-inline-error{margin-top:10px;padding:9px 11px;border:1px solid rgba(255,105,105,.22);border-radius:9px;background:rgba(255,85,85,.06);color:#ffb2b2;font-size:10px;line-height:1.45}
+.im-page-inline-error{max-width:100%;margin:0 0 10px}
+.im-profile-config .im-inline-error{margin-top:12px}
+.im-cover-upload{padding:14px;border:1px solid rgba(255,255,255,.07);border-radius:14px;background:linear-gradient(145deg,rgba(255,255,255,.025),rgba(255,255,255,.012))}
+.im-cover-row{grid-template-columns:170px minmax(0,1fr);gap:22px;align-items:center}
+.im-cover-frame{width:170px;padding:5px;border-radius:18px;box-shadow:0 20px 55px rgba(0,0,0,.32),0 0 0 1px rgba(141,124,255,.06)}
+.im-cover-frame::after{content:"CAPA · 9:16";position:absolute;left:10px;bottom:10px;z-index:3;padding:4px 7px;border:1px solid rgba(255,255,255,.12);border-radius:999px;background:rgba(5,6,9,.72);backdrop-filter:blur(8px);color:#d8d5e7;font-size:7px;letter-spacing:.08em;font-weight:700}
+.im-cover-meta{padding:4px 0}
+.im-cover-meta strong{font-size:13px}
+.im-cover-meta>span{font-size:10px;max-width:460px}
+.im-cover-upload>small{display:block;margin-top:10px;color:#62656f;font-size:8px}
+.im-profile-config .im-config-section-head p{font-size:10px}
+.im-profile-config .im-config-section{padding:18px 0}
+.im-profile-config .im-config-section-head{margin-bottom:14px}
+.im-profile-config .im-config-section-head h3{font-size:15px}
+@media(max-width:600px){
+ .im-cover-row{grid-template-columns:125px minmax(0,1fr);gap:14px}
+ .im-cover-frame{width:125px}
+}
+@media(max-width:430px){
+ .im-cover-row{grid-template-columns:1fr}
+ .im-cover-frame{width:110px}
+ .im-cover-meta{padding:0}
+}
