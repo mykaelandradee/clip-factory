@@ -34,7 +34,13 @@ export default function InfluencerManagerPage(){
   setLoading(true);setError("");
   try{const r=await fetch("/api/influencer/profiles",{cache:"no-store"}),d=await r.json().catch(()=>({}));
    if(!r.ok)throw new Error(d.error||"Não foi possível carregar os perfis.");
-   setProfiles(d.profiles||[]);setSelected(c=>c?(d.profiles||[]).find((p:Profile)=>p.id===c.id)||null:(d.profiles||[])[0]||null);
+   const nextProfiles=d.profiles||[];
+   const requestedId=new URLSearchParams(window.location.search).get("profileId");
+   setProfiles(nextProfiles);
+   setSelected(current=>{
+    const requested=requestedId ? nextProfiles.find((p:Profile)=>p.id===requestedId) : null;
+    return requested || (current ? nextProfiles.find((p:Profile)=>p.id===current.id)||null : null) || nextProfiles[0] || null;
+   });
   }catch(e){setError(e instanceof Error?e.message:"Erro ao carregar.");}finally{setLoading(false);}
  }
  async function loadItems(id:string){
@@ -196,18 +202,27 @@ export default function InfluencerManagerPage(){
  const expiresSoon=Boolean(instagramExpiresAt&&new Date(instagramExpiresAt).getTime()-Date.now()<7*24*60*60*1000);
  const queuePreview=useMemo(()=>{
   if(!selected)return [];
-  const times=(selected.posting_times||[]).filter((v)=>/^([01]\\d|2[0-3]):[0-5]\\d$/.test(v)).sort();
+  const times=(selected.posting_times||[]).filter((v)=>/^([01]\d|2[0-3]):[0-5]\d$/.test(v)).sort();
   const fallback=["09:00","11:30","14:00","16:30","19:00","21:30","23:00","08:00","12:00"];
   const slots=times.length?times:Array.from({length:selected.posts_per_day},(_,i)=>fallback[i]||"09:00");
   const availableItems=items.filter((item)=>item.status==="available");
   const publishedItems=items.filter((item)=>item.status==="published").sort((a,b)=>String(a.published_at||a.created_at).localeCompare(String(b.published_at||b.created_at)));
   const pool=selected.repeat_when_exhausted?[...availableItems,...publishedItems]:availableItems;
-  const limit=Math.min(pool.length>0?21:0,slots.length*7);
+  const now=new Date();
+  const parts=new Intl.DateTimeFormat("en-US",{timeZone:"America/Cuiaba",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).formatToParts(now);
+  const get=(type:string)=>Number(parts.find(p=>p.type===type)?.value||0);
+  const currentMinutes=get("hour")*60+get("minute");
+  const todaySlots=slots.filter(value=>{const [h,m]=value.split(":").map(Number);return h*60+m>currentMinutes;});
+  const upcomingSlots=todaySlots.length?todaySlots:slots;
+  const startDay=todaySlots.length?0:1;
+  const max=pool.length>0?Math.min(21,slots.length*7):0;
   const out:{day:number;time:string;item:Item|null}[]=[];
-  for(let day=0;day<7&&out.length<limit;day++){
-   for(let i=0;i<slots.length&&out.length<limit;i++){
-    out.push({day,time:slots[i],item:pool[out.length%pool.length]||null});
-   }
+  for(let day=startDay;day<7&&out.length<max;day++){
+    const daySlots=day===0?upcomingSlots:slots;
+    for(const time of daySlots){
+      if(out.length>=max)break;
+      out.push({day,time,item:pool[out.length%pool.length]||null});
+    }
   }
   return out;
  },[items,selected]);
