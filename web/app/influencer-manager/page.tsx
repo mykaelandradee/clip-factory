@@ -316,7 +316,6 @@ export default function InfluencerManagerPage(){
     <div className="im-card im-profile-config">
       <div className="im-card-head">
         <div><span className="im-kicker">CONFIGURAÇÃO DO PERFIL</span><h2>Identidade e publicação</h2><p>Identidade, regras e horários do perfil.</p></div>
-        <button className="im-primary" type="button" disabled={!profileDirty||profileSaving} onClick={()=>void saveProfileSettings()}>{profileSaving?"Salvando…":"Salvar alterações"}</button>
       </div>
 
       <div className="im-config-section">
@@ -329,6 +328,9 @@ export default function InfluencerManagerPage(){
           </div>
           <small>JPG, PNG ou WEBP · até 5 MB.</small>
         </div>
+      </div>
+
+        <div className="im-profile-save"><button className="im-primary" type="button" disabled={!profileDirty||profileSaving} onClick={()=>void saveProfileSettings()}>{profileSaving?"Salvando…":"Salvar alterações"}</button></div>
       </div>
 
       <div className="im-config-section">
@@ -352,6 +354,14 @@ export default function InfluencerManagerPage(){
           <button className="im-ghost" disabled={publishing||!selected.publishing_enabled} onClick={()=>void togglePublishing()}>■ Desativar publicação</button>
           <label className="im-check im-repeat-toggle"><input type="checkbox" checked={profileDraft.repeat_when_exhausted} onChange={e=>setProfileDraft(v=>({...v,repeat_when_exhausted:e.target.checked}))}/><span>Repetir biblioteca quando acabar</span></label>
         </div>
+      </div>
+    </div>
+
+    {feedbackMessage&&<div className="im-modal-backdrop im-feedback-backdrop" role="alertdialog" aria-modal="true" aria-labelledby="im-feedback-title">
+      <div className="im-modal im-feedback-modal">
+        <div className="im-feedback-icon">!</div>
+        <div className="im-feedback-copy"><span className="im-kicker">ATENÇÃO</span><h2 id="im-feedback-title">Não foi possível concluir</h2><p>{feedbackMessage}</p></div>
+        <button className="im-primary" type="button" onClick={()=>{setError("");setInlineError(null);}}>Entendi</button>
       </div>
     </div>
 
