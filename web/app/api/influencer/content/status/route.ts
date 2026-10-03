@@ -15,7 +15,7 @@ async function fetchSourceMetadata(sourceUrl:string):Promise<{title:string|null,
     const clean=(value:string)=>value.replace(/&quot;/g,'\"').replace(/&#39;/g,"'").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").trim();
     const titleMatch=html.match(/<meta[^>]+(?:property|name)=[\"']og:title[\"'][^>]+content=[\"']([^\"']*)[\"']/i)
       || html.match(/<meta[^>]+content=[\"']([^\"']*)[\"'][^>]+(?:property|name)=[\"']og:title[\"']/i)
-      || html.match(/<title[^>]*>([^<]+)<\\/title>/i);
+      || html.match(/<title[^>]*>([^<]+)<\/title>/i);
     const descriptionMatch=html.match(/<meta[^>]+(?:name|property)=[\"'](?:description|og:description)[\"'][^>]+content=[\"']([^\"']*)[\"']/i)
       || html.match(/<meta[^>]+content=[\"']([^\"']*)[\"'][^>]+(?:name|property)=[\"'](?:description|og:description)[\"']/i);
     return {
