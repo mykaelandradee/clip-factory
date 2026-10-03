@@ -7,16 +7,22 @@ const GITHUB_API="https://api.github.com", OWNER="mykaelandradee", REPO="clip-fa
 
 function headers(){const token=process.env.CLIP_FACTORY_GITHUB_TOKEN;if(!token)throw new Error("CLIP_FACTORY_GITHUB_TOKEN não configurado.");return {Accept:"application/vnd.github+json",Authorization:`Bearer ${token}`,"X-GitHub-Api-Version":"2022-11-28"};}
 
-async function fetchSourceDescription(sourceUrl:string):Promise<string|null>{
+async function fetchSourceMetadata(sourceUrl:string):Promise<{title:string|null,description:string|null}>{
   try{
     const response=await fetch(sourceUrl,{cache:"no-store",headers:{"User-Agent":"Mozilla/5.0 ClipFactory/1.0"}});
-    if(!response.ok)return null;
+    if(!response.ok)return {title:null,description:null};
     const html=(await response.text()).slice(0,2_000_000);
-    const match=html.match(/<meta[^>]+(?:name|property)=[\"'](?:description|og:description)[\"'][^>]+content=[\"']([^\"']*)[\"']/i)
+    const clean=(value:string)=>value.replace(/&quot;/g,'\"').replace(/&#39;/g,"'").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").trim();
+    const titleMatch=html.match(/<meta[^>]+(?:property|name)=[\"']og:title[\"'][^>]+content=[\"']([^\"']*)[\"']/i)
+      || html.match(/<meta[^>]+content=[\"']([^\"']*)[\"'][^>]+(?:property|name)=[\"']og:title[\"']/i)
+      || html.match(/<title[^>]*>([^<]+)<\\/title>/i);
+    const descriptionMatch=html.match(/<meta[^>]+(?:name|property)=[\"'](?:description|og:description)[\"'][^>]+content=[\"']([^\"']*)[\"']/i)
       || html.match(/<meta[^>]+content=[\"']([^\"']*)[\"'][^>]+(?:name|property)=[\"'](?:description|og:description)[\"']/i);
-    if(!match?.[1])return null;
-    return match[1].replace(/&quot;/g,'\"').replace(/&#39;/g,"'").replace(/&amp;/g,"&").trim().slice(0,5000)||null;
-  }catch{return null}
+    return {
+      title:titleMatch?.[1] ? clean(titleMatch[1]).slice(0,500) || null : null,
+      description:descriptionMatch?.[1] ? clean(descriptionMatch[1]).slice(0,5000) || null : null
+    };
+  }catch{return {title:null,description:null}}
 }
 
 export async function GET(request:Request){
@@ -45,8 +51,8 @@ export async function GET(request:Request){
    if(run.conclusion==="success"){
     const publicUrl=process.env.R2_PUBLIC_URL?.replace(/\/$/,"")||"";
     const resultUrl=publicUrl?`${publicUrl}/influencer/${user.id}/${item.profile_id}/${item.id}/video.mp4`:item.result_url;
-    const sourceDescription = item.source_description || await fetchSourceDescription(item.source_url);
-    const updated={status:"available",progress:100,stage:"ready",r2_key:`influencer/${user.id}/${item.profile_id}/${item.id}/video.mp4`,result_url:resultUrl,title:item.title||null,source_description:sourceDescription,duration_seconds:item.duration_seconds||null,error_message:null,updated_at:new Date().toISOString()};
+    const sourceMetadata = await fetchSourceMetadata(item.source_url);\n    const sourceDescription = item.source_description || sourceMetadata.description;\n    const sourceTitle = item.title || sourceMetadata.title || (/(?:^|\\.)instagram\\.com$/i.test(String(new URL(item.source_url||"https://instagram.com").hostname||"")) ? (()=>{try{const u=new URL(item.source_url);const match=u.pathname.match(/^\\/(?:reel|reels|p)\\/([^/?#]+)/i);return match?.[1] ? `Instagram Reel · ${match[1]}` : "Instagram Reel";}catch{return "Instagram Reel";}})() : null);
+    const updated={status:"available",progress:100,stage:"ready",r2_key:`influencer/${user.id}/${item.profile_id}/${item.id}/video.mp4`,result_url:resultUrl,title:sourceTitle,source_description:sourceDescription,duration_seconds:item.duration_seconds||null,error_message:null,updated_at:new Date().toISOString()};
     const {data:done}=await admin.from("influencer_content_items").update(updated).eq("id",id).eq("user_id",user.id).select("*").single();
     await admin.from("influencer_content_shares")
       .update({status:"available",error_message:null,updated_at:new Date().toISOString()})
