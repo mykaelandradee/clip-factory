@@ -53,7 +53,7 @@ export async function GET(request:Request){
     const resultUrl=publicUrl?`${publicUrl}/influencer/${user.id}/${item.profile_id}/${item.id}/video.mp4`:item.result_url;
     const sourceMetadata = await fetchSourceMetadata(item.source_url);
     const sourceDescription = item.source_description || sourceMetadata.description;
-    const sourceTitle = item.title || sourceMetadata.title || (/(?:^|\\.)instagram\\.com$/i.test(String(new URL(item.source_url||"https://instagram.com").hostname||"")) ? (()=>{try{const u=new URL(item.source_url);const match=u.pathname.match(/^\\/(?:reel|reels|p)\\/([^/?#]+)/i);return match?.[1] ? `Instagram Reel · ${match[1]}` : "Instagram Reel";}catch{return "Instagram Reel";}})() : null);
+    const sourceTitle = item.title || sourceMetadata.title || (/(?:^|\.)instagram\.com$/i.test(String(new URL(item.source_url||"https://instagram.com").hostname||"")) ? (()=>{try{const u=new URL(item.source_url);const match=u.pathname.match(/^\\/(?:reel|reels|p)\\/([^/?#]+)/i);return match?.[1] ? `Instagram Reel · ${match[1]}` : "Instagram Reel";}catch{return "Instagram Reel";}})() : null);
     const updated={status:"available",progress:100,stage:"ready",r2_key:`influencer/${user.id}/${item.profile_id}/${item.id}/video.mp4`,result_url:resultUrl,title:sourceTitle,source_description:sourceDescription,duration_seconds:item.duration_seconds||null,error_message:null,updated_at:new Date().toISOString()};
     const {data:done}=await admin.from("influencer_content_items").update(updated).eq("id",id).eq("user_id",user.id).select("*").single();
     await admin.from("influencer_content_shares")
