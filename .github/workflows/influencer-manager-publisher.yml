@@ -22,4 +22,8 @@ jobs:
           set -euo pipefail
           test -n "$CLIP_FACTORY_WEB_URL"
           test -n "$CLIP_FACTORY_SCHEDULER_TOKEN"
-          curl --fail-with-body --silent --show-error --retry 2 --retry-delay 5 --connect-timeout 10 --max-time 300             --request POST             --header "Content-Type: application/json"             --header "x-clip-factory-scheduler-token: $CLIP_FACTORY_SCHEDULER_TOKEN"             --data '{"action":"scheduler"}'             "$CLIP_FACTORY_WEB_URL/api/influencer/publish"
+          echo "Scheduler UTC: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo "Scheduler local: $(TZ=America/Cuiaba date +%Y-%m-%dT%H:%M:%S%z)"
+          response="$(curl --fail-with-body --silent --show-error --retry 2 --retry-delay 5 --connect-timeout 10 --max-time 300             --request POST             --header "Content-Type: application/json"             --header "x-clip-factory-scheduler-token: $CLIP_FACTORY_SCHEDULER_TOKEN"             --data '{"action":"scheduler"}'             "$CLIP_FACTORY_WEB_URL/api/influencer/publish")"
+          echo "Scheduler response:"
+          echo "$response"
