@@ -31,6 +31,16 @@ function randomCopy(language:"zh"|"ja", currentTitle?:string|null, currentDescri
   return {title:tp[Math.floor(Math.random()*tp.length)],description:dp[Math.floor(Math.random()*dp.length)]};
 }
 
+function instagramFallbackTitle(sourceUrl:string) {
+  try {
+    const u=new URL(sourceUrl);
+    const match=u.pathname.match(/^\/(?:reel|reels|p)\/([^/?#]+)/i);
+    return match?.[1] ? `Instagram Reel · ${match[1]}` : "Instagram Reel";
+  } catch {
+    return "Instagram Reel";
+  }
+}
+
 function normalizeSourceUrl(value:string) {
   try {
     const u=new URL(value.trim());
@@ -110,7 +120,12 @@ export async function GET(request:Request) {
       }));
     }
   }
-  const ownIds=new Set((data||[]).map((item:any)=>item.id));
+  const normalizedOwn=(data||[]).map((item:any)=>(
+    !String(item.title||"").trim() && /(?:^|\\.)instagram\\.com$/i.test(String(new URL(item.source_url||"https://instagram.com").hostname||""))
+      ? {...item,title:instagramFallbackTitle(String(item.source_url||""))}
+      : item
+  ));
+  const ownIds=new Set(normalizedOwn.map((item:any)=>item.id));
   const {data:ownedItems}=await admin.from("influencer_content_items").select("id").eq("profile_id",profileId).eq("user_id",user.id);
   const ownItemIds=(ownedItems||[]).map((item:any)=>item.id);
   const {data:outgoingShares}=ownItemIds.length
