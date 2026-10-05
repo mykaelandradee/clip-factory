@@ -122,7 +122,7 @@ export async function GET(request:Request) {
       source_profile_id:item.profile_id,
       source_profile_name:shared ? (sourceNames.get(item.profile_id)||"Outro perfil") : undefined,
       shared,
-      status:state?.status || (item.status==="processing" ? "processing" : item.status),
+      status:(item.status==="available" && ["processing","queued","scheduled"].includes(state?.status||"")) ? "available" : (state?.status || (item.status==="processing" ? "processing" : item.status)),
       scheduled_at:state?.scheduled_at ?? item.scheduled_at,
       published_at:state?.published_at ?? (shared ? null : item.published_at),
       error_message:state?.error_message ?? item.error_message,
@@ -333,21 +333,34 @@ export async function DELETE(request:Request) {
   if(!user) return NextResponse.json({error:"Entre no Clip Factory."},{status:401});
   const mutationRate=rateLimit(getClientKey(request,user.id),30,60*60*1000);
   if(!mutationRate.allowed)return NextResponse.json({error:"Limite de exclusões do conteúdo atingido. Aguarde antes de tentar novamente."},{status:429,headers:{"Retry-After":String(mutationRate.retryAfterSeconds)}});
+
   const requestUrl=new URL(request.url);
   const id=requestUrl.searchParams.get("id")||"";
-  const shareId=requestUrl.searchParams.get("shareId")||"";
-  if(!id) return NextResponse.json({error:"Conteúdo inválido."},{status:400});
+  const profileId=requestUrl.searchParams.get("profileId")||"";
+  if(!id||!profileId) return NextResponse.json({error:"Conteúdo ou perfil inválido."},{status:400});
+
   const admin=createAdminClient();
-  if(shareId){
-    const {error:shareError}=await admin.from("influencer_content_shares").delete().eq("id",shareId).eq("item_id",id).eq("user_id",user.id);
-    if(shareError)return NextResponse.json({error:"Não foi possível remover o compartilhamento."},{status:500});
-    return NextResponse.json({ok:true,shared:true});
-  }
-  const {data:item}=await admin.from("influencer_content_items").select("id,status,worker_run_id,r2_key").eq("id",id).eq("user_id",user.id).maybeSingle();
+  const {data:profile}=await admin.from("influencer_profiles").select("id").eq("id",profileId).eq("user_id",user.id).maybeSingle();
+  if(!profile) return NextResponse.json({error:"Perfil não encontrado."},{status:404});
+
+  const {data:item}=await admin.from("influencer_content_items")
+    .select("id,profile_id,status,worker_run_id,r2_key")
+    .eq("id",id).eq("user_id",user.id).maybeSingle();
   if(!item) return NextResponse.json({error:"Conteúdo não encontrado."},{status:404});
+
+  // A library item may be visible to multiple profiles. Removing it from a
+  // destination profile must only remove that profile's publication state.
+  if(item.profile_id!==profileId){
+    const {error}=await admin.from("influencer_profile_content")
+      .delete().eq("profile_id",profileId).eq("item_id",id).eq("user_id",user.id);
+    if(error) return NextResponse.json({error:"Não foi possível remover o vídeo deste perfil."},{status:500});
+    return NextResponse.json({ok:true,removedFromProfile:true});
+  }
+
   if(item.status==="processing"&&item.worker_run_id){
     try{await githubFetch(`/repos/${OWNER}/${REPO}/actions/runs/${item.worker_run_id}/cancel`,{method:"POST"});}catch(error){console.warn("Influencer worker cancel failed:",error);}
   }
+
   if(item.r2_key){
     try{
       const {S3Client,DeleteObjectCommand}=await import("@aws-sdk/client-s3");
@@ -358,6 +371,7 @@ export async function DELETE(request:Request) {
       }
     }catch(error){console.warn("Influencer R2 cleanup failed:",error);}
   }
+
   const {error}=await admin.from("influencer_content_items").delete().eq("id",id).eq("user_id",user.id);
   if(error)return NextResponse.json({error:"Não foi possível excluir o conteúdo."},{status:500});
   return NextResponse.json({ok:true});
