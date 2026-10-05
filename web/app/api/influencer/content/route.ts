@@ -156,16 +156,12 @@ export async function POST(request:Request) {
     if(!sourceProfile) return NextResponse.json({error:"Perfil de origem não encontrado."},{status:404});
     const {data:targetProfile}=await admin.from("influencer_profiles").select("id").eq("id",targetProfileId).eq("user_id",user.id).maybeSingle();
     if(!targetProfile) return NextResponse.json({error:"Perfil de destino não encontrado."},{status:404});
-    const {data:sourceLinks,error:sourceLinksError}=await admin.from("influencer_profile_libraries").select("library_id")
-      .eq("profile_id",profileId).eq("user_id",user.id).eq("enabled",true);
-    if(sourceLinksError) return NextResponse.json({error:"Não foi possível localizar as bibliotecas do perfil de origem."},{status:500});
-    const libraryIds=(sourceLinks||[]).map((row:any)=>row.library_id).filter(Boolean);
-    if(libraryIds.length){
-      const {error}=await admin.from("influencer_profile_libraries").delete()
-        .eq("profile_id",targetProfileId).eq("user_id",user.id).in("library_id",libraryIds);
-      if(error){console.error("Influencer library unshare failed:",error);return NextResponse.json({error:"Não foi possível descompartilhar as bibliotecas."},{status:500});}
-    }
-    return NextResponse.json({ok:true,unshared:true});
+    // A biblioteca pode estar vinculada ao destino independentemente de qualquer compartilhamento.
+    // Como o vínculo não registra sua origem, removê-lo aqui poderia retirar acesso legítimo.
+    // A remoção explícita deve ser feita em Gerenciar bibliotecas no perfil de destino.
+    return NextResponse.json({
+      error:"Para não remover um vínculo independente, desvincule a biblioteca em Gerenciar bibliotecas no perfil de destino."
+    },{status:409});
   }
   if(body?.action==="share-library"){
     const targetProfileIds=Array.isArray(body?.targetProfileIds)?body.targetProfileIds.filter((v:unknown)=>typeof v==="string"): [];
@@ -180,13 +176,21 @@ export async function POST(request:Request) {
       .eq("profile_id",profileId).eq("user_id",user.id).eq("enabled",true);
     if(sourceLinksError) return NextResponse.json({error:"Não foi possível localizar as bibliotecas do perfil."},{status:500});
     if(!sourceLinks?.length) return NextResponse.json({error:"O perfil não possui bibliotecas vinculadas."},{status:400});
-    const rows=uniqueTargets.flatMap((targetId:string)=>sourceLinks.map((link:any)=>({
+    const sourceLibraryIds=sourceLinks.map((link:any)=>link.library_id).filter(Boolean);
+    const {data:existingTargetLinks,error:existingTargetLinksError}=await admin.from("influencer_profile_libraries")
+      .select("profile_id,library_id").in("profile_id",uniqueTargets).in("library_id",sourceLibraryIds).eq("user_id",user.id);
+    if(existingTargetLinksError) return NextResponse.json({error:"Não foi possível verificar os vínculos existentes dos perfis de destino."},{status:500});
+    const existingLinkKeys=new Set((existingTargetLinks||[]).map((row:any)=>row.profile_id+"::"+row.library_id));
+    // Insert only missing links. Do not overwrite a target profile's independent priority/enabled settings.
+    const rows=uniqueTargets.flatMap((targetId:string)=>sourceLinks.filter((link:any)=>!existingLinkKeys.has(targetId+"::"+link.library_id)).map((link:any)=>({
       profile_id:targetId,library_id:link.library_id,user_id:user.id,priority:Number(link.priority)||0,enabled:true
     })));
-    const {error:linkError}=await admin.from("influencer_profile_libraries").upsert(rows,{onConflict:"profile_id,library_id"});
-    if(linkError){
-      console.error("Influencer library share failed:",{code:linkError.code,message:linkError.message,details:linkError.details,hint:linkError.hint});
-      return NextResponse.json({error:"Não foi possível compartilhar as bibliotecas. Código do banco: "+(linkError.code||"desconhecido")},{status:500});
+    if(rows.length){
+      const {error:linkError}=await admin.from("influencer_profile_libraries").insert(rows);
+      if(linkError){
+        console.error("Influencer library share failed:",{code:linkError.code,message:linkError.message,details:linkError.details,hint:linkError.hint});
+        return NextResponse.json({error:"Não foi possível compartilhar as bibliotecas. Código do banco: "+(linkError.code||"desconhecido")},{status:500});
+      }
     }
     const libraryIds=sourceLinks.map((link:any)=>link.library_id).filter(Boolean);
     const {data:items}=await admin.from("influencer_content_items").select("id,status").in("library_id",libraryIds).eq("user_id",user.id);
