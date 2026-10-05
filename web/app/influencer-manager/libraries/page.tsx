@@ -67,7 +67,7 @@ export default function InfluencerLibrariesPage(){
   }
   async function deleteLibrary(){
     if(!selected)return;
-    if(selected.profiles.some(p=>p.enabled)){setError("Não é possível excluir esta biblioteca enquanto ela estiver vinculada a um perfil. Desfaça todos os vínculos primeiro.");return;}
+    if(selected.profiles.length){setError("Não é possível excluir esta biblioteca enquanto ela estiver vinculada a um perfil. Desfaça todos os vínculos primeiro.");return;}
     setShowDeleteLibrary(true);
     try{
       const r=await fetch("/api/influencer/libraries?id="+encodeURIComponent(selected.id),{method:"DELETE"});const d=await r.json().catch(()=>({}));
