@@ -342,6 +342,7 @@ export async function DELETE(request:Request) {
   const requestUrl=new URL(request.url);
   const id=requestUrl.searchParams.get("id")||"";
   const profileId=requestUrl.searchParams.get("profileId")||"";
+  const libraryId=requestUrl.searchParams.get("libraryId")||"";
   if(!id||!profileId) return NextResponse.json({error:"Conteúdo ou perfil inválido."},{status:400});
 
   const admin=createAdminClient();
@@ -349,13 +350,16 @@ export async function DELETE(request:Request) {
   if(!profile) return NextResponse.json({error:"Perfil não encontrado."},{status:404});
 
   const {data:item}=await admin.from("influencer_content_items")
-    .select("id,profile_id,status,worker_run_id,r2_key")
+    .select("id,profile_id,library_id,status,worker_run_id,r2_key")
     .eq("id",id).eq("user_id",user.id).maybeSingle();
   if(!item) return NextResponse.json({error:"Conteúdo não encontrado."},{status:404});
 
-  // A library item may be visible to multiple profiles. Removing it from a
-  // destination profile must only remove that profile's publication state.
-  if(item.profile_id!==profileId){
+  if(libraryId){
+    const {data:library}=await admin.from("influencer_libraries")
+      .select("id").eq("id",libraryId).eq("user_id",user.id).maybeSingle();
+    if(!library) return NextResponse.json({error:"Biblioteca não encontrada."},{status:404});
+    if(item.library_id!==libraryId) return NextResponse.json({error:"O vídeo não pertence a esta biblioteca."},{status:403});
+  } else if(item.profile_id!==profileId){
     const {error}=await admin.from("influencer_profile_content")
       .delete().eq("profile_id",profileId).eq("item_id",id).eq("user_id",user.id);
     if(error) return NextResponse.json({error:"Não foi possível remover o vídeo deste perfil."},{status:500});
