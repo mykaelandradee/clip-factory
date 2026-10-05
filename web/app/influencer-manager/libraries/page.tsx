@@ -93,15 +93,9 @@ export default function InfluencerLibrariesPage(){
       setItems(all=>all.map(i=>i.id===itemId?{...i,title}:i));setEditing(null);setTitleDraft("");
     }catch(e){setError(e instanceof Error?e.message:"Erro ao renomear o vídeo.");}finally{setBusy(false);}
   }
-  async function remove(item:Item){
-    if(!linkedProfileId)return;
+  function remove(item:Item){
     setShowDeleteVideo(item);
-    setBusy(true);setError("");
-    try{
-      const r=await fetch("/api/influencer/content?id="+encodeURIComponent(item.id)+"&profileId="+encodeURIComponent(linkedProfileId),{method:"DELETE"});
-      const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível excluir o vídeo.");
-      setItems(all=>all.filter(i=>i.id!==item.id));await loadLibraries(selectedId);
-    }catch(e){setError(e instanceof Error?e.message:"Erro ao excluir o vídeo.");}finally{setBusy(false);}
+    setError("");
   }
 
   return <main className="im-page">
@@ -133,7 +127,7 @@ export default function InfluencerLibrariesPage(){
     </div>}
     {showDeleteVideo&&<div className="im-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="excluir-video-title">
       <div className="im-modal im-confirm-modal"><div className="im-confirm-icon">!</div><div><span className="im-kicker">EXCLUIR VÍDEO</span><h2 id="excluir-video-title">Excluir este vídeo?</h2><p>O vídeo será removido da biblioteca e o arquivo armazenado também será excluído. Esta ação não poderá ser desfeita.</p></div>
-        <div className="im-modal-actions"><button className="im-ghost" type="button" onClick={()=>setShowDeleteVideo(null)}>Cancelar</button><button className="im-primary im-danger-solid" type="button" disabled={busy} onClick={async()=>{const item=showDeleteVideo;setShowDeleteVideo(null);setBusy(true);setError("");try{const r=await fetch("/api/influencer/content?id="+encodeURIComponent(item.id)+"&profileId="+encodeURIComponent(linkedProfileId),{method:"DELETE"});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível excluir o vídeo.");setItems(all=>all.filter(i=>i.id!==item.id));await loadLibraries(selectedId);}catch(e){setError(e instanceof Error?e.message:"Erro ao excluir o vídeo.");}finally{setBusy(false);}}}>{busy?"Excluindo…":"Excluir vídeo"}</button></div>
+        <div className="im-modal-actions"><button className="im-ghost" type="button" onClick={()=>setShowDeleteVideo(null)}>Cancelar</button><button className="im-primary im-danger-solid" type="button" disabled={busy} onClick={async()=>{const item=showDeleteVideo;setShowDeleteVideo(null);setBusy(true);setError("");try{const r=await fetch("/api/influencer/content?id="+encodeURIComponent(item.id)+"&profileId="+encodeURIComponent(linkedProfileId)+"&libraryId="+encodeURIComponent(selectedId),{method:"DELETE"});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível excluir o vídeo.");setItems(all=>all.filter(i=>i.id!==item.id));await loadLibraries(selectedId);}catch(e){setError(e instanceof Error?e.message:"Erro ao excluir o vídeo.");}finally{setBusy(false);}}}>{busy?"Excluindo…":"Excluir vídeo"}</button></div>
       </div>
     </div>}
     {showEditLibrary&&selected&&<div className="im-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="editar-biblioteca-title">
