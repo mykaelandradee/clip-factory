@@ -87,19 +87,18 @@ export default function InfluencerLibrariesPage(){
     <header className="im-header">
       <div className="im-header-copy">
         <a className="im-back" href="/influencer-manager">← Influencer Manager</a>
-        <span className="im-header-label">BIBLIOTECAS</span>
-        <h1>Organize seu <em>conteúdo.</em></h1>
-        <p>As bibliotecas são gerenciadas separadamente dos perfis. Aqui ficam os vídeos; no Perfil você apenas define os vínculos.</p>
+        <span className="im-header-label">INFLUENCER MANAGER · BIBLIOTECAS</span>
+        <h1>Gerencie seu <em>conteúdo.</em></h1>
+        <p>As bibliotecas são independentes dos perfis. Aqui você cria, organiza e processa os vídeos.</p>
       </div>
       <div className="im-header-actions">
-        <a className="im-ghost" href="/influencer-manager">PERFIS</a>
-        <a className="im-primary" href="#nova-biblioteca">+ Nova biblioteca</a>
+        <button className="im-primary" type="button" onClick={()=>document.getElementById("nova-biblioteca")?.scrollIntoView({behavior:"smooth"})}>+ Nova biblioteca</button>
       </div>
     </header>
 
-    <nav style={{display:"flex",gap:8,margin:"0 0 18px",flexWrap:"wrap"}}>
-      <a className="im-ghost" href="/influencer-manager">PERFIS</a>
-      <a className="im-primary" href="/influencer-manager/libraries">BIBLIOTECAS</a>
+    <nav className="im-section-tabs" aria-label="Seções do Influencer Manager">
+      <a className="im-section-tab" href="/influencer-manager"><span>01</span> PERFIS</a>
+      <a className="im-section-tab active" href="/influencer-manager/libraries"><span>02</span> BIBLIOTECAS</a>
     </nav>
 
     {error&&<div className="im-inline-error im-page-inline-error">{error}</div>}
@@ -118,7 +117,7 @@ export default function InfluencerLibrariesPage(){
           </div>
         </div>
 
-        <div className="im-card" style={{marginBottom:14}}>
+        <div className="im-card im-library-picker">
           <div className="im-card-head"><div><span className="im-kicker">SUAS BIBLIOTECAS</span><h2>Escolha onde gerenciar o conteúdo</h2><p>Um vídeo pertence à biblioteca, não ao perfil.</p></div></div>
           {loading?<div className="im-empty">Carregando…</div>:libraries.length===0?<div className="im-empty">Nenhuma biblioteca cadastrada. Crie a primeira abaixo.</div>:<div className="im-profile-modal-list">
             {libraries.map(l=><button key={l.id} type="button" className={"im-profile "+(l.id===selectedId?"active":"")} onClick={()=>setSelectedId(l.id)}>
@@ -128,7 +127,7 @@ export default function InfluencerLibrariesPage(){
           </div>}
         </div>
 
-        {selected&&<div className="im-card im-add">
+        {selected&&<div className="im-card im-content-add">
           <div className="im-card-head"><div><span className="im-kicker">CONTEÚDO</span><h2>Adicionar vídeo</h2><p>O vídeo será salvo diretamente em <strong>{selected.name}</strong>.</p></div></div>
           {!linkedProfileId?<div className="im-empty"><strong>Vincule um perfil a esta biblioteca primeiro.</strong><span>O perfil é usado apenas para preparar o processamento; o conteúdo continua pertencendo à biblioteca.</span><a className="im-ghost" href="/influencer-manager">Ir para Perfis</a></div>:
           <form className="im-url-form" onSubmit={addVideo}>
@@ -138,7 +137,7 @@ export default function InfluencerLibrariesPage(){
           </form>}
         </div>}
 
-        {selected&&<div className="im-card im-library">
+        {selected&&<div className="im-card im-library-content">
           <div className="im-card-head"><div><span className="im-kicker">CONTEÚDO</span><h2>Vídeos da biblioteca</h2><p>Gerencie títulos, processamento e arquivos desta biblioteca. A publicação é controlada pelo perfil.</p></div><span className="im-count">{items.length}</span></div>
           {items.length===0?<div className="im-empty">Nenhum vídeo nesta biblioteca.</div>:<div className="im-items">
             {items.map(item=><article className={"im-item "+(item.status==="available"?"im-item-ready":"")} key={item.id}>
@@ -159,7 +158,7 @@ export default function InfluencerLibrariesPage(){
           </div>}
         </div>}
 
-        <div className="im-card" id="nova-biblioteca">
+        <div className="im-card im-create-library" id="nova-biblioteca">
           <div className="im-card-head"><div><span className="im-kicker">NOVA BIBLIOTECA</span><h2>Criar biblioteca</h2><p>Depois, vincule a biblioteca aos perfis que poderão publicá-la.</p></div></div>
           <form className="im-fixed-copy" onSubmit={createLibrary}>
             <label>Nome<input value={name} onChange={e=>setName(e.target.value)} placeholder="Ex.: Futebol, Memes, Patolino" maxLength={80} required /></label>
@@ -168,10 +167,7 @@ export default function InfluencerLibrariesPage(){
           </form>
         </div>
 
-        {selected&&<div className="im-card">
-          <div className="im-card-head"><div><span className="im-kicker">VÍNCULOS</span><h2>Perfis que usam esta biblioteca</h2><p>Os vínculos são gerenciados na tela de Perfil.</p></div></div>
-          {selected.profiles.filter(p=>p.enabled).length===0?<div className="im-empty">Nenhum perfil vinculado.</div>:<div className="im-profile-modal-list">{selected.profiles.filter(p=>p.enabled).map(p=><div className="im-profile" key={p.profile_id}><span className="im-avatar">{p.profile_name.slice(0,1).toUpperCase()}</span><span><strong>{p.profile_name}</strong><small>Biblioteca disponível para este perfil</small></span></div>)}</div>}
-        </div>}
+
       </section>
     </section>
   </main>;
