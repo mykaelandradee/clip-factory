@@ -89,57 +89,81 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
   if (!profile || (!itemId && !profile.publishing_enabled)) return { status:"stopped" };
 
   let item: any = null;
-  let shareId: string | null = null;
+  let profileContent: any = null;
 
   const repeatWhenExhausted = Boolean((profile as any).repeat_when_exhausted);
 
-  // Reconcile shares created while the source video was still processing.
-  // The queue must not depend on the destination browser polling the source profile.
-  const { data: queuedShares } = await admin.from("influencer_content_shares")
-    .select("id,item_id")
-    .eq("profile_id",profileId)
-    .eq("user_id",userId)
-    .eq("status","queued")
-    .order("created_at",{ascending:true})
-    .limit(100);
-  if (queuedShares?.length) {
-    const sourceIds = queuedShares.map((share:any)=>share.item_id);
-    const { data: readySources } = await admin.from("influencer_content_items")
-      .select("id,status")
-      .in("id",sourceIds)
-      .eq("user_id",userId)
-      .in("status",["available","published"]);
-    const readyIds = (readySources || []).map((source:any)=>source.id);
-    if (readyIds.length) {
-      await admin.from("influencer_content_shares")
-        .update({status:"available",error_message:null,updated_at:new Date().toISOString()})
-        .eq("profile_id",profileId)
-        .eq("user_id",userId)
-        .eq("status","queued")
-        .in("item_id",readyIds);
+  const {data:libraryLinks,error:libraryLinksError}=await admin.from("influencer_profile_libraries")
+    .select("library_id,priority").eq("profile_id",profileId).eq("user_id",userId).eq("enabled",true)
+    .order("priority",{ascending:true});
+  if(libraryLinksError) return {status:"error",error:"Não foi possível carregar as bibliotecas deste perfil."};
+
+  const libraryIds=(libraryLinks||[]).map((row:any)=>row.library_id).filter(Boolean);
+  if(!libraryIds.length) return {status:"empty"};
+
+  const {data:libraryItems}=await admin.from("influencer_content_items")
+    .select("id,profile_id,user_id,r2_key,publish_title,publish_description,status,scheduled_at,retry_count,created_at,published_at")
+    .in("library_id",libraryIds).eq("user_id",userId)
+    .in("status",["available","published"])
+    .order("created_at",{ascending:true});
+
+  const itemIds=(libraryItems||[]).map((row:any)=>row.id);
+  const {data:states}=itemIds.length
+    ? await admin.from("influencer_profile_content")
+      .select("id,item_id,status,scheduled_at,published_at,error_message,retry_count,created_at")
+      .eq("profile_id",profileId).eq("user_id",userId).in("item_id",itemIds)
+    : {data:[]};
+  const stateByItem=new Map((states||[]).map((row:any)=>[row.item_id,row]));
+
+  // A content item can be available globally while each profile has its own
+  // publication state. Reconcile legacy/processing states from the source item.
+  for(const source of libraryItems||[]){
+    const state=stateByItem.get(source.id);
+    if(!state){
+      const status=source.status==="published" ? "available" : source.status;
+      const {data:created}=await admin.from("influencer_profile_content").insert({
+        profile_id:profileId,item_id:source.id,user_id:userId,status,
+        published_at:null,retry_count:0
+      }).select("id,item_id,status,scheduled_at,published_at,error_message,retry_count").single();
+      if(created) stateByItem.set(source.id,created);
+    } else if(state.status==="processing" || state.status==="queued" || (state.status==="published" && source.status==="available")){
+      const nextStatus=source.status==="available" ? "available" : source.status==="published" ? "available" : state.status;
+      if(nextStatus!==state.status){
+        const {data:updated}=await admin.from("influencer_profile_content")
+          .update({status:nextStatus,updated_at:new Date().toISOString()})
+          .eq("id",state.id).eq("user_id",userId)
+          .select("id,item_id,status,scheduled_at,published_at,error_message,retry_count").single();
+        if(updated) stateByItem.set(source.id,updated);
+      }
     }
   }
 
-  // Normal cycle: publish only items that are ready.
-  // Repeat cycle: only when there are no ready items, reuse the oldest published item.
-  const ownQuery = admin.from("influencer_content_items")
-    .select("id,profile_id,user_id,r2_key,publish_title,publish_description,status,scheduled_at,retry_count,created_at,published_at")
-    .eq("profile_id",profileId).eq("user_id",userId);
+  const candidates=(libraryItems||[])
+    .map((source:any)=>({source,state:stateByItem.get(source.id)}))
+    .filter((entry:any)=>entry.state && ["available","published"].includes(entry.state.status))
+    .sort((a:any,b:any)=>{
+      const pa=(a.state.status==="available"?0:1)-(b.state.status==="available"?0:1);
+      return pa || String(a.source.created_at||"").localeCompare(String(b.source.created_at||""));
+    });
 
-  let own = await (itemId
-    ? ownQuery.eq("id",itemId).in("status",["available","published"])
-    : ownQuery.eq("status","available").order("created_at",{ascending:true}).limit(1)
-  ).maybeSingle();
-  if (own.data) item = own.data;
+  let chosen:any = null;
+  if(itemId){
+    chosen=candidates.find((entry:any)=>entry.source.id===itemId) || null;
+  } else {
+    chosen=candidates.find((entry:any)=>entry.state.status==="available") || null;
+    if(!chosen && repeatWhenExhausted) {
+      const publishedCandidates=candidates.filter((entry:any)=>entry.state.status==="published");
+      chosen=publishedCandidates.sort((a:any,b:any)=>
+        String(a.state.published_at||a.source.published_at||a.source.created_at||"").localeCompare(
+          String(b.state.published_at||b.source.published_at||b.source.created_at||"")
+        )
+      )[0] || null;
+    }
+  }
 
-  if (!item && !itemId && repeatWhenExhausted) {
-    own = await ownQuery
-      .eq("status","published")
-      .order("published_at",{ascending:true})
-      .order("created_at",{ascending:true})
-      .limit(1)
-      .maybeSingle();
-    if (own.data) item = own.data;
+  if(chosen){
+    item=chosen.source;
+    profileContent=chosen.state;
   }
 
   if (!item) {
@@ -233,27 +257,14 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
     return { status:"error", error:"O Reel processado não está acessível no R2." };
   }
 
-  const originalStatus=item.status;
+  const originalStatus=profileContent?.status || "available";
   const claimTime=new Date().toISOString();
-  let claimedItem=false;
-  const claimableStatuses = repeatWhenExhausted && originalStatus === "published"
-    ? ["published"]
-    : ["available"];
-
-  if (shareId) {
-    const {data:claimed}=await admin.from("influencer_content_shares")
-      .update({status:"scheduled",scheduled_at:claimTime,error_message:null})
-      .eq("id",shareId).eq("user_id",userId).in("status",claimableStatuses)
-      .select("id").maybeSingle();
-    claimedItem=Boolean(claimed);
-  } else {
-    const {data:claimed}=await admin.from("influencer_content_items")
-      .update({status:"scheduled",scheduled_at:claimTime,updated_at:claimTime,error_message:null})
-      .eq("id",item.id).eq("user_id",userId).in("status",claimableStatuses)
-      .select("id").maybeSingle();
-    claimedItem=Boolean(claimed);
-  }
-  if (!claimedItem) return {status:"busy",itemId:item.id,error:"Este Reel já está em processamento ou foi publicado por outro processo."};
+  const claimableStatuses = repeatWhenExhausted && originalStatus === "published" ? ["published"] : ["available"];
+  const {data:claimed}=await admin.from("influencer_profile_content")
+    .update({status:"scheduled",scheduled_at:claimTime,error_message:null,updated_at:claimTime})
+    .eq("id",profileContent.id).eq("user_id",userId).in("status",claimableStatuses)
+    .select("id").maybeSingle();
+  if(!claimed) return {status:"busy",itemId:item.id,error:"Este Reel já está em processamento ou foi publicado por outro processo."};
 
   try {
     const fixedTitle = String(profile.fixed_publish_title || "").trim();
@@ -294,8 +305,9 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
 
 
     const next=nextSlot((profile.posting_times||[]) as string[],new Date(),Number(profile.posts_per_day)||3);
-    if (shareId) await admin.from("influencer_content_shares").update({status:"published",published_at:new Date().toISOString(),scheduled_at:null,error_message:null,retry_count:0}).eq("id",shareId).eq("user_id",userId);
-    else await admin.from("influencer_content_items").update({status:"published",published_at:new Date().toISOString(),scheduled_at:null,error_message:null,retry_count:0,updated_at:new Date().toISOString()}).eq("id",item.id).eq("user_id",userId);
+    await admin.from("influencer_profile_content").update({
+      status:"published",published_at:new Date().toISOString(),scheduled_at:null,error_message:null,retry_count:0,updated_at:new Date().toISOString()
+    }).eq("id",profileContent.id).eq("user_id",userId);
     await admin.from("influencer_profiles").update({next_publish_at:next.toISOString(),updated_at:new Date().toISOString()}).eq("id",profileId).eq("user_id",userId);
     return {status:"published",itemId:item.id,mediaId:String(publishData.id),nextPublishAt:next.toISOString()};
   } catch(error) {
@@ -306,26 +318,17 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
       await admin.from("influencer_profiles").update({publishing_enabled:false,updated_at:new Date().toISOString()}).eq("id",profileId).eq("user_id",userId);
     }
     const retryable=tokenInvalid ? false : isRetryablePublishError(message);
-    const retryCount=Number(shareId ? (await admin.from("influencer_content_shares").select("retry_count").eq("id",shareId).eq("user_id",userId).maybeSingle()).data?.retry_count : item.retry_count)||0;
+    const retryCount=Number(profileContent?.retry_count)||0;
     const nextRetryCount=retryCount+1;
     const exhausted=nextRetryCount>=3;
     const wasRepeatedPublished = repeatWhenExhausted && originalStatus === "published";
-    if (shareId) {
-      await admin.from("influencer_content_shares").update({
-        status:exhausted ? "failed" : (wasRepeatedPublished ? "published" : "available"),
-        scheduled_at:null,
-        error_message:message.slice(0,1000),
-        retry_count:nextRetryCount
-      }).eq("id",shareId).eq("user_id",userId);
-    } else {
-      await admin.from("influencer_content_items").update({
-        status:exhausted?"failed":(originalStatus==="published"?"published":"available"),
-        scheduled_at:null,
-        error_message:message.slice(0,1000),
-        retry_count:nextRetryCount,
-        updated_at:new Date().toISOString()
-      }).eq("id",item.id).eq("user_id",userId);
-    }
+    await admin.from("influencer_profile_content").update({
+      status:exhausted ? "failed" : (wasRepeatedPublished ? "published" : "available"),
+      scheduled_at:null,
+      error_message:message.slice(0,1000),
+      retry_count:nextRetryCount,
+      updated_at:new Date().toISOString()
+    }).eq("id",profileContent.id).eq("user_id",userId);
     return {status:"error",error:message,retryable,retryCount:nextRetryCount,exhausted};
   }
 }
