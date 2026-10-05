@@ -126,6 +126,16 @@ export default function InfluencerLibrariesPage(){
 
     {error&&<div className="im-inline-error im-page-inline-error">{error}</div>}
 
+    {showEditLibrary&&selected&&<div className="im-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="editar-biblioteca-title">
+      <div className="im-modal im-standard-modal">
+        <div className="im-card-head"><div><span className="im-kicker">EDITAR BIBLIOTECA</span><h2 id="editar-biblioteca-title">Nome e descrição</h2><p>Altere os dados da biblioteca sem mudar os vídeos ou os vínculos com perfis.</p></div><button className="im-ghost" type="button" onClick={()=>setShowEditLibrary(false)}>Fechar</button></div>
+        <form className="im-modal-form" onSubmit={saveLibrary}>
+          <label>Nome da biblioteca<input value={editLibraryName} onChange={e=>setEditLibraryName(e.target.value)} maxLength={80} required autoFocus /></label>
+          <label>Descrição<input value={editLibraryDescription} onChange={e=>setEditLibraryDescription(e.target.value)} maxLength={500} placeholder="Opcional" /></label>
+          <div className="im-modal-actions"><button className="im-ghost" type="button" onClick={()=>setShowEditLibrary(false)}>Cancelar</button><button className="im-primary" disabled={busy}>{busy?"Salvando…":"Salvar alterações"}</button></div>
+        </form>
+      </div>
+    </div>}
     {showLibraries&&<div className="im-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="suas-bibliotecas-title">
       <div className="im-modal im-profiles-modal-card">
         <div className="im-card-head"><div><span className="im-kicker">SUAS BIBLIOTECAS</span><h2 id="suas-bibliotecas-title">Escolha uma biblioteca</h2><p>Selecione a biblioteca que você quer gerenciar.</p></div><button className="im-ghost" type="button" onClick={()=>setShowLibraries(false)}>Fechar</button></div>
@@ -165,6 +175,10 @@ export default function InfluencerLibrariesPage(){
             <h2>{selected?.name||"Selecione uma biblioteca"}</h2>
             <p>{selected?.description||"Selecione uma biblioteca para gerenciar seus vídeos."}</p>
           </div>
+          {selected&&<div className="im-overview-actions">
+            <button className="im-ghost" type="button" disabled={busy} onClick={()=>{setEditLibraryName(selected.name);setEditLibraryDescription(selected.description||"");setShowEditLibrary(true)}}>Editar biblioteca</button>
+            <button className="im-ghost im-danger" type="button" disabled={busy} onClick={()=>void deleteLibrary()}>Excluir biblioteca</button>
+          </div>}
           <div className="im-stats">
             <div><strong>{selected?.item_count||0}</strong><span>VÍDEOS</span></div>
             <div><strong>{selected?.profiles.filter(p=>p.enabled).length||0}</strong><span>PERFIS VINCULADOS</span></div>
