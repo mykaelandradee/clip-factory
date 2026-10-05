@@ -17,6 +17,7 @@ export default function InfluencerLibrariesPage(){
   const [name,setName]=useState(""),[description,setDescription]=useState("");
   const [url,setUrl]=useState(""),[videoTitle,setVideoTitle]=useState(""),[adding,setAdding]=useState(false);
   const [editing,setEditing]=useState<string|null>(null),[titleDraft,setTitleDraft]=useState("");
+  const [showNewLibrary,setShowNewLibrary]=useState(false);
 
   const selected=useMemo(()=>libraries.find(l=>l.id===selectedId)||null,[libraries,selectedId]);
   const linkedProfileId=selected?.profiles.find(p=>p.enabled)?.profile_id||"";
@@ -53,7 +54,7 @@ export default function InfluencerLibrariesPage(){
     try{
       const r=await fetch("/api/influencer/libraries",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"create",name:name.trim(),description:description.trim()})});
       const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível criar a biblioteca.");
-      setName("");setDescription("");await loadLibraries(d.library?.id);
+      setName("");setDescription("");setShowNewLibrary(false);await loadLibraries(d.library?.id);
     }catch(e){setError(e instanceof Error?e.message:"Erro ao criar a biblioteca.");}finally{setBusy(false);}
   }
   async function addVideo(e:FormEvent){
@@ -92,7 +93,7 @@ export default function InfluencerLibrariesPage(){
         <p>As bibliotecas são independentes dos perfis. Aqui você cria, organiza e processa os vídeos.</p>
       </div>
       <div className="im-header-actions">
-        <button className="im-primary" type="button" onClick={()=>document.getElementById("nova-biblioteca")?.scrollIntoView({behavior:"smooth"})}>+ Nova biblioteca</button>
+        <button className="im-primary" type="button" onClick={()=>setShowNewLibrary(true)}>+ Nova biblioteca</button>
       </div>
     </header>
 
@@ -102,6 +103,24 @@ export default function InfluencerLibrariesPage(){
     </nav>
 
     {error&&<div className="im-inline-error im-page-inline-error">{error}</div>}
+
+    {showNewLibrary&&<div className="im-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="nova-biblioteca-title">
+      <div className="im-modal im-new-profile-modal">
+        <div className="im-card-head">
+          <div><span className="im-kicker">NOVA BIBLIOTECA</span><h2 id="nova-biblioteca-title">Criar biblioteca</h2><p>Crie uma biblioteca independente dos perfis. Depois, vincule-a aos perfis que poderão publicá-la.</p></div>
+          <button className="im-ghost" type="button" onClick={()=>setShowNewLibrary(false)}>Fechar</button>
+        </div>
+        <form className="im-form im-new-profile-form" onSubmit={createLibrary}>
+          <label>Nome da biblioteca<input value={name} onChange={e=>setName(e.target.value)} placeholder="Ex.: Futebol, Memes, Patolino" maxLength={80} required autoFocus /></label>
+          <label>Descrição<input value={description} onChange={e=>setDescription(e.target.value)} placeholder="Opcional" maxLength={500} /></label>
+          <div className="im-form-note">A biblioteca não pertence a um perfil. O vínculo com perfis é configurado separadamente.</div>
+          <div className="im-modal-actions">
+            <button className="im-ghost" type="button" onClick={()=>setShowNewLibrary(false)}>Cancelar</button>
+            <button className="im-primary" disabled={busy}>{busy?"Criando…":"Criar biblioteca"}</button>
+          </div>
+        </form>
+      </div>
+    </div>}
 
     <section className="im-layout" style={{gridTemplateColumns:"minmax(0,1fr)"}}>
       <section className="im-main">
@@ -119,7 +138,7 @@ export default function InfluencerLibrariesPage(){
 
         <div className="im-card im-library-picker">
           <div className="im-card-head"><div><span className="im-kicker">SUAS BIBLIOTECAS</span><h2>Escolha onde gerenciar o conteúdo</h2><p>Um vídeo pertence à biblioteca, não ao perfil.</p></div></div>
-          {loading?<div className="im-empty">Carregando…</div>:libraries.length===0?<div className="im-empty">Nenhuma biblioteca cadastrada. Crie a primeira abaixo.</div>:<div className="im-profile-modal-list">
+          {loading?<div className="im-empty">Carregando…</div>:libraries.length===0?<div className="im-empty">Nenhuma biblioteca cadastrada. Use “+ Nova biblioteca” para criar a primeira.</div>:<div className="im-profile-modal-list">
             {libraries.map(l=><button key={l.id} type="button" className={"im-profile "+(l.id===selectedId?"active":"")} onClick={()=>setSelectedId(l.id)}>
               <span className="im-avatar">{l.name.slice(0,1).toUpperCase()}</span>
               <span><strong>{l.name}</strong><small>{l.item_count} {l.item_count===1?"vídeo":"vídeos"} · {l.profiles.filter(p=>p.enabled).length} {l.profiles.filter(p=>p.enabled).length===1?"perfil":"perfis"} vinculados</small></span>
@@ -157,17 +176,6 @@ export default function InfluencerLibrariesPage(){
             </article>)}
           </div>}
         </div>}
-
-        <div className="im-card im-create-library" id="nova-biblioteca">
-          <div className="im-card-head"><div><span className="im-kicker">NOVA BIBLIOTECA</span><h2>Criar biblioteca</h2><p>Depois, vincule a biblioteca aos perfis que poderão publicá-la.</p></div></div>
-          <form className="im-fixed-copy" onSubmit={createLibrary}>
-            <label>Nome<input value={name} onChange={e=>setName(e.target.value)} placeholder="Ex.: Futebol, Memes, Patolino" maxLength={80} required /></label>
-            <label>Descrição<input value={description} onChange={e=>setDescription(e.target.value)} placeholder="Opcional" maxLength={500} /></label>
-            <button className="im-primary" disabled={busy}>{busy?"Salvando…":"Criar biblioteca"}</button>
-          </form>
-        </div>
-
-
       </section>
     </section>
   </main>;
