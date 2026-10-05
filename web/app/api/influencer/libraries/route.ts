@@ -65,6 +65,62 @@ export async function GET() {
   }, { headers: { "Cache-Control": "no-store" } });
 }
 
+export async function PATCH(request: Request) {
+  const user = await auth();
+  if (!user) return NextResponse.json({ error: "Entre no Clip Factory." }, { status: 401 });
+  const mutationRate = rateLimit(getClientKey(request, user.id), 60, 60 * 60 * 1000);
+  if (!mutationRate.allowed) return NextResponse.json({ error: "Limite de alterações das bibliotecas atingido. Aguarde antes de tentar novamente." }, { status: 429, headers: { "Retry-After": String(mutationRate.retryAfterSeconds) } });
+  const body = await request.json().catch(() => null);
+  const id = typeof body?.id === "string" ? body.id : "";
+  const name = typeof body?.name === "string" ? body.name.trim().slice(0, 80) : "";
+  const description = typeof body?.description === "string" ? body.description.trim().slice(0, 500) : "";
+  if (!id || !name) return NextResponse.json({ error: "Informe um nome válido para a biblioteca." }, { status: 400 });
+  const admin = createAdminClient();
+  const { data, error } = await admin.from("influencer_libraries").update({ name, description: description || null }).eq("id", id).eq("user_id", user.id).select("id,name,description,created_at,updated_at").maybeSingle();
+  if (error) {
+    if (error.code === "23505") return NextResponse.json({ error: "Já existe uma biblioteca com esse nome." }, { status: 409 });
+    return NextResponse.json({ error: "Não foi possível atualizar a biblioteca." }, { status: 500 });
+  }
+  if (!data) return NextResponse.json({ error: "Biblioteca não encontrada." }, { status: 404 });
+  return NextResponse.json({ library: data });
+}
+
+export async function DELETE(request: Request) {
+  const user = await auth();
+  if (!user) return NextResponse.json({ error: "Entre no Clip Factory." }, { status: 401 });
+  const mutationRate = rateLimit(getClientKey(request, user.id), 30, 60 * 60 * 1000);
+  if (!mutationRate.allowed) return NextResponse.json({ error: "Limite de exclusões de biblioteca atingido. Aguarde antes de tentar novamente." }, { status: 429, headers: { "Retry-After": String(mutationRate.retryAfterSeconds) } });
+  const id = new URL(request.url).searchParams.get("id") || "";
+  if (!id) return NextResponse.json({ error: "Biblioteca inválida." }, { status: 400 });
+  const admin = createAdminClient();
+  const { data: library } = await admin.from("influencer_libraries").select("id").eq("id", id).eq("user_id", user.id).maybeSingle();
+  if (!library) return NextResponse.json({ error: "Biblioteca não encontrada." }, { status: 404 });
+
+  const { data: items } = await admin.from("influencer_content_items").select("id,r2_key").eq("library_id", id).eq("user_id", user.id);
+  try {
+    const keys = (items || []).map((item: any) => item.r2_key).filter((key: unknown): key is string => Boolean(key));
+    const accountId = process.env.R2_ACCOUNT_ID;
+    const bucket = process.env.R2_BUCKET_NAME;
+    const accessKeyId = process.env.R2_ACCESS_KEY_ID;
+    const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
+    if (keys.length && accountId && bucket && accessKeyId && secretAccessKey) {
+      const { S3Client, DeleteObjectsCommand } = await import("@aws-sdk/client-s3");
+      const client = new S3Client({ region: "auto", endpoint: "https://" + accountId + ".r2.cloudflarestorage.com", credentials: { accessKeyId, secretAccessKey } });
+      await client.send(new DeleteObjectsCommand({ Bucket: bucket, Delete: { Objects: keys.map((Key) => ({ Key })), Quiet: true } }));
+    }
+  } catch (cleanupError) {
+    console.warn("Influencer library R2 cleanup failed:", cleanupError);
+  }
+
+  if (items?.length) {
+    const { error: itemsError } = await admin.from("influencer_content_items").delete().eq("user_id", user.id).eq("library_id", id);
+    if (itemsError) return NextResponse.json({ error: "Não foi possível excluir os vídeos da biblioteca." }, { status: 500 });
+  }
+  const { error } = await admin.from("influencer_libraries").delete().eq("id", id).eq("user_id", user.id);
+  if (error) return NextResponse.json({ error: "Não foi possível excluir a biblioteca." }, { status: 500 });
+  return NextResponse.json({ ok: true, deletedItems: items?.length || 0 });
+}
+
 export async function POST(request: Request) {
   const user = await auth();
   if (!user) return NextResponse.json({ error: "Entre no Clip Factory." }, { status: 401 });
