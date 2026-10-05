@@ -97,8 +97,7 @@ export async function DELETE(request: Request) {
   if (!library) return NextResponse.json({ error: "Biblioteca não encontrada." }, { status: 404 });
 
   const { data: links } = await admin.from("influencer_profile_libraries").select("profile_id,enabled").eq("library_id", id).eq("user_id", user.id);
-  const activeLinks = (links || []).filter((link: any) => link.enabled !== false);
-  if (activeLinks.length) {
+  if ((links || []).length) {
     return NextResponse.json({ error: "Não é possível excluir esta biblioteca enquanto ela estiver vinculada a um perfil. Desfaça todos os vínculos primeiro." }, { status: 409 });
   }
 
