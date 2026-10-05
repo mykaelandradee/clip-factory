@@ -268,7 +268,7 @@ export default function InfluencerManagerPage(){
  async function removeItem(id:string){
   const item=items.find(i=>i.id===id);if(!item)return;
   if(!window.confirm(item.status==="processing"?"Cancelar o processamento deste vídeo?":"Excluir este vídeo da biblioteca deste perfil? O arquivo armazenado será removido e esta ação não pode ser desfeita."))return;
-  const r=await fetch("/api/influencer/content?id="+encodeURIComponent(id)+(item.share_id?"&shareId="+encodeURIComponent(item.share_id):""),{method:"DELETE"}),d=await r.json().catch(()=>({}));
+  const r=await fetch("/api/influencer/content?id="+encodeURIComponent(id)+"&profileId="+encodeURIComponent(selected?.id||""),{method:"DELETE"}),d=await r.json().catch(()=>({}));
   if(r.ok)setItems(v=>v.filter(i=>i.id!==id));else setError(d.error||"Não foi possível excluir o conteúdo.");
  }
  const available=useMemo(()=>items.filter(i=>i.status==="available").length,[items]);
@@ -430,7 +430,7 @@ export default function InfluencerManagerPage(){
         </div>
         <div className="im-library-head-actions">
           <span className="im-count">{items.length}</span>
-          <button className="im-ghost" onClick={() => { setShareOpen(true); }} disabled={profiles.length < 2}>Gerenciar compartilhamento</button>
+          <span className="im-status available">BIBLIOTECA VINCULADA AO PERFIL</span>
         </div>
       </div>
       {items.length === 0 ? (
@@ -532,5 +532,5 @@ export default function InfluencerManagerPage(){
 
   </section>
   {showProfiles&&<div className="im-modal-backdrop im-profiles-modal" role="dialog" aria-modal="true" aria-label="Seus perfis"><div className="im-modal im-profiles-modal-card"><div className="im-card-head"><div><span className="im-kicker">SEUS PERFIS</span><h2>Escolha um perfil</h2><p>Selecione o perfil que você quer gerenciar.</p></div><button className="im-ghost" onClick={()=>setShowProfiles(false)}>Fechar</button></div>{loading?<div className="im-empty">Carregando…</div>:profiles.length===0?<div className="im-empty">Crie seu primeiro perfil para começar.</div>:<div className="im-profile-modal-list">{profiles.map(p=><button key={p.id} className={"im-profile "+(selected?.id===p.id?"active":"")} onClick={()=>{setSelected(p);setShowProfiles(false)}}><span className="im-avatar">{p.name.slice(0,1).toUpperCase()}</span><span><strong>{p.name}</strong><small>{p.instagram_username?"@"+p.instagram_username:"Instagram não conectado"}</small></span><b>{p.posts_per_day}/dia</b></button>)}</div>}<button className="im-primary im-modal-new-profile" onClick={()=>{setShowProfiles(false);setShowNew(true)}}>+ Novo perfil</button></div></div>}
-  {shareOpen&&<div className="im-modal-backdrop" role="dialog" aria-modal="true"><div className="im-modal"><div className="im-card-head"><div><span className="im-kicker">BIBLIOTECA COMPARTILHADA</span><h2>Compartilhar biblioteca</h2><p>Selecione os perfis que devem receber esta biblioteca. Perfis já compartilhados aparecem abaixo, com opção de descompartilhar.</p></div><button className="im-ghost" onClick={()=>setShareOpen(false)}>Fechar</button></div><div className="im-share-list">{profiles.filter(p=>p.id!==selected?.id && !sharedWith.includes(p.id)).map(p=><label key={p.id} className="im-check"><input type="checkbox" checked={shareTargets.includes(p.id)} onChange={e=>setShareTargets(v=>e.target.checked?[...v,p.id]:v.filter(id=>id!==p.id))}/><span>{p.name} {p.instagram_username?("· @"+p.instagram_username.replace(/^@/,"")):""}</span></label>)}</div><div className="im-share-current"><strong>Bibliotecas atualmente compartilhadas</strong>{sharedWith.length===0?<p className="im-field-help">Nenhuma biblioteca compartilhada com outro perfil.</p>:profiles.filter(p=>sharedWith.includes(p.id)).map(p=><div key={"current-"+p.id} className="im-share-current-row"><span>{p.name}</span><button className="im-ghost" disabled={sharing} onClick={async()=>{setSharing(true);setError("");try{const r=await fetch("/api/influencer/content",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"unshare-library",profileId:selected?.id,targetProfileId:p.id})});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível descompartilhar a biblioteca.");await loadItems(selected!.id);}catch(e){setError(e instanceof Error?e.message:"Erro ao descompartilhar.");}finally{setSharing(false);}}}>Descompartilhar</button></div>)}</div><div className="im-modal-actions"><button className="im-primary" disabled={sharing||!shareTargets.length} onClick={()=>void shareLibrary()}>{sharing?"Compartilhando…":"Compartilhar biblioteca"}</button></div></div></div>} </main>);
+ </main>);
 }
