@@ -26,6 +26,7 @@ export default function InfluencerManagerPage(){
  const [loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[error,setError]=useState("");
  const [showNew,setShowNew]=useState(false),[showProfiles,setShowProfiles]=useState(false),[name,setName]=useState(""),[posts,setPosts]=useState("3");
  const [url,setUrl]=useState(""),[videoTitle,setVideoTitle]=useState(""),[adding,setAdding]=useState(false),[publishing,setPublishing]=useState(false),[publishingItem,setPublishingItem]=useState<string|null>(null),[randomizingItem,setRandomizingItem]=useState<string|null>(null),[coverFile,setCoverFile]=useState<File|null>(null),[uploadingCover,setUploadingCover]=useState(false);
+ const [selectedLibraryId,setSelectedLibraryId]=useState("");
  const [coverPreviewKey,setCoverPreviewKey]=useState("");
  const [localCoverPreview,setLocalCoverPreview]=useState("");
  const [instagramConnected,setInstagramConnected]=useState(false),[instagramAccount,setInstagramAccount]=useState("");
@@ -141,7 +142,7 @@ export default function InfluencerManagerPage(){
   }
   setCoverFile(null);
   setCoverPreviewKey(selected?.cover_r2_key||"");
-  if(selected){void loadItems(selected.id);void loadInstagramConnection(selected.id);}else{setItems([]);setInstagramConnected(false);setInstagramAccount("");}
+  if(selected){void loadItems(selected.id);void loadInstagramConnection(selected.id);void loadLibraries();setSelectedLibraryId("");}else{setItems([]);setInstagramConnected(false);setInstagramAccount("");setSelectedLibraryId("");}
  },[selected?.id,selected?.cover_r2_key]);
  useEffect(()=>{if(!selected||!items.some(i=>i.status==="processing"))return;
   const timer=window.setInterval(()=>{void Promise.all(items.filter(i=>i.status==="processing").map(async item=>{
@@ -160,7 +161,7 @@ export default function InfluencerManagerPage(){
  }
  async function addUrl(e:FormEvent){
   e.preventDefault();if(!selected||!url.trim())return;setAdding(true);setError("");clearSectionError("add");
-  try{const r=await fetch("/api/influencer/content",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({profileId:selected.id,sourceUrl:url,title:videoTitle})}),d=await r.json().catch(()=>({}));
+  try{const r=await fetch("/api/influencer/content",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({profileId:selected.id,libraryId:selectedLibraryId,sourceUrl:url,title:videoTitle})}),d=await r.json().catch(()=>({}));
    if(!r.ok)throw new Error(d.error||"Não foi possível adicionar o vídeo.");setItems(v=>[d.item,...v]);setUrl("");setVideoTitle("");
   }catch(e){showSectionError("add",e instanceof Error?e.message:"Erro ao adicionar.");}finally{setAdding(false);}
  }
@@ -444,7 +445,7 @@ export default function InfluencerManagerPage(){
         <button className="im-primary" type="button" onClick={()=>{setError("");setInlineError(null);}}>Entendi</button>
       </div>
     </div>}<div className="im-card im-add"><div className="im-card-head"><div><span className="im-kicker">CONTEÚDO </span><h2>Adicionar vídeo</h2><p>Adicione um vídeo por URL.</p></div></div>
-     <form className="im-url-form" onSubmit={addUrl}><input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://youtube.com/... ou https://instagram.com/reel/..." required /><input value={videoTitle} onChange={e=>setVideoTitle(e.target.value)} placeholder="Título do vídeo (opcional)" maxLength={500} /><button className="im-primary" disabled={adding}>{adding?"Processando…":"Adicionar vídeo"}</button></form>
+     <form className="im-url-form" onSubmit={addUrl}><select value={selectedLibraryId} onChange={e=>setSelectedLibraryId(e.target.value)} required><option value="">Selecione a biblioteca</option>{libraries.filter(l=>l.profiles.some(p=>p.profile_id===selected?.id&&p.enabled)).map(l=><option key={l.id} value={l.id}>{l.name}</option>)}</select><input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://youtube.com/... ou https://instagram.com/reel/..." required /><input value={videoTitle} onChange={e=>setVideoTitle(e.target.value)} placeholder="Título do vídeo (opcional)" maxLength={500} /><button className="im-primary" disabled={adding||!selectedLibraryId}>{adding?"Processando…":"Adicionar vídeo"}</button></form>
     </div>
 
     <div className="im-card im-agenda">
