@@ -167,51 +167,6 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
   }
 
   if (!item) {
-    const shareQuery = admin.from("influencer_content_shares")
-      .select("id,item_id,profile_id,status,scheduled_at,retry_count,created_at,published_at")
-      .eq("profile_id",profileId).eq("user_id",userId);
-
-    const sourceForShare = async (status:string, excludeItemId?:string) => {
-      let query = shareQuery.eq("status",status);
-      if (excludeItemId) query = query.neq("item_id",excludeItemId);
-      const { data: shares } = await query.order("created_at",{ascending:true}).limit(100);
-      if (!shares?.length) return null;
-
-      const sourceIds = shares.map((share:any)=>share.item_id);
-      const { data: sources } = await admin.from("influencer_content_items")
-        .select("id,profile_id,user_id,r2_key,publish_title,publish_description,status,scheduled_at,retry_count,created_at,published_at")
-        .in("id",sourceIds).eq("user_id",userId);
-
-      const byId = new Map((sources||[]).map((source:any)=>[source.id,source]));
-      const ordered = shares
-        .map((share:any)=>({share,source:byId.get(share.item_id)}))
-        .filter((entry:any)=>entry.source)
-        .sort((a:any,b:any)=>{
-          const sourceOrder = String(a.source.created_at||"").localeCompare(String(b.source.created_at||""));
-          return sourceOrder || String(a.share.created_at||"").localeCompare(String(b.share.created_at||""));
-        });
-      return ordered[0] || null;
-    };
-
-    const sharedAvailable = itemId
-      ? await sourceForShare("available", itemId)
-      : await sourceForShare("available");
-
-    if (sharedAvailable) {
-      shareId = sharedAvailable.share.id;
-      item = sharedAvailable.source;
-    }
-
-    if (!item && !itemId && repeatWhenExhausted) {
-      const sharedPublished = await sourceForShare("published");
-      if (sharedPublished) {
-        shareId = sharedPublished.share.id;
-        item = sharedPublished.source;
-      }
-    }
-  }
-
-  if (!item) {
     if (!itemId && !repeatWhenExhausted) {
       await admin.from("influencer_profiles").update({publishing_enabled:false,next_publish_at:null,updated_at:new Date().toISOString()}).eq("id",profileId).eq("user_id",userId);
     }
