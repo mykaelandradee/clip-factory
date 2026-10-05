@@ -126,8 +126,16 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
         published_at:null,retry_count:0
       }).select("id,item_id,status,scheduled_at,published_at,error_message,retry_count").single();
       if(created) stateByItem.set(source.id,created);
-    } else if(state.status==="processing" || state.status==="queued" || (state.status==="published" && source.status==="available")){
-      const nextStatus=source.status==="available" ? "available" : source.status==="published" ? "available" : state.status;
+    } else if(state.status==="processing" || state.status==="queued"){
+      // O status de publicação é específico do perfil. Um item pode continuar
+      // "available" na biblioteca global mesmo depois de publicado por este
+      // perfil. Nunca devemos rebaixar "published" para "available" apenas
+      // porque o item de origem continua disponível na biblioteca.
+      const nextStatus=source.status==="available"
+        ? "available"
+        : source.status==="published"
+          ? "available"
+          : state.status;
       if(nextStatus!==state.status){
         const {data:updated}=await admin.from("influencer_profile_content")
           .update({status:nextStatus,updated_at:new Date().toISOString()})
