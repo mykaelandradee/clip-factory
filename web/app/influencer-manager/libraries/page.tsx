@@ -196,7 +196,7 @@ export default function InfluencerLibrariesPage(){
             </div>}
           </div>
           <div className="im-overview-actions">
-            <button className="im-ghost" type="button" disabled={busy} onClick={()=>{setEditLibraryName(selected.name);setEditLibraryDescription(selected.description||"");setShowEditLibrary(true)}}>Editar biblioteca</button>
+            <button className="im-ghost" type="button" disabled={busy} onClick={()=>{if(!selected)return;setEditLibraryName(selected.name);setEditLibraryDescription(selected.description||"");setShowEditLibrary(true)}}>Editar biblioteca</button>
             <button className="im-ghost im-danger" type="button" disabled={busy} onClick={deleteLibrary}>Excluir biblioteca</button>
           </div>
         </div>
