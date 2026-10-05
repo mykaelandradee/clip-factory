@@ -156,11 +156,14 @@ export async function POST(request:Request) {
     if(!sourceProfile) return NextResponse.json({error:"Perfil de origem não encontrado."},{status:404});
     const {data:targetProfile}=await admin.from("influencer_profiles").select("id").eq("id",targetProfileId).eq("user_id",user.id).maybeSingle();
     if(!targetProfile) return NextResponse.json({error:"Perfil de destino não encontrado."},{status:404});
-    const {data:sourceItems}=await admin.from("influencer_content_items").select("id").eq("profile_id",profileId).eq("user_id",user.id);
-    const itemIds=(sourceItems||[]).map((item:any)=>item.id);
-    if(itemIds.length){
-      const {error}=await admin.from("influencer_content_shares").delete().in("item_id",itemIds).eq("profile_id",targetProfileId).eq("user_id",user.id);
-      if(error){console.error("Influencer library unshare failed:",error);return NextResponse.json({error:"Não foi possível descompartilhar a biblioteca."},{status:500});}
+    const {data:sourceLinks,error:sourceLinksError}=await admin.from("influencer_profile_libraries").select("library_id")
+      .eq("profile_id",profileId).eq("user_id",user.id).eq("enabled",true);
+    if(sourceLinksError) return NextResponse.json({error:"Não foi possível localizar as bibliotecas do perfil de origem."},{status:500});
+    const libraryIds=(sourceLinks||[]).map((row:any)=>row.library_id).filter(Boolean);
+    if(libraryIds.length){
+      const {error}=await admin.from("influencer_profile_libraries").delete()
+        .eq("profile_id",targetProfileId).eq("user_id",user.id).in("library_id",libraryIds);
+      if(error){console.error("Influencer library unshare failed:",error);return NextResponse.json({error:"Não foi possível descompartilhar as bibliotecas."},{status:500});}
     }
     return NextResponse.json({ok:true,unshared:true});
   }
@@ -173,45 +176,36 @@ export async function POST(request:Request) {
     const uniqueTargets=Array.from(new Set<string>(targetProfileIds)).filter(id=>id!==profileId);
     const {data:profiles}=await admin.from("influencer_profiles").select("id").in("id",uniqueTargets).eq("user_id",user.id);
     if((profiles||[]).length!==uniqueTargets.length) return NextResponse.json({error:"Um ou mais perfis de destino não pertencem à sua conta."},{status:403});
-    const {data:items}=await admin.from("influencer_content_items").select("id,status").eq("profile_id",profileId).eq("user_id",user.id);
-    if(!items?.length) return NextResponse.json({error:"A biblioteca está vazia."},{status:400});
-    const rows=items.flatMap((item:any)=>uniqueTargets.map((targetId:string)=>({
-      item_id:item.id,
-      profile_id:targetId,
-      user_id:user.id,
-      status:
-        item.status==="processing"||item.status==="queued" ? "queued" :
-        item.status==="failed" ? "failed" :
-        "available"
+    const {data:sourceLinks,error:sourceLinksError}=await admin.from("influencer_profile_libraries").select("library_id,priority")
+      .eq("profile_id",profileId).eq("user_id",user.id).eq("enabled",true);
+    if(sourceLinksError) return NextResponse.json({error:"Não foi possível localizar as bibliotecas do perfil."},{status:500});
+    if(!sourceLinks?.length) return NextResponse.json({error:"O perfil não possui bibliotecas vinculadas."},{status:400});
+    const rows=uniqueTargets.flatMap((targetId:string)=>sourceLinks.map((link:any)=>({
+      profile_id:targetId,library_id:link.library_id,user_id:user.id,priority:Number(link.priority)||0,enabled:true
     })));
-    const {data:existingShares,error:existingError}=await admin
-      .from("influencer_content_shares")
-      .select("item_id,profile_id")
-      .in("item_id",items.map((item:any)=>item.id))
-      .in("profile_id",uniqueTargets)
-      .eq("user_id",user.id);
-    if(existingError){
-      console.error("Influencer library share lookup failed:",{code:existingError.code,message:existingError.message,details:existingError.details,hint:existingError.hint});
-      const message = existingError.code === "42P01"
-        ? "A tabela de compartilhamento ainda não existe no Supabase. Execute a migration 20260930_influencer_manager.sql."
-        : "Não foi possível consultar o compartilhamento. Código do banco: " + (existingError.code || "desconhecido");
-      return NextResponse.json({error:message,code:existingError.code||null},{status:500});
+    const {error:linkError}=await admin.from("influencer_profile_libraries").upsert(rows,{onConflict:"profile_id,library_id"});
+    if(linkError){
+      console.error("Influencer library share failed:",{code:linkError.code,message:linkError.message,details:linkError.details,hint:linkError.hint});
+      return NextResponse.json({error:"Não foi possível compartilhar as bibliotecas. Código do banco: "+(linkError.code||"desconhecido")},{status:500});
     }
-    const existingKeys=new Set((existingShares||[]).map((row:any)=>row.item_id+"::"+row.profile_id));
-    const missingRows=rows.filter((row:any)=>!existingKeys.has(row.item_id+"::"+row.profile_id));
-    let insertedShares:any[]=[];
-    if(missingRows.length){
-      const {data:inserted,error:insertError}=await admin.from("influencer_content_shares").insert(missingRows).select("*");
-      if(insertError){
-        console.error("Influencer library share failed:",{code:insertError.code,message:insertError.message,details:insertError.details,hint:insertError.hint});
-        const message = insertError.code === "42P01"
-          ? "A tabela de compartilhamento ainda não existe no Supabase. Execute a migration 20260930_influencer_manager.sql."
-          : "Não foi possível compartilhar a biblioteca. Código do banco: " + (insertError.code || "desconhecido");
-        return NextResponse.json({error:message,code:insertError.code||null},{status:500});
+    const libraryIds=sourceLinks.map((link:any)=>link.library_id).filter(Boolean);
+    const {data:items}=await admin.from("influencer_content_items").select("id,status").in("library_id",libraryIds).eq("user_id",user.id);
+    const itemIds=(items||[]).map((item:any)=>item.id);
+    if(itemIds.length){
+      const {data:existingStates,error:stateLookupError}=await admin.from("influencer_profile_content")
+        .select("item_id,profile_id").in("item_id",itemIds).in("profile_id",uniqueTargets).eq("user_id",user.id);
+      if(stateLookupError) return NextResponse.json({error:"As bibliotecas foram vinculadas, mas não foi possível preparar o conteúdo para os perfis."},{status:500});
+      const existingKeys=new Set((existingStates||[]).map((row:any)=>row.item_id+"::"+row.profile_id));
+      const stateRows=uniqueTargets.flatMap((targetId:string)=>(items||[]).filter((item:any)=>!existingKeys.has(item.id+"::"+targetId)).map((item:any)=>({
+        profile_id:targetId,item_id:item.id,user_id:user.id,
+        status:item.status==="processing"||item.status==="queued"?"queued":item.status==="failed"?"failed":"available",retry_count:0
+      })));
+      if(stateRows.length){
+        const {error:stateInsertError}=await admin.from("influencer_profile_content").insert(stateRows);
+        if(stateInsertError) return NextResponse.json({error:"As bibliotecas foram vinculadas, mas não foi possível preparar todo o conteúdo para os perfis."},{status:500});
       }
-      insertedShares=inserted||[];
     }
-    return NextResponse.json({ok:true,sharedItems:items.length,shares:insertedShares},{status:201});
+    return NextResponse.json({ok:true,sharedItems:items?.length||0,sharedProfiles:uniqueTargets.length,sharedLibraries:sourceLinks.length},{status:201});
   }
   const sourceUrl=typeof body?.sourceUrl==="string"?body.sourceUrl.trim():"";
   let title=typeof body?.title==="string"?body.title.trim().slice(0,500):"";
@@ -311,10 +305,12 @@ export async function PATCH(request:Request) {
   const id=typeof body?.id==="string"?body.id:"";
   if(!id) return NextResponse.json({error:"Conteúdo inválido."},{status:400});
   const admin=createAdminClient();
+  const requestedProfileId=typeof body?.profileId==="string"?body.profileId:"";
   const {data:item,error:itemError}=await admin.from("influencer_content_items").select("id,profile_id,title,publish_title,publish_description").eq("id",id).eq("user_id",user.id).maybeSingle();
   if(itemError||!item) return NextResponse.json({error:"Conteúdo não encontrado."},{status:404});
   if(body?.randomize===true){
-    const {data:profile}=await admin.from("influencer_profiles").select("caption_mode").eq("id",item.profile_id).eq("user_id",user.id).maybeSingle();
+    const effectiveProfileId=requestedProfileId||item.profile_id;
+    const {data:profile}=await admin.from("influencer_profiles").select("caption_mode").eq("id",effectiveProfileId).eq("user_id",user.id).maybeSingle();
     const mode=profile?.caption_mode||"zh_ja_random";
     const language=mode==="ja_random"?"ja":mode==="zh_random"?"zh":Math.random()<0.5?"ja":"zh";
     const copy=randomCopy(language,item.publish_title,item.publish_description);
