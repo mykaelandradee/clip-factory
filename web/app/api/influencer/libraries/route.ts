@@ -96,6 +96,12 @@ export async function DELETE(request: Request) {
   const { data: library } = await admin.from("influencer_libraries").select("id").eq("id", id).eq("user_id", user.id).maybeSingle();
   if (!library) return NextResponse.json({ error: "Biblioteca não encontrada." }, { status: 404 });
 
+  const { data: links } = await admin.from("influencer_profile_libraries").select("profile_id,enabled").eq("library_id", id).eq("user_id", user.id);
+  const activeLinks = (links || []).filter((link: any) => link.enabled !== false);
+  if (activeLinks.length) {
+    return NextResponse.json({ error: "Não é possível excluir esta biblioteca enquanto ela estiver vinculada a um perfil. Desfaça todos os vínculos primeiro." }, { status: 409 });
+  }
+
   const { data: items } = await admin.from("influencer_content_items").select("id,r2_key").eq("library_id", id).eq("user_id", user.id);
   try {
     const keys = (items || []).map((item: any) => item.r2_key).filter((key: unknown): key is string => Boolean(key));
