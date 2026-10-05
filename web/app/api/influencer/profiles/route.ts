@@ -89,6 +89,31 @@ export async function POST(request: Request) {
           : "Não foi possível criar o perfil. Código do banco: " + (error.code || "desconhecido");
     return NextResponse.json({ error: message }, { status: 500 });
   }
+  const {data:existingLibrary}=await admin.from("influencer_libraries")
+    .select("id").eq("user_id",user.id).eq("name",name).maybeSingle();
+  let libraryId=existingLibrary?.id || null;
+  if(!libraryId){
+    const {data:library,error:libraryError}=await admin.from("influencer_libraries")
+      .insert({user_id:user.id,name,description:"Biblioteca principal do perfil "+name})
+      .select("id").single();
+    if(libraryError){
+      console.error("Influencer library creation failed:",libraryError);
+      await admin.from("influencer_profiles").delete().eq("id",data.id).eq("user_id",user.id);
+      return NextResponse.json({error:"Não foi possível criar a biblioteca do perfil."},{status:500});
+    }
+    libraryId=library.id;
+  }
+
+  const {error:linkError}=await admin.from("influencer_profile_libraries").insert({
+    profile_id:data.id,library_id:libraryId,user_id:user.id,priority:0,enabled:true
+  });
+  if(linkError){
+    console.error("Influencer profile library link failed:",linkError);
+    await admin.from("influencer_libraries").delete().eq("id",libraryId).eq("user_id",user.id);
+    await admin.from("influencer_profiles").delete().eq("id",data.id).eq("user_id",user.id);
+    return NextResponse.json({error:"Não foi possível vincular a biblioteca ao perfil."},{status:500});
+  }
+
   const defaultCaptions = [
     ["zh","真的太离谱了 😂"],["zh","这个瞬间太精彩了。"],["zh","看到这里真的笑了。"],["zh","今天也遇到了这种瞬间。"],
     ["zh","有时候现实比电影还精彩。"],["zh","这一幕真的值得看第二遍。"],["zh","完全没想到会这样。"],["zh","这也太有意思了吧。"],
