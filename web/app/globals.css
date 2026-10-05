@@ -3136,3 +3136,12 @@ html,body,button,input,select,textarea{
   .im-confirm-modal{width:100%;padding:18px}
   .im-confirm-modal .im-modal-actions{grid-template-columns:1fr!important}
 }
+
+.im-overview{grid-template-columns:minmax(0,1fr)!important}
+.im-overview .im-stats{grid-column:1}
+.im-linked-profiles{grid-column:1;padding-top:2px}
+.im-linked-profiles>p{margin:7px 0 0;color:#8b8e99}
+.im-linked-profile-list{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}
+.im-linked-profile{display:inline-flex;align-items:center;min-height:28px;padding:0 10px;border:1px solid rgba(166,156,255,.18);border-radius:8px;background:rgba(166,156,255,.05);color:#d9d6ff;font-size:11px;font-weight:700}
+.im-linked-profile.disabled{border-color:rgba(255,255,255,.08);background:rgba(255,255,255,.025);color:#777a84}
+.im-overview .im-overview-actions{grid-column:1;justify-content:flex-start;margin-top:2px}
