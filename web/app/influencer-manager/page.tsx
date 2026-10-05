@@ -20,7 +20,7 @@ export default function InfluencerManagerPage(){
   const [selected,setSelected]=useState<Profile|null>(null);
   const [libraries,setLibraries]=useState<Library[]>([]);
   const [loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[error,setError]=useState("");
-  const [showProfiles,setShowProfiles]=useState(false),[showNew,setShowNew]=useState(false),[showEditProfile,setShowEditProfile]=useState(false);
+  const [showProfiles,setShowProfiles]=useState(false),[showNew,setShowNew]=useState(false),[showEditProfile,setShowEditProfile]=useState(false),[showDeleteProfile,setShowDeleteProfile]=useState(false);
   const [name,setName]=useState(""),[posts,setPosts]=useState("3"),[editProfileName,setEditProfileName]=useState("");
   const [librarySaving,setLibrarySaving]=useState(false),[coverFile,setCoverFile]=useState<File|null>(null),[coverPreview,setCoverPreview]=useState("");
   const [instagramConnected,setInstagramConnected]=useState(false),[instagramAccount,setInstagramAccount]=useState(""),[instagramReconnect,setInstagramReconnect]=useState(false),[instagramExpiresAt,setInstagramExpiresAt]=useState<string|null>(null);
@@ -137,8 +137,12 @@ export default function InfluencerManagerPage(){
   }
 
   async function deleteProfile(){
-    if(!selected||!window.confirm("Excluir este perfil? Os vídeos da biblioteca não serão gerenciados por esta tela."))return;
-    setSaving(true);setError("");
+    if(!selected)return;
+    setShowDeleteProfile(true);
+  }
+  async function confirmDeleteProfile(){
+    if(!selected)return;
+    setShowDeleteProfile(false);setSaving(true);setError("");
     try{
       const r=await fetch("/api/influencer/profiles?id="+encodeURIComponent(selected.id),{method:"DELETE"}),d=await r.json().catch(()=>({}));
       if(!r.ok)throw new Error(d.error||"Não foi possível excluir o perfil.");
@@ -255,6 +259,11 @@ export default function InfluencerManagerPage(){
       </section>
     </section>
 
+    {showDeleteProfile&&selected&&<div className="im-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="excluir-perfil-title">
+      <div className="im-modal im-confirm-modal"><div className="im-confirm-icon">!</div><div><span className="im-kicker">EXCLUIR PERFIL</span><h2 id="excluir-perfil-title">Excluir “{selected.name}”?</h2><p>O perfil será excluído. As bibliotecas e os vídeos não serão excluídos por esta ação.</p></div>
+        <div className="im-modal-actions"><button className="im-ghost" type="button" onClick={()=>setShowDeleteProfile(false)}>Cancelar</button><button className="im-primary im-danger-solid" type="button" disabled={saving} onClick={()=>void confirmDeleteProfile()}>{saving?"Excluindo…":"Excluir perfil"}</button></div>
+      </div>
+    </div>}
     {showEditProfile&&selected&&<div className="im-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="editar-perfil-title">
       <div className="im-modal im-standard-modal">
         <div className="im-card-head"><div><span className="im-kicker">EDITAR PERFIL</span><h2 id="editar-perfil-title">Nome do perfil</h2><p>Altere apenas a identidade do perfil. As regras de publicação continuam preservadas.</p></div><button className="im-ghost" type="button" onClick={()=>setShowEditProfile(false)}>Fechar</button></div>
