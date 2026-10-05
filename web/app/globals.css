@@ -3145,3 +3145,15 @@ html,body,button,input,select,textarea{
 .im-linked-profile{display:inline-flex;align-items:center;min-height:28px;padding:0 10px;border:1px solid rgba(166,156,255,.18);border-radius:8px;background:rgba(166,156,255,.05);color:#d9d6ff;font-size:11px;font-weight:700}
 .im-linked-profile.disabled{border-color:rgba(255,255,255,.08);background:rgba(255,255,255,.025);color:#777a84}
 .im-overview .im-overview-actions{grid-column:1;justify-content:flex-start;margin-top:2px}
+
+/* Correção do painel da biblioteca: métricas, perfis e ações em linhas separadas. */
+.im-overview{display:grid!important;grid-template-columns:minmax(0,1fr)!important;grid-auto-rows:auto!important;align-items:start!important;gap:14px!important}
+.im-overview>div:first-child{grid-column:1;min-width:0}
+.im-overview>.im-stats{grid-column:1;display:flex;position:relative;z-index:1;align-self:start;width:max-content;max-width:100%;flex-wrap:wrap}
+.im-overview>.im-linked-profiles{grid-column:1;position:relative;z-index:1}
+.im-overview>.im-overview-actions{grid-column:1;display:flex!important;position:relative;z-index:2;width:100%;margin-top:2px!important;clear:both;justify-content:flex-start!important}
+.im-overview>.im-overview-actions button{position:relative;z-index:3}
+@media(max-width:430px){
+  .im-overview>.im-stats{width:100%}
+  .im-overview>.im-overview-actions{display:grid!important;grid-template-columns:1fr!important}
+}
