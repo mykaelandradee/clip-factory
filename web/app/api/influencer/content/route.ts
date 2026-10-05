@@ -227,12 +227,16 @@ export async function POST(request:Request) {
   const admin=createAdminClient();
   const {data:profile}=await admin.from("influencer_profiles").select("id,fixed_publish_title,fixed_publish_description,caption_mode").eq("id",profileId).eq("user_id",user.id).maybeSingle();
   if(!profile) return NextResponse.json({error:"Perfil não encontrado."},{status:404});
+  const requestedLibraryId=typeof body?.libraryId==="string"?body.libraryId:"";
   const {data:libraryLinks,error:libraryLinksError}=await admin.from("influencer_profile_libraries")
     .select("library_id,priority").eq("profile_id",profileId).eq("user_id",user.id).eq("enabled",true)
     .order("priority",{ascending:true});
-  if(libraryLinksError) return NextResponse.json({error:"Não foi possível localizar a biblioteca deste perfil."},{status:500});
-  const libraryId=libraryLinks?.[0]?.library_id;
+  if(libraryLinksError) return NextResponse.json({error:"Não foi possível localizar as bibliotecas deste perfil."},{status:500});
+  const libraryId=requestedLibraryId || libraryLinks?.[0]?.library_id;
   if(!libraryId) return NextResponse.json({error:"Este perfil ainda não possui uma biblioteca vinculada."},{status:409});
+  if(requestedLibraryId && !(libraryLinks||[]).some((row:any)=>row.library_id===requestedLibraryId)){
+    return NextResponse.json({error:"A biblioteca selecionada não está vinculada a este perfil."},{status:403});
+  }
   const {data:existingItems,error:existingItemsError}=await admin
     .from("influencer_content_items")
     .select("id,source_url,title,status")
