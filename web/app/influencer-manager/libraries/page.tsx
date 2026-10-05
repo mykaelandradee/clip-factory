@@ -17,7 +17,7 @@ export default function InfluencerLibrariesPage(){
   const [name,setName]=useState(""),[description,setDescription]=useState("");
   const [url,setUrl]=useState(""),[videoTitle,setVideoTitle]=useState(""),[adding,setAdding]=useState(false);
   const [editing,setEditing]=useState<string|null>(null),[titleDraft,setTitleDraft]=useState("");
-  const [showNewLibrary,setShowNewLibrary]=useState(false),[showLibraries,setShowLibraries]=useState(false),[showEditLibrary,setShowEditLibrary]=useState(false),[editLibraryName,setEditLibraryName]=useState(""),[editLibraryDescription,setEditLibraryDescription]=useState("");
+  const [showNewLibrary,setShowNewLibrary]=useState(false),[showLibraries,setShowLibraries]=useState(false),[showEditLibrary,setShowEditLibrary]=useState(false),[showDeleteLibrary,setShowDeleteLibrary]=useState(false),[showDeleteVideo,setShowDeleteVideo]=useState<Item|null>(null),[editLibraryName,setEditLibraryName]=useState(""),[editLibraryDescription,setEditLibraryDescription]=useState("");
 
   const selected=useMemo(()=>libraries.find(l=>l.id===selectedId)||null,[libraries,selectedId]);
   const linkedProfileId=selected?.profiles.find(p=>p.enabled)?.profile_id||"";
@@ -67,10 +67,8 @@ export default function InfluencerLibrariesPage(){
   }
   async function deleteLibrary(){
     if(!selected)return;
-    const count=selected.item_count||0;
-    const warning=count ? "Excluir a biblioteca \"" + selected.name + "\" também excluirá " + count + " " + (count===1?"vídeo":"vídeos") + " dela. Essa ação não pode ser desfeita." : "Excluir a biblioteca \"" + selected.name + "\"? Essa ação não pode ser desfeita.";
-    if(!window.confirm(warning))return;
-    setBusy(true);setError("");
+    if(selected.profiles.some(p=>p.enabled)){setError("Não é possível excluir esta biblioteca enquanto ela estiver vinculada a um perfil. Desfaça todos os vínculos primeiro.");return;}
+    setShowDeleteLibrary(true);
     try{
       const r=await fetch("/api/influencer/libraries?id="+encodeURIComponent(selected.id),{method:"DELETE"});const d=await r.json().catch(()=>({}));
       if(!r.ok)throw new Error(d.error||"Não foi possível excluir a biblioteca.");
@@ -96,7 +94,7 @@ export default function InfluencerLibrariesPage(){
   }
   async function remove(item:Item){
     if(!linkedProfileId)return;
-    if(!window.confirm("Excluir este vídeo da biblioteca? O arquivo armazenado também será removido. Esta ação não pode ser desfeita."))return;
+    setShowDeleteVideo(item);
     setBusy(true);setError("");
     try{
       const r=await fetch("/api/influencer/content?id="+encodeURIComponent(item.id)+"&profileId="+encodeURIComponent(linkedProfileId),{method:"DELETE"});
@@ -126,6 +124,17 @@ export default function InfluencerLibrariesPage(){
 
     {error&&<div className="im-inline-error im-page-inline-error">{error}</div>}
 
+    {showDeleteLibrary&&selected&&<div className="im-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="excluir-biblioteca-title">
+      <div className="im-modal im-confirm-modal">
+        <div className="im-confirm-icon">!</div><div><span className="im-kicker">EXCLUIR BIBLIOTECA</span><h2 id="excluir-biblioteca-title">Excluir “{selected.name}”?</h2><p>Esta ação excluirá {selected.item_count||0} {(selected.item_count||0)===1?"vídeo":"vídeos"} da biblioteca e não poderá ser desfeita.</p></div>
+        <div className="im-modal-actions"><button className="im-ghost" type="button" onClick={()=>setShowDeleteLibrary(false)}>Cancelar</button><button className="im-primary im-danger-solid" type="button" disabled={busy} onClick={async()=>{setShowDeleteLibrary(false);setBusy(true);setError("");try{const r=await fetch("/api/influencer/libraries?id="+encodeURIComponent(selected.id),{method:"DELETE"});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível excluir a biblioteca.");await loadLibraries();}catch(e){setError(e instanceof Error?e.message:"Erro ao excluir a biblioteca.");}finally{setBusy(false);}}}>{busy?"Excluindo…":"Excluir biblioteca"}</button></div>
+      </div>
+    </div>}
+    {showDeleteVideo&&<div className="im-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="excluir-video-title">
+      <div className="im-modal im-confirm-modal"><div className="im-confirm-icon">!</div><div><span className="im-kicker">EXCLUIR VÍDEO</span><h2 id="excluir-video-title">Excluir este vídeo?</h2><p>O vídeo será removido da biblioteca e o arquivo armazenado também será excluído. Esta ação não poderá ser desfeita.</p></div>
+        <div className="im-modal-actions"><button className="im-ghost" type="button" onClick={()=>setShowDeleteVideo(null)}>Cancelar</button><button className="im-primary im-danger-solid" type="button" disabled={busy} onClick={async()=>{const item=showDeleteVideo;setShowDeleteVideo(null);setBusy(true);setError("");try{const r=await fetch("/api/influencer/content?id="+encodeURIComponent(item.id)+"&profileId="+encodeURIComponent(linkedProfileId),{method:"DELETE"});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível excluir o vídeo.");setItems(all=>all.filter(i=>i.id!==item.id));await loadLibraries(selectedId);}catch(e){setError(e instanceof Error?e.message:"Erro ao excluir o vídeo.");}finally{setBusy(false);}}}>{busy?"Excluindo…":"Excluir vídeo"}</button></div>
+      </div>
+    </div>}
     {showEditLibrary&&selected&&<div className="im-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="editar-biblioteca-title">
       <div className="im-modal im-standard-modal">
         <div className="im-card-head"><div><span className="im-kicker">EDITAR BIBLIOTECA</span><h2 id="editar-biblioteca-title">Nome e descrição</h2><p>Altere os dados da biblioteca sem mudar os vídeos ou os vínculos com perfis.</p></div><button className="im-ghost" type="button" onClick={()=>setShowEditLibrary(false)}>Fechar</button></div>
