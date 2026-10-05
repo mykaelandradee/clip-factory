@@ -341,7 +341,11 @@ export default function InfluencerManagerPage(){
     return sharedOrder || String(a.published_at||a.created_at).localeCompare(String(b.published_at||b.created_at));
   });
   const repeat=Boolean(profileDraft.repeat_when_exhausted);
-  const anchor=new Date();
+  // A agenda deve partir do próximo horário efetivamente agendado no perfil.
+  // Se esse horário já passou, voltamos ao relógio atual para não mostrar um slot vencido.
+  const scheduledAnchor=selected.next_publish_at?new Date(selected.next_publish_at):null;
+  const nowAnchor=new Date();
+  const anchor=scheduledAnchor&&Number.isFinite(scheduledAnchor.getTime())&&scheduledAnchor.getTime()>nowAnchor.getTime()?scheduledAnchor:nowAnchor;
   const parts=new Intl.DateTimeFormat("en-US",{timeZone:"America/Cuiaba",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).formatToParts(anchor);
   const get=(type:string)=>Number(parts.find(p=>p.type===type)?.value||0);
   const localAnchor={year:get("year"),month:get("month"),day:get("day"),hour:get("hour"),minute:get("minute")};
