@@ -21,6 +21,7 @@ export default function InfluencerLibrariesPage(){
 
   const selected=useMemo(()=>libraries.find(l=>l.id===selectedId)||null,[libraries,selectedId]);
   const linkedProfileId=selected?.profiles.find(p=>p.enabled)?.profile_id||"";
+  const linkedProfiles=selected?.profiles||[];
 
   async function loadLibraries(preferred?:string){
     setLoading(true);setError("");
@@ -65,15 +66,15 @@ export default function InfluencerLibrariesPage(){
       setShowEditLibrary(false);await loadLibraries(selected.id);
     }catch(e){setError(e instanceof Error?e.message:"Erro ao editar a biblioteca.");}finally{setBusy(false);}
   }
-  async function deleteLibrary(){
+  function deleteLibrary(){
     if(!selected)return;
-    if(selected.profiles.length){setError("Não é possível excluir esta biblioteca enquanto ela estiver vinculada a um perfil. Desfaça todos os vínculos primeiro.");return;}
+    if(selected.profiles.length){
+      const names=selected.profiles.map(p=>p.profile_name).filter(Boolean);
+      const profileText=names.length===1?"Perfil vinculado: "+names[0]+".":"Perfis vinculados: "+names.join(", ")+".";
+      setError("Não é possível excluir esta biblioteca enquanto ela estiver vinculada a um perfil. "+profileText+" Desfaça todos os vínculos primeiro.");
+      return;
+    }
     setShowDeleteLibrary(true);
-    try{
-      const r=await fetch("/api/influencer/libraries?id="+encodeURIComponent(selected.id),{method:"DELETE"});const d=await r.json().catch(()=>({}));
-      if(!r.ok)throw new Error(d.error||"Não foi possível excluir a biblioteca.");
-      await loadLibraries();
-    }catch(e){setError(e instanceof Error?e.message:"Erro ao excluir a biblioteca.");}finally{setBusy(false);}
   }
 
   async function addVideo(e:FormEvent){
@@ -184,13 +185,19 @@ export default function InfluencerLibrariesPage(){
             <h2>{selected?.name||"Selecione uma biblioteca"}</h2>
             <p>{selected?.description||"Selecione uma biblioteca para gerenciar seus vídeos."}</p>
           </div>
-          {selected&&<div className="im-overview-actions">
-            <button className="im-ghost" type="button" disabled={busy} onClick={()=>{setEditLibraryName(selected.name);setEditLibraryDescription(selected.description||"");setShowEditLibrary(true)}}>Editar biblioteca</button>
-            <button className="im-ghost im-danger" type="button" disabled={busy} onClick={()=>void deleteLibrary()}>Excluir biblioteca</button>
-          </div>}
           <div className="im-stats">
             <div><strong>{selected?.item_count||0}</strong><span>VÍDEOS</span></div>
-            <div><strong>{selected?.profiles.filter(p=>p.enabled).length||0}</strong><span>PERFIS VINCULADOS</span></div>
+            <div><strong>{linkedProfiles.length}</strong><span>PERFIS VINCULADOS</span></div>
+          </div>
+          <div className="im-linked-profiles">
+            <span className="im-kicker">PERFIS VINCULADOS</span>
+            {linkedProfiles.length===0?<p>Nenhum perfil vinculado.</p>:<div className="im-linked-profile-list">
+              {linkedProfiles.map(p=><span key={p.profile_id} className={p.enabled?"im-linked-profile":"im-linked-profile disabled"}>{p.profile_name}{!p.enabled&&" · desativado"}</span>)}
+            </div>}
+          </div>
+          <div className="im-overview-actions">
+            <button className="im-ghost" type="button" disabled={busy} onClick={()=>{setEditLibraryName(selected.name);setEditLibraryDescription(selected.description||"");setShowEditLibrary(true)}}>Editar biblioteca</button>
+            <button className="im-ghost im-danger" type="button" disabled={busy} onClick={deleteLibrary}>Excluir biblioteca</button>
           </div>
         </div>
 
