@@ -150,15 +150,14 @@ export default function InfluencerManagerPage(){
         <p>Perfil e biblioteca são áreas separadas. Aqui você configura identidade, publicação e apenas os vínculos com as bibliotecas.</p>
       </div>
       <div className="im-header-actions">
-        <a className="im-primary" href="/influencer-manager/libraries">BIBLIOTECAS</a>
         <button className="im-ghost im-profiles-trigger" onClick={()=>setShowProfiles(true)}>SEUS PERFIS <b>{profiles.length}</b></button>
         <button className="im-primary" onClick={()=>setShowNew(true)}>+ Novo perfil</button>
       </div>
     </header>
 
-    <nav style={{display:"flex",gap:8,margin:"0 0 18px",flexWrap:"wrap"}}>
-      <a className="im-primary" href="/influencer-manager">PERFIS</a>
-      <a className="im-ghost" href="/influencer-manager/libraries">BIBLIOTECAS</a>
+    <nav className="im-section-tabs" aria-label="Seções do Influencer Manager">
+      <a className="im-section-tab active" href="/influencer-manager"><span>01</span> PERFIS</a>
+      <a className="im-section-tab" href="/influencer-manager/libraries"><span>02</span> BIBLIOTECAS</a>
     </nav>
 
     {error&&<div className="im-inline-error im-page-inline-error">{error}</div>}
@@ -232,8 +231,8 @@ export default function InfluencerManagerPage(){
             </div>
           </div>
 
-          <div className="im-card">
-            <div className="im-card-head"><div><span className="im-kicker">BIBLIOTECAS</span><h2>Vincular bibliotecas</h2><p>Aqui o perfil apenas define quais bibliotecas ele pode usar. O conteúdo é gerenciado na aba Bibliotecas.</p></div><a className="im-ghost" href="/influencer-manager/libraries">Gerenciar bibliotecas</a></div>
+          <div className="im-card im-profile-libraries">
+            <div className="im-card-head"><div><span className="im-kicker">ACESSO AO CONTEÚDO</span><h2>Bibliotecas vinculadas</h2><p>O perfil apenas escolhe quais bibliotecas poderá publicar. Para adicionar ou organizar vídeos, use a aba Bibliotecas.</p></div><a className="im-ghost" href="/influencer-manager/libraries">Abrir Bibliotecas</a></div>
             {libraries.length===0?<div className="im-empty">Nenhuma biblioteca criada. Crie uma na aba Bibliotecas.</div>:<div className="im-profile-modal-list">
               {libraries.map(l=>{const isLinked=l.profiles.some(p=>p.profile_id===selected.id&&p.enabled);return <div className="im-profile" key={l.id}>
                 <span className="im-avatar">{l.name.slice(0,1).toUpperCase()}</span>
@@ -241,7 +240,7 @@ export default function InfluencerManagerPage(){
                 <button className={isLinked?"im-ghost im-danger":"im-primary"} type="button" disabled={librarySaving} onClick={()=>void toggleLibrary(l)}>{isLinked?"Desvincular":"Vincular"}</button>
               </div>})}
             </div>}
-            <div className="im-form-note" style={{marginTop:12}}>Biblioteca e perfil são entidades independentes. Vincular não move, duplica ou compartilha vídeos.</div>
+            <div className="im-form-note">Vincular uma biblioteca não move, duplica ou compartilha vídeos.</div>
           </div>
         </>}
       </section>
