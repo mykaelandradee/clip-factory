@@ -20,8 +20,8 @@ export default function InfluencerManagerPage(){
   const [selected,setSelected]=useState<Profile|null>(null);
   const [libraries,setLibraries]=useState<Library[]>([]);
   const [loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[error,setError]=useState("");
-  const [showProfiles,setShowProfiles]=useState(false),[showNew,setShowNew]=useState(false);
-  const [name,setName]=useState(""),[posts,setPosts]=useState("3");
+  const [showProfiles,setShowProfiles]=useState(false),[showNew,setShowNew]=useState(false),[showEditProfile,setShowEditProfile]=useState(false);
+  const [name,setName]=useState(""),[posts,setPosts]=useState("3"),[editProfileName,setEditProfileName]=useState("");
   const [librarySaving,setLibrarySaving]=useState(false),[coverFile,setCoverFile]=useState<File|null>(null),[coverPreview,setCoverPreview]=useState("");
   const [instagramConnected,setInstagramConnected]=useState(false),[instagramAccount,setInstagramAccount]=useState(""),[instagramReconnect,setInstagramReconnect]=useState(false),[instagramExpiresAt,setInstagramExpiresAt]=useState<string|null>(null);
   const [draft,setDraft]=useState({posts_per_day:3,caption_mode:"zh_ja_random",repeat_when_exhausted:false,posting_times:["09:00","11:30","14:00"],fixed_publish_title:"",fixed_publish_description:"",share_to_feed:true});
@@ -81,6 +81,15 @@ export default function InfluencerManagerPage(){
       const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível alterar o vínculo.");
       await loadLibraries();
     }catch(e){setError(e instanceof Error?e.message:"Erro ao alterar o vínculo.");}finally{setLibrarySaving(false);}
+  }
+
+  async function saveProfileName(e:FormEvent){
+    e.preventDefault();if(!selected||!editProfileName.trim())return;setSaving(true);setError("");
+    try{
+      const r=await fetch("/api/influencer/profiles",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:selected.id,name:editProfileName.trim()})});
+      const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível renomear o perfil.");
+      setSelected(d.profile);setProfiles(all=>all.map(item=>item.id===d.profile.id?d.profile:item));setShowEditProfile(false);
+    }catch(e){setError(e instanceof Error?e.message:"Erro ao renomear o perfil.");}finally{setSaving(false);}
   }
 
   async function saveProfile(){
@@ -179,7 +188,7 @@ export default function InfluencerManagerPage(){
         {!selected?<div className="im-card im-empty-main"><strong>{loading?"Carregando…":"Crie um perfil para começar."}</strong></div>:<>
           <div className="im-card im-overview">
             <div><span className="im-kicker">PERFIL ATIVO</span><h2>{selected.name}</h2><p>{selected.instagram_username?"@"+selected.instagram_username:"Conecte um Instagram para publicar automaticamente."}</p></div>
-            <div className="im-overview-actions"><button className="im-ghost im-danger" disabled={saving} onClick={()=>void deleteProfile()}>Excluir perfil</button></div>
+            <div className="im-overview-actions"><button className="im-ghost" disabled={saving} onClick={()=>{setEditProfileName(selected.name);setShowEditProfile(true)}}>Editar perfil</button><button className="im-ghost im-danger" disabled={saving} onClick={()=>void deleteProfile()}>Excluir perfil</button></div>
           </div>
 
           <div className="im-card im-account">
@@ -246,6 +255,15 @@ export default function InfluencerManagerPage(){
       </section>
     </section>
 
+    {showEditProfile&&selected&&<div className="im-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="editar-perfil-title">
+      <div className="im-modal im-standard-modal">
+        <div className="im-card-head"><div><span className="im-kicker">EDITAR PERFIL</span><h2 id="editar-perfil-title">Nome do perfil</h2><p>Altere apenas a identidade do perfil. As regras de publicação continuam preservadas.</p></div><button className="im-ghost" type="button" onClick={()=>setShowEditProfile(false)}>Fechar</button></div>
+        <form className="im-modal-form" onSubmit={saveProfileName}>
+          <label>Nome do perfil<input value={editProfileName} onChange={e=>setEditProfileName(e.target.value)} maxLength={80} required autoFocus /></label>
+          <div className="im-modal-actions"><button className="im-ghost" type="button" onClick={()=>setShowEditProfile(false)}>Cancelar</button><button className="im-primary" disabled={saving}>{saving?"Salvando…":"Salvar nome"}</button></div>
+        </form>
+      </div>
+    </div>}
     {showProfiles&&<div className="im-modal-backdrop" role="dialog" aria-modal="true">
       <div className="im-modal im-profiles-modal-card">
         <div className="im-card-head"><div><span className="im-kicker">SEUS PERFIS</span><h2>Escolha um perfil</h2><p>Selecione o perfil que você quer configurar.</p></div><button className="im-ghost" onClick={()=>setShowProfiles(false)}>Fechar</button></div>
