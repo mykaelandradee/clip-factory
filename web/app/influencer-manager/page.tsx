@@ -278,7 +278,7 @@ export default function InfluencerManagerPage(){
  async function randomizeCopy(itemId:string){
   setRandomizingItem(itemId);setError("");
   try{
-   const r=await fetch("/api/influencer/content",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:itemId,randomize:true})});
+   const r=await fetch("/api/influencer/content",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:itemId,profileId:selected?.id,randomize:true})});
    const d=await r.json().catch(()=>({}));
    if(!r.ok)throw new Error(d.error||"Não foi possível gerar um novo nome e descrição.");
    if(d.item)setItems(all=>all.map(item=>item.id===itemId?d.item:item));
