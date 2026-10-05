@@ -80,59 +80,62 @@ export async function GET(request:Request) {
   const profileId=new URL(request.url).searchParams.get("profileId")||"";
   if(!profileId) return NextResponse.json({error:"Perfil inválido."},{status:400});
   const admin=createAdminClient();
-  const {data,error}=await admin.from("influencer_content_items").select("*").eq("profile_id",profileId).eq("user_id",user.id).order("created_at",{ascending:false});
-  if(error) return NextResponse.json({error:"Não foi possível carregar a biblioteca."},{status:500});
-  const {data:shares}=await admin.from("influencer_content_shares").select("id,item_id,profile_id,status,scheduled_at,published_at,error_message,created_at").eq("profile_id",profileId).eq("user_id",user.id).order("created_at",{ascending:false});
-  let sharedItems:any[]=[];
-  if(shares?.length){
-    const ids=shares.map((share:any)=>share.item_id);
-    const {data:sourceItems}=await admin.from("influencer_content_items").select("*").in("id",ids).eq("user_id",user.id);
-    const byId=new Map((sourceItems||[]).map((item:any)=>[item.id,item]));
-    sharedItems=shares.map((share:any)=>{
-      const item=byId.get(share.item_id);
-      return item?{
-        ...item,
-        id:item.id,
-        profile_id:profileId,
-        share_id:share.id,
-        shared:true,
-        source_profile_id:item.profile_id,
-        source_profile_name:undefined,
-        status:
-          share.status === "queued"
-            ? (item.status === "available" || item.status === "published" ? "available" : item.status === "processing" ? "processing" : "queued")
-            : share.status,
-        scheduled_at:share.scheduled_at,
-        published_at:share.published_at,
-        error_message:share.error_message
-      }:null;
-    }).filter(Boolean);
-    if(sharedItems.length){
-      const sourceProfileIds=Array.from(new Set(sharedItems.map((item:any)=>item.source_profile_id).filter(Boolean)));
-      const {data:sourceProfiles}=await admin.from("influencer_profiles").select("id,name").in("id",sourceProfileIds);
-      const sourceNames=new Map((sourceProfiles||[]).map((profile:any)=>[profile.id,profile.name]));
-      const {data:destinationProfile}=await admin.from("influencer_profiles").select("id,fixed_publish_title,fixed_publish_description").eq("id",profileId).eq("user_id",user.id).maybeSingle();
-      sharedItems=sharedItems.map((item:any)=>({
-        ...item,
-        source_profile_name:sourceNames.get(item.source_profile_id)||"Outro perfil",
-        publish_title:destinationProfile?.fixed_publish_title?.trim() || item.publish_title,
-        publish_description:destinationProfile?.fixed_publish_description?.trim() || item.publish_description
-      }));
-    }
-  }
-  const normalizedOwn=(data||[]).map((item:any)=>(
-    !String(item.title||"").trim() && /(?:^|\\.)instagram\\.com$/i.test(String(new URL(item.source_url||"https://instagram.com").hostname||""))
-      ? {...item,title:instagramFallbackTitle(String(item.source_url||""))}
-      : item
-  ));
-  const ownIds=new Set(normalizedOwn.map((item:any)=>item.id));
-  const {data:ownedItems}=await admin.from("influencer_content_items").select("id").eq("profile_id",profileId).eq("user_id",user.id);
-  const ownItemIds=(ownedItems||[]).map((item:any)=>item.id);
-  const {data:outgoingShares}=ownItemIds.length
-    ? await admin.from("influencer_content_shares").select("profile_id").in("item_id",ownItemIds).neq("profile_id",profileId).eq("user_id",user.id)
+  const {data:profile}=await admin.from("influencer_profiles")
+    .select("id,name,fixed_publish_title,fixed_publish_description")
+    .eq("id",profileId).eq("user_id",user.id).maybeSingle();
+  if(!profile) return NextResponse.json({error:"Perfil não encontrado."},{status:404});
+
+  const {data:links,error:linksError}=await admin.from("influencer_profile_libraries")
+    .select("library_id,priority,enabled")
+    .eq("profile_id",profileId).eq("user_id",user.id).eq("enabled",true)
+    .order("priority",{ascending:true});
+  if(linksError) return NextResponse.json({error:"Não foi possível carregar as bibliotecas do perfil."},{status:500});
+
+  const libraryIds=(links||[]).map((row:any)=>row.library_id).filter(Boolean);
+  if(!libraryIds.length) return NextResponse.json({items:[],sharedWith:[],libraries:[]},{headers:{"Cache-Control":"no-store"}});
+
+  const {data:items,error:itemError}=await admin.from("influencer_content_items")
+    .select("*").in("library_id",libraryIds).eq("user_id",user.id)
+    .order("created_at",{ascending:false});
+  if(itemError) return NextResponse.json({error:"Não foi possível carregar a biblioteca."},{status:500});
+
+  const itemIds=(items||[]).map((item:any)=>item.id);
+  const {data:states}=itemIds.length
+    ? await admin.from("influencer_profile_content")
+      .select("item_id,status,scheduled_at,published_at,error_message,retry_count")
+      .eq("profile_id",profileId).eq("user_id",user.id).in("item_id",itemIds)
     : {data:[]};
-  const sharedWith=Array.from(new Set((outgoingShares||[]).map((share:any)=>share.profile_id)));
-  return NextResponse.json({items:[...(data||[]),...sharedItems.filter((item:any)=>!ownIds.has(item.id))].sort((a:any,b:any)=>String(b.created_at).localeCompare(String(a.created_at))),sharedWith},{headers:{"Cache-Control":"no-store"}});
+  const stateByItem=new Map((states||[]).map((row:any)=>[row.item_id,row]));
+
+  const sourceProfileIds=Array.from(new Set((items||[]).map((item:any)=>item.profile_id).filter(Boolean)));
+  const {data:sourceProfiles}=sourceProfileIds.length
+    ? await admin.from("influencer_profiles").select("id,name").in("id",sourceProfileIds).eq("user_id",user.id)
+    : {data:[]};
+  const sourceNames=new Map((sourceProfiles||[]).map((p:any)=>[p.id,p.name]));
+
+  const normalized=(items||[]).map((item:any)=>{
+    const state=stateByItem.get(item.id);
+    const shared=item.profile_id!==profileId;
+    return {
+      ...item,
+      profile_id:profileId,
+      source_profile_id:item.profile_id,
+      source_profile_name:shared ? (sourceNames.get(item.profile_id)||"Outro perfil") : undefined,
+      shared,
+      status:state?.status || (item.status==="processing" ? "processing" : item.status),
+      scheduled_at:state?.scheduled_at ?? item.scheduled_at,
+      published_at:state?.published_at ?? (shared ? null : item.published_at),
+      error_message:state?.error_message ?? item.error_message,
+      retry_count:state?.retry_count ?? item.retry_count,
+      publish_title:profile.fixed_publish_title?.trim() || item.publish_title,
+      publish_description:profile.fixed_publish_description?.trim() || item.publish_description
+    };
+  });
+  return NextResponse.json({
+    items:normalized,
+    sharedWith:[],
+    libraries:libraryIds.map((id:string)=>({id,priority:(links||[]).find((row:any)=>row.library_id===id)?.priority||0}))
+  },{headers:{"Cache-Control":"no-store"}});
 }
 
 export async function POST(request:Request) {
@@ -223,10 +226,17 @@ export async function POST(request:Request) {
   if(isInstagram&&!isInstagramReel) return NextResponse.json({error:"Para Instagram, cole a URL de um Reel público."},{status:400});
   const admin=createAdminClient();
   const {data:profile}=await admin.from("influencer_profiles").select("id,fixed_publish_title,fixed_publish_description,caption_mode").eq("id",profileId).eq("user_id",user.id).maybeSingle();
+  if(!profile) return NextResponse.json({error:"Perfil não encontrado."},{status:404});
+  const {data:libraryLinks,error:libraryLinksError}=await admin.from("influencer_profile_libraries")
+    .select("library_id,priority").eq("profile_id",profileId).eq("user_id",user.id).eq("enabled",true)
+    .order("priority",{ascending:true});
+  if(libraryLinksError) return NextResponse.json({error:"Não foi possível localizar a biblioteca deste perfil."},{status:500});
+  const libraryId=libraryLinks?.[0]?.library_id;
+  if(!libraryId) return NextResponse.json({error:"Este perfil ainda não possui uma biblioteca vinculada."},{status:409});
   const {data:existingItems,error:existingItemsError}=await admin
     .from("influencer_content_items")
     .select("id,source_url,title,status")
-    .eq("profile_id",profileId)
+    .eq("library_id",libraryId)
     .eq("user_id",user.id);
   if(existingItemsError){
     console.error("Influencer duplicate check failed:",existingItemsError);
@@ -257,84 +267,17 @@ export async function POST(request:Request) {
 
   const itemId=crypto.randomUUID();
   const {data:item,error}=await admin.from("influencer_content_items").insert({
-    id:itemId,profile_id:profileId,user_id:user.id,source_url:sourceUrl,title:title||null,source_type:"url",status:"processing",progress:5,stage:"queued",worker_job_id:itemId,publish_title:copy.title,publish_description:copy.description,source_description:null
+    id:itemId,profile_id:profileId,library_id:libraryId,user_id:user.id,source_url:sourceUrl,title:title||null,source_type:"url",status:"processing",progress:5,stage:"queued",worker_job_id:itemId,publish_title:copy.title,publish_description:copy.description,source_description:null
   }).select("*").single();
   if(error){console.error("Influencer item creation failed:",error);return NextResponse.json({error:"Não foi possível adicionar o vídeo à biblioteca."},{status:500});}
 
-  // Keep library sharing continuous: if this source profile already
-  // shares its library with other profiles, make the new item available
-  // to those profiles as well. The unique (item_id, profile_id) constraint
-  // keeps this idempotent and prevents duplicate share rows.
-  try{
-    const existingItemIds=(existingItems||[]).map((existing:any)=>existing.id);
-    const allOwnItems=[...existingItemIds,itemId];
-    if(allOwnItems.length){
-      const {data:outgoingShares,error:shareLookupError}=await admin
-        .from("influencer_content_shares")
-        .select("item_id,profile_id")
-        .in("item_id",allOwnItems)
-        .eq("user_id",user.id);
-
-      if(shareLookupError){
-        console.error("Influencer new-item share lookup failed:",{
-          code:shareLookupError.code,
-          message:shareLookupError.message,
-          details:shareLookupError.details,
-          hint:shareLookupError.hint
-        });
-      }else{
-        const targetProfileIds=Array.from(new Set(
-          (outgoingShares||[])
-            .filter((share:any)=>share.item_id!==itemId)
-            .map((share:any)=>share.profile_id)
-            .filter((id:any)=>typeof id==="string" && id!==profileId)
-        ));
-
-        if(targetProfileIds.length){
-          const {data:existingNewShares,error:existingNewSharesError}=await admin
-            .from("influencer_content_shares")
-            .select("profile_id")
-            .eq("item_id",itemId)
-            .in("profile_id",targetProfileIds)
-            .eq("user_id",user.id);
-
-          if(existingNewSharesError){
-            console.error("Influencer new-item share check failed:",{
-              code:existingNewSharesError.code,
-              message:existingNewSharesError.message,
-              details:existingNewSharesError.details,
-              hint:existingNewSharesError.hint
-            });
-          }else{
-            const existingTargets=new Set((existingNewShares||[]).map((share:any)=>share.profile_id));
-            const missingTargets=targetProfileIds.filter((targetId:any)=>!existingTargets.has(targetId));
-
-            if(missingTargets.length){
-              const {error:shareInsertError}=await admin
-                .from("influencer_content_shares")
-                .insert(missingTargets.map((targetId:any)=>({
-                  item_id:itemId,
-                  profile_id:targetId,
-                  user_id:user.id,
-                  status:"queued"
-                })));
-
-              if(shareInsertError){
-                console.error("Influencer new-item share creation failed:",{
-                  code:shareInsertError.code,
-                  message:shareInsertError.message,
-                  details:shareInsertError.details,
-                  hint:shareInsertError.hint
-                });
-              }
-            }
-          }
-        }
-      }
-    }
-  }catch(error){
-    // Sharing must never prevent the original library item from being created.
-    console.error("Influencer new-item library sharing failed:",error);
+  const {error:stateError}=await admin.from("influencer_profile_content").insert({
+    profile_id:profileId,item_id:itemId,user_id:user.id,status:"processing",retry_count:0
+  });
+  if(stateError){
+    console.error("Influencer profile content state creation failed:",stateError);
+    await admin.from("influencer_content_items").delete().eq("id",itemId).eq("user_id",user.id);
+    return NextResponse.json({error:"Não foi possível preparar o vídeo para publicação."},{status:500});
   }
 
   try{
