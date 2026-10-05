@@ -260,6 +260,83 @@ export async function POST(request:Request) {
     id:itemId,profile_id:profileId,user_id:user.id,source_url:sourceUrl,title:title||null,source_type:"url",status:"processing",progress:5,stage:"queued",worker_job_id:itemId,publish_title:copy.title,publish_description:copy.description,source_description:null
   }).select("*").single();
   if(error){console.error("Influencer item creation failed:",error);return NextResponse.json({error:"Não foi possível adicionar o vídeo à biblioteca."},{status:500});}
+
+  // Keep library sharing continuous: if this source profile already
+  // shares its library with other profiles, make the new item available
+  // to those profiles as well. The unique (item_id, profile_id) constraint
+  // keeps this idempotent and prevents duplicate share rows.
+  try{
+    const existingItemIds=(existingItems||[]).map((existing:any)=>existing.id);
+    const allOwnItems=[...existingItemIds,itemId];
+    if(allOwnItems.length){
+      const {data:outgoingShares,error:shareLookupError}=await admin
+        .from("influencer_content_shares")
+        .select("item_id,profile_id")
+        .in("item_id",allOwnItems)
+        .eq("user_id",user.id);
+
+      if(shareLookupError){
+        console.error("Influencer new-item share lookup failed:",{
+          code:shareLookupError.code,
+          message:shareLookupError.message,
+          details:shareLookupError.details,
+          hint:shareLookupError.hint
+        });
+      }else{
+        const targetProfileIds=Array.from(new Set(
+          (outgoingShares||[])
+            .filter((share:any)=>share.item_id!==itemId)
+            .map((share:any)=>share.profile_id)
+            .filter((id:any)=>typeof id==="string" && id!==profileId)
+        ));
+
+        if(targetProfileIds.length){
+          const {data:existingNewShares,error:existingNewSharesError}=await admin
+            .from("influencer_content_shares")
+            .select("profile_id")
+            .eq("item_id",itemId)
+            .in("profile_id",targetProfileIds)
+            .eq("user_id",user.id);
+
+          if(existingNewSharesError){
+            console.error("Influencer new-item share check failed:",{
+              code:existingNewSharesError.code,
+              message:existingNewSharesError.message,
+              details:existingNewSharesError.details,
+              hint:existingNewSharesError.hint
+            });
+          }else{
+            const existingTargets=new Set((existingNewShares||[]).map((share:any)=>share.profile_id));
+            const missingTargets=targetProfileIds.filter((targetId:any)=>!existingTargets.has(targetId));
+
+            if(missingTargets.length){
+              const {error:shareInsertError}=await admin
+                .from("influencer_content_shares")
+                .insert(missingTargets.map((targetId:any)=>({
+                  item_id:itemId,
+                  profile_id:targetId,
+                  user_id:user.id,
+                  status:"queued"
+                })));
+
+              if(shareInsertError){
+                console.error("Influencer new-item share creation failed:",{
+                  code:shareInsertError.code,
+                  message:shareInsertError.message,
+                  details:shareInsertError.details,
+                  hint:shareInsertError.hint
+                });
+              }
+            }
+          }
+        }
+      }
+    }
+  }catch(error){
+    // Sharing must never prevent the original library item from being created.
+    console.error("Influencer new-item library sharing failed:",error);
+  }
+
   try{
     const response=await githubFetch(`/repos/${OWNER}/${REPO}/dispatches`,{
       method:"POST",headers:{"Content-Type":"application/json"},
