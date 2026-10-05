@@ -3116,3 +3116,23 @@ html,body,button,input,select,textarea{
   .im-overview-actions{grid-template-columns:1fr}
   .im-modal-actions{grid-template-columns:1fr}
 }
+
+/* Influencer Manager — confirmation modals and mobile-safe overview actions */
+.im-overview{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:16px}
+.im-overview-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;max-width:100%}
+.im-overview-actions .im-ghost{flex:0 1 auto;white-space:nowrap}
+.im-confirm-modal{width:min(500px,calc(100vw - 28px));padding:24px;display:grid;gap:16px}
+.im-confirm-modal h2{margin:5px 0 7px}
+.im-confirm-modal p{margin:0;color:#8b8e99;line-height:1.55}
+.im-confirm-icon{width:34px;height:34px;display:grid;place-items:center;border:1px solid rgba(255,110,110,.28);border-radius:10px;color:#ff9c9c;font-weight:900}
+.im-danger-solid{border-color:rgba(255,100,100,.3)!important}
+@media(max-width:760px){
+  .im-overview{grid-template-columns:1fr}
+  .im-overview-actions{width:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));justify-content:stretch}
+  .im-overview-actions .im-ghost{width:100%;min-width:0}
+}
+@media(max-width:430px){
+  .im-overview-actions{grid-template-columns:1fr}
+  .im-confirm-modal{width:100%;padding:18px}
+  .im-confirm-modal .im-modal-actions{grid-template-columns:1fr!important}
+}
