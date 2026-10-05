@@ -345,7 +345,13 @@ export default function InfluencerManagerPage(){
   // Se esse horário já passou, voltamos ao relógio atual para não mostrar um slot vencido.
   const scheduledAnchor=selected.next_publish_at?new Date(selected.next_publish_at):null;
   const nowAnchor=new Date();
-  const anchor=scheduledAnchor&&Number.isFinite(scheduledAnchor.getTime())&&scheduledAnchor.getTime()>nowAnchor.getTime()?scheduledAnchor:nowAnchor;
+  // Se o perfil já tem um próximo horário persistido, a agenda deve respeitá-lo
+  // mesmo que ele esteja atrasado. Assim, um slot devido (ex.: 11:00) não é
+  // substituído pelo relógio atual (ex.: 14:00) antes de ser processado.
+  const hasScheduledAnchor=Boolean(scheduledAnchor&&Number.isFinite(scheduledAnchor.getTime()));
+  const anchor=hasScheduledAnchor
+    ? new Date(Math.floor(scheduledAnchor!.getTime()/60000)*60000)
+    : nowAnchor;
   const parts=new Intl.DateTimeFormat("en-US",{timeZone:"America/Cuiaba",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).formatToParts(anchor);
   const get=(type:string)=>Number(parts.find(p=>p.type===type)?.value||0);
   const localAnchor={year:get("year"),month:get("month"),day:get("day"),hour:get("hour"),minute:get("minute")};
