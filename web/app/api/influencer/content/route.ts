@@ -170,6 +170,7 @@ export async function POST(request:Request) {
     const {data:sourceProfile}=await admin.from("influencer_profiles").select("id").eq("id",profileId).eq("user_id",user.id).maybeSingle();
     if(!sourceProfile) return NextResponse.json({error:"Perfil de origem não encontrado."},{status:404});
     const uniqueTargets=Array.from(new Set<string>(targetProfileIds)).filter(id=>id!==profileId);
+    if(!uniqueTargets.length) return NextResponse.json({error:"Selecione um perfil de destino diferente do perfil de origem."},{status:400});
     const {data:profiles}=await admin.from("influencer_profiles").select("id").in("id",uniqueTargets).eq("user_id",user.id);
     if((profiles||[]).length!==uniqueTargets.length) return NextResponse.json({error:"Um ou mais perfis de destino não pertencem à sua conta."},{status:403});
     const {data:sourceLinks,error:sourceLinksError}=await admin.from("influencer_profile_libraries").select("library_id,priority")
