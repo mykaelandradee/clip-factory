@@ -3087,3 +3087,32 @@ html,body,button,input,select,textarea{
 .im-library-content .im-card-head{align-items:flex-start}
 .im-library-content .im-count{margin-left:auto}
 @media(max-width:600px){.im-section-tabs{width:100%}.im-section-tab{flex:1;justify-content:center;padding:0 8px}.im-library-content .im-count{margin-left:0}}
+
+
+/* Influencer Manager — edição, exclusão e modais responsivos */
+.im-standard-modal{width:min(560px,calc(100vw - 28px));max-height:min(86vh,720px);overflow:auto}
+.im-modal-form{display:grid;gap:14px;margin-top:18px}
+.im-modal-form label{display:grid;gap:7px}
+.im-modal-form input{width:100%;box-sizing:border-box;min-width:0;height:44px;border:1px solid rgba(255,255,255,.08);border-radius:9px;background:#0b0d10;color:#f5f5f7;padding:0 12px;outline:none;font:inherit}
+.im-modal-form input:focus{border-color:rgba(185,167,255,.5);box-shadow:0 0 0 3px rgba(185,167,255,.06)}
+.im-overview-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.im-overview-actions .im-ghost{white-space:nowrap}
+.im-modal-backdrop{padding:16px;box-sizing:border-box}
+.im-modal{max-width:calc(100vw - 28px);max-height:calc(100vh - 32px);overflow:auto}
+@media(max-width:720px){
+  .im-overview-actions{width:100%;justify-content:stretch}
+  .im-overview-actions>*{flex:1 1 0;min-width:0}
+  .im-standard-modal{width:100%;max-height:calc(100vh - 24px)}
+}
+@media(max-width:480px){
+  .im-modal-backdrop{padding:10px}
+  .im-standard-modal{max-width:100%;border-radius:14px}
+  .im-modal-actions{display:grid!important;grid-template-columns:1fr 1fr;gap:8px}
+  .im-modal-actions>*{width:100%;min-width:0}
+  .im-overview-actions{display:grid;grid-template-columns:1fr 1fr}
+  .im-overview-actions>*{width:100%}
+}
+@media(max-width:360px){
+  .im-overview-actions{grid-template-columns:1fr}
+  .im-modal-actions{grid-template-columns:1fr}
+}
