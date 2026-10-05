@@ -9,6 +9,10 @@ type Profile={
   posting_times:string[]; caption_mode:string; auto_publish:boolean;
   repeat_when_exhausted:boolean; cover_r2_key?:string|null; fixed_publish_title?:string|null; fixed_publish_description?:string|null; share_to_feed?:boolean; publishing_enabled?:boolean; next_publish_at?:string|null; publish_retry_count?:number;
 };
+type Library={
+  id:string; name:string; description?:string|null; item_count:number;
+  profiles:{profile_id:string;profile_name:string;priority:number;enabled:boolean}[];
+};
 type Item={
   id:string; source_url:string; title:string|null; status:string; created_at:string; published_at?:string|null; share_id?:string|null; shared?:boolean;
   r2_key?:string|null; result_url?:string|null; publish_title?:string|null;
@@ -37,6 +41,11 @@ export default function InfluencerManagerPage(){
  const clearSectionError=(section:string)=>setInlineError(v=>v?.section===section?null:v);
  const feedbackMessage=error||inlineError?.message||"";
  const [shareOpen,setShareOpen]=useState(false);
+ const [libraryOpen,setLibraryOpen]=useState(false);
+ const [libraries,setLibraries]=useState<Library[]>([]);
+ const [libraryName,setLibraryName]=useState("");
+ const [libraryDescription,setLibraryDescription]=useState("");
+ const [librarySaving,setLibrarySaving]=useState(false);
  const coverPreviewUrl=selected?.cover_r2_key ? `/api/influencer/cover?profileId=${encodeURIComponent(selected.id)}&v=${encodeURIComponent(selected.cover_r2_key)}` : "";
 
  async function loadProfiles(){
@@ -58,6 +67,42 @@ export default function InfluencerManagerPage(){
   }catch(e){setError(e instanceof Error?e.message:"Erro ao carregar a biblioteca.");}
  }
  useEffect(()=>{void loadProfiles();},[]);
+ async function loadLibraries(){
+  try{
+   const r=await fetch("/api/influencer/libraries",{cache:"no-store"}),d=await r.json().catch(()=>({}));
+   if(!r.ok)throw new Error(d.error||"Não foi possível carregar as bibliotecas.");
+   setLibraries(d.libraries||[]);
+  }catch(e){setError(e instanceof Error?e.message:"Erro ao carregar as bibliotecas.");}
+ }
+ async function createLibrary(){
+  const name=libraryName.trim();
+  if(!name)return;
+  setLibrarySaving(true);setError("");
+  try{
+   const r=await fetch("/api/influencer/libraries",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"create",name,description:libraryDescription})});
+   const d=await r.json().catch(()=>({}));
+   if(!r.ok)throw new Error(d.error||"Não foi possível criar a biblioteca.");
+   setLibraryName("");setLibraryDescription("");
+   await loadLibraries();
+  }catch(e){setError(e instanceof Error?e.message:"Erro ao criar a biblioteca.");}
+  finally{setLibrarySaving(false);}
+ }
+ async function toggleLibraryLink(library:Library){
+  if(!selected)return;
+  const linked=library.profiles.some(p=>p.profile_id===selected.id&&p.enabled);
+  if(linked && library.profiles.filter(p=>p.enabled).length<=1){
+   if(!window.confirm("Esta é a única biblioteca vinculada a este perfil. Desvincular deixará o perfil sem biblioteca. Continuar?"))return;
+  }
+  setLibrarySaving(true);setError("");
+  try{
+   const r=await fetch("/api/influencer/libraries",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:linked?"unlink":"link",libraryId:library.id,profileId:selected.id})});
+   const d=await r.json().catch(()=>({}));
+   if(!r.ok)throw new Error(d.error||"Não foi possível alterar o vínculo da biblioteca.");
+   await loadLibraries();
+   await loadItems(selected.id);
+  }catch(e){setError(e instanceof Error?e.message:"Erro ao alterar a biblioteca.");}
+  finally{setLibrarySaving(false);}
+ }
  async function disconnectInstagram(){
   if(!selected)return;
   if(!window.confirm(`Desvincular o Instagram ${instagramAccount||"deste perfil"}? A publicação automática deste perfil será interrompida.`))return;
@@ -430,7 +475,7 @@ export default function InfluencerManagerPage(){
         </div>
         <div className="im-library-head-actions">
           <span className="im-count">{items.length}</span>
-          <span className="im-status available">BIBLIOTECA VINCULADA AO PERFIL</span>
+          <button className="im-ghost" type="button" onClick={()=>{setLibraryOpen(true);void loadLibraries();}}>Gerenciar bibliotecas</button>
         </div>
       </div>
       {items.length === 0 ? (
@@ -531,6 +576,19 @@ export default function InfluencerManagerPage(){
 
 
   </section>
+  {libraryOpen&&<div className="im-modal-backdrop" role="dialog" aria-modal="true" aria-label="Gerenciar bibliotecas"><div className="im-modal">
+   <div className="im-card-head"><div><span className="im-kicker">BIBLIOTECAS</span><h2>Bibliotecas de conteúdo</h2><p>Vincule uma ou mais bibliotecas ao perfil <strong>{selected?.name}</strong>. O conteúdo e o status de publicação são independentes por perfil.</p></div><button className="im-ghost" type="button" onClick={()=>setLibraryOpen(false)}>Fechar</button></div>
+   <div className="im-config-section">
+    <div className="im-config-section-head"><div><span className="im-kicker">NOVA BIBLIOTECA</span><h3>Criar biblioteca</h3><p>Uma biblioteca pode ser vinculada a vários perfis.</p></div></div>
+    <div className="im-fixed-copy"><label>Nome<input value={libraryName} onChange={e=>setLibraryName(e.target.value)} placeholder="Ex.: Memes, Futebol, Cortes" maxLength={80}/></label><label>Descrição<input value={libraryDescription} onChange={e=>setLibraryDescription(e.target.value)} placeholder="Opcional" maxLength={500}/></label></div>
+    <button className="im-primary" type="button" disabled={librarySaving||!libraryName.trim()} onClick={()=>void createLibrary()}>{librarySaving?"Salvando…":"Criar biblioteca"}</button>
+   </div>
+   <div className="im-config-section">
+    <div className="im-config-section-head"><div><span className="im-kicker">BIBLIOTECAS EXISTENTES</span><h3>Vínculos do perfil</h3><p>Ative ou desative o acesso do perfil a cada biblioteca.</p></div></div>
+    {libraries.length===0?<div className="im-empty">Nenhuma biblioteca cadastrada.</div>:<div className="im-profile-modal-list">{libraries.map(library=>{const linked=library.profiles.some(p=>p.profile_id===selected?.id&&p.enabled);return <div key={library.id} className="im-profile"><span className="im-avatar">{library.name.slice(0,1).toUpperCase()}</span><span><strong>{library.name}</strong><small>{library.item_count} {library.item_count===1?"vídeo":"vídeos"} · {library.profiles.filter(p=>p.enabled).length} {library.profiles.filter(p=>p.enabled).length===1?"perfil":"perfis"}</small></span><button className={linked?"im-ghost im-danger":"im-primary"} type="button" disabled={librarySaving} onClick={()=>void toggleLibraryLink(library)}>{linked?"Desvincular":"Vincular"}</button></div>})}</div>}
+   </div>
+   <div className="im-modal-actions"><button className="im-ghost" type="button" onClick={()=>{setLibraryOpen(false);if(selected)void loadItems(selected.id);}}>Concluir</button></div>
+  </div></div>}
   {showProfiles&&<div className="im-modal-backdrop im-profiles-modal" role="dialog" aria-modal="true" aria-label="Seus perfis"><div className="im-modal im-profiles-modal-card"><div className="im-card-head"><div><span className="im-kicker">SEUS PERFIS</span><h2>Escolha um perfil</h2><p>Selecione o perfil que você quer gerenciar.</p></div><button className="im-ghost" onClick={()=>setShowProfiles(false)}>Fechar</button></div>{loading?<div className="im-empty">Carregando…</div>:profiles.length===0?<div className="im-empty">Crie seu primeiro perfil para começar.</div>:<div className="im-profile-modal-list">{profiles.map(p=><button key={p.id} className={"im-profile "+(selected?.id===p.id?"active":"")} onClick={()=>{setSelected(p);setShowProfiles(false)}}><span className="im-avatar">{p.name.slice(0,1).toUpperCase()}</span><span><strong>{p.name}</strong><small>{p.instagram_username?"@"+p.instagram_username:"Instagram não conectado"}</small></span><b>{p.posts_per_day}/dia</b></button>)}</div>}<button className="im-primary im-modal-new-profile" onClick={()=>{setShowProfiles(false);setShowNew(true)}}>+ Novo perfil</button></div></div>}
  </main>);
 }
