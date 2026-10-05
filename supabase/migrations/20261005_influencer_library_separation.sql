@@ -110,3 +110,84 @@ for each row execute function public.set_influencer_updated_at();
 -- where table_schema = 'public'
 --   and table_name = 'influencer_content_items'
 --   and column_name = 'library_id';
+
+
+-- Per-profile publication state for library content.
+-- This is required because one library item may be published by multiple
+-- profiles independently. The old influencer_content_items.status is global
+-- to the video and cannot represent that safely.
+create table if not exists public.influencer_profile_content (
+  id uuid primary key default gen_random_uuid(),
+  profile_id uuid not null references public.influencer_profiles(id) on delete cascade,
+  item_id uuid not null references public.influencer_content_items(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  status text not null default 'available',
+  scheduled_at timestamptz,
+  published_at timestamptz,
+  error_message text,
+  retry_count integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(profile_id, item_id)
+);
+
+create index if not exists influencer_profile_content_profile_idx
+  on public.influencer_profile_content(profile_id, status, created_at);
+
+create index if not exists influencer_profile_content_item_idx
+  on public.influencer_profile_content(item_id, status);
+
+create index if not exists influencer_profile_content_user_idx
+  on public.influencer_profile_content(user_id);
+
+alter table public.influencer_profile_content enable row level security;
+
+drop policy if exists influencer_profile_content_owner
+  on public.influencer_profile_content;
+
+create policy influencer_profile_content_owner
+  on public.influencer_profile_content
+  for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+drop trigger if exists influencer_profile_content_updated_at
+  on public.influencer_profile_content;
+
+create trigger influencer_profile_content_updated_at
+before update on public.influencer_profile_content
+for each row execute function public.set_influencer_updated_at();
+
+
+-- Seed publication state for the content already assigned to each profile.
+-- This does not change the current content status or publishing history.
+insert into public.influencer_profile_content (
+  profile_id,
+  item_id,
+  user_id,
+  status,
+  scheduled_at,
+  published_at,
+  error_message,
+  retry_count,
+  created_at,
+  updated_at
+)
+select
+  i.profile_id,
+  i.id,
+  i.user_id,
+  case
+    when i.status in ('processing','queued','available','scheduled','published','failed')
+      then i.status
+    else 'available'
+  end,
+  i.scheduled_at,
+  i.published_at,
+  i.error_message,
+  coalesce(i.retry_count, 0),
+  coalesce(i.created_at, now()),
+  now()
+from public.influencer_content_items i
+where i.profile_id is not null
+on conflict (profile_id, item_id) do nothing;
