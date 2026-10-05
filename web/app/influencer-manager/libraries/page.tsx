@@ -17,7 +17,7 @@ export default function InfluencerLibrariesPage(){
   const [name,setName]=useState(""),[description,setDescription]=useState("");
   const [url,setUrl]=useState(""),[videoTitle,setVideoTitle]=useState(""),[adding,setAdding]=useState(false);
   const [editing,setEditing]=useState<string|null>(null),[titleDraft,setTitleDraft]=useState("");
-  const [showNewLibrary,setShowNewLibrary]=useState(false),[showLibraries,setShowLibraries]=useState(false);
+  const [showNewLibrary,setShowNewLibrary]=useState(false),[showLibraries,setShowLibraries]=useState(false),[showEditLibrary,setShowEditLibrary]=useState(false),[editLibraryName,setEditLibraryName]=useState(""),[editLibraryDescription,setEditLibraryDescription]=useState("");
 
   const selected=useMemo(()=>libraries.find(l=>l.id===selectedId)||null,[libraries,selectedId]);
   const linkedProfileId=selected?.profiles.find(p=>p.enabled)?.profile_id||"";
@@ -57,6 +57,27 @@ export default function InfluencerLibrariesPage(){
       setName("");setDescription("");setShowNewLibrary(false);setShowLibraries(false);await loadLibraries(d.library?.id);
     }catch(e){setError(e instanceof Error?e.message:"Erro ao criar a biblioteca.");}finally{setBusy(false);}
   }
+  async function saveLibrary(e:FormEvent){
+    e.preventDefault();if(!selected||!editLibraryName.trim())return;setBusy(true);setError("");
+    try{
+      const r=await fetch("/api/influencer/libraries",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:selected.id,name:editLibraryName.trim(),description:editLibraryDescription.trim()})});
+      const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível editar a biblioteca.");
+      setShowEditLibrary(false);await loadLibraries(selected.id);
+    }catch(e){setError(e instanceof Error?e.message:"Erro ao editar a biblioteca.");}finally{setBusy(false);}
+  }
+  async function deleteLibrary(){
+    if(!selected)return;
+    const count=selected.item_count||0;
+    const warning=count ? "Excluir a biblioteca \"" + selected.name + "\" também excluirá " + count + " " + (count===1?"vídeo":"vídeos") + " dela. Essa ação não pode ser desfeita." : "Excluir a biblioteca \"" + selected.name + "\"? Essa ação não pode ser desfeita.";
+    if(!window.confirm(warning))return;
+    setBusy(true);setError("");
+    try{
+      const r=await fetch("/api/influencer/libraries?id="+encodeURIComponent(selected.id),{method:"DELETE"});const d=await r.json().catch(()=>({}));
+      if(!r.ok)throw new Error(d.error||"Não foi possível excluir a biblioteca.");
+      await loadLibraries();
+    }catch(e){setError(e instanceof Error?e.message:"Erro ao excluir a biblioteca.");}finally{setBusy(false);}
+  }
+
   async function addVideo(e:FormEvent){
     e.preventDefault();if(!selected||!linkedProfileId||!url.trim())return;setAdding(true);setError("");
     try{
