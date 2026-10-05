@@ -12,12 +12,17 @@ type Library={
   id:string; name:string; description?:string|null; item_count:number;
   profiles:{profile_id:string;profile_name:string;priority:number;enabled:boolean}[];
 };
+type Item={
+  id:string; source_url:string; title:string|null; status:string; created_at:string;
+  published_at?:string|null; result_url?:string|null; error_message?:string|null;
+};
 
 const DEFAULT_TIMES=["09:00","11:30","14:00","16:30","19:00","21:30","23:00","08:00","12:00"];
 
 export default function InfluencerManagerPage(){
   const [profiles,setProfiles]=useState<Profile[]>([]);
   const [selected,setSelected]=useState<Profile|null>(null);
+  const [items,setItems]=useState<Item[]>([]);
   const [libraries,setLibraries]=useState<Library[]>([]);
   const [loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[error,setError]=useState("");
   const [showProfiles,setShowProfiles]=useState(false),[showNew,setShowNew]=useState(false),[showEditProfile,setShowEditProfile]=useState(false),[showDeleteProfile,setShowDeleteProfile]=useState(false);
@@ -39,6 +44,12 @@ export default function InfluencerManagerPage(){
   async function loadLibraries(){
     try{const r=await fetch("/api/influencer/libraries",{cache:"no-store"}),d=await r.json().catch(()=>({}));if(r.ok)setLibraries(d.libraries||[]);}catch{}
   }
+  async function loadItems(profileId:string){
+    try{
+      const r=await fetch("/api/influencer/content?profileId="+encodeURIComponent(profileId),{cache:"no-store"}),d=await r.json().catch(()=>({}));
+      if(r.ok)setItems(d.items||[]);
+    }catch{}
+  }
   async function loadInstagram(profileId:string){
     try{
       const r=await fetch("/api/influencer/instagram/status?profileId="+encodeURIComponent(profileId),{cache:"no-store"}),d=await r.json().catch(()=>({}));
@@ -56,7 +67,7 @@ export default function InfluencerManagerPage(){
       fixed_publish_title:selected.fixed_publish_title||"",fixed_publish_description:selected.fixed_publish_description||"",
       share_to_feed:selected.share_to_feed!==false
     });
-    setCoverFile(null);setCoverPreview("");void loadInstagram(selected.id);void loadLibraries();
+    setCoverFile(null);setCoverPreview("");void loadInstagram(selected.id);void loadLibraries();void loadItems(selected.id);
   },[selected?.id,selected?.cover_r2_key]);
 
   async function createProfile(e:FormEvent){
@@ -153,6 +164,28 @@ export default function InfluencerManagerPage(){
   const linked=libraries.filter(l=>l.profiles.some(p=>p.profile_id===selected?.id&&p.enabled));
   const expiresSoon=Boolean(instagramExpiresAt&&new Date(instagramExpiresAt).getTime()-Date.now()<7*24*60*60*1000);
   const coverUrl=selected?.cover_r2_key?"/api/influencer/cover?profileId="+encodeURIComponent(selected.id)+"&v="+encodeURIComponent(selected.cover_r2_key):"";
+  const published=useMemo(()=>items.filter(i=>i.status==="published").length,[items]);
+  const queuePreview=useMemo(()=>{
+    if(!selected||!selected.publishing_enabled)return [];
+    const times=(draft.posting_times||[]).filter(v=>/^([01]\d|2[0-3]):[0-5]\d$/.test(v)).sort();
+    if(!times.length)return [];
+    const available=items.filter(i=>i.status==="available").sort((a,b)=>String(a.created_at||"").localeCompare(String(b.created_at||"")));
+    if(!available.length)return [];
+    const anchor=selected.next_publish_at?new Date(selected.next_publish_at):new Date();
+    const out:{time:string;item:Item}[]=[];
+    for(let day=0;day<7&&out.length<available.length;day++){
+      for(const time of times){
+        const [h,m]=time.split(":").map(Number);
+        const d=new Date(anchor);
+        d.setDate(d.getDate()+day); d.setHours(h,m,0,0);
+        if(d.getTime()<anchor.getTime())continue;
+        const item=available[out.length];
+        if(!item)break;
+        out.push({time,item});
+      }
+    }
+    return out;
+  },[items,selected?.id,selected?.publishing_enabled,selected?.next_publish_at,draft.posting_times]);
 
   return <main className="im-page">
     <header className="im-header">
@@ -241,6 +274,25 @@ export default function InfluencerManagerPage(){
                 <label className="im-check im-repeat-toggle"><input type="checkbox" checked={draft.repeat_when_exhausted} onChange={e=>setDraft(v=>({...v,repeat_when_exhausted:e.target.checked}))}/><span>Repetir biblioteca quando acabar</span></label>
               </div>
               <div className="im-profile-save"><button className="im-primary" type="button" disabled={saving} onClick={()=>void saveProfile()}>{saving?"Salvando…":"Salvar alterações do perfil"}</button></div>
+            </div>
+          </div>
+
+          <div className="im-card im-agenda">
+            <div className="im-card-head">
+              <div><span className="im-kicker">AGENDA E HISTÓRICO</span><h2>Publicações</h2><p>Acompanhe a fila e o histórico de publicações automáticas deste perfil.</p></div>
+            </div>
+            <div className="im-agenda-grid">
+              <div className="im-agenda-column">
+                <div className="im-agenda-title"><strong>Próximos horários</strong><span>{queuePreview.length} na fila</span></div>
+                {!selected.publishing_enabled ? <div className="im-agenda-empty"><strong>Publicação automática desativada</strong><span>Ative a publicação automática para visualizar a próxima sequência.</span></div>
+                : queuePreview.length===0 ? <div className="im-agenda-empty"><strong>Nenhum vídeo disponível para a fila</strong><span>{draft.repeat_when_exhausted ? "A biblioteca será repetida quando houver conteúdo publicado." : "Todos os vídeos disponíveis já foram publicados. Ative a repetição da biblioteca para reutilizá-los."}</span></div>
+                : <div className="im-agenda-list">{queuePreview.slice(0,6).map((slot,index)=>{const postNumber=published+index+1;return <div className={"im-agenda-row "+(index===0?"is-next":"")} key={slot.time+"-"+(slot.item?.id||index)}><span>{index===0?"PRÓXIMO #"+postNumber:"#"+postNumber}</span><strong>{slot.time}</strong><small>{slot.item?.title||"Próximo vídeo"}</small></div>})}</div>}
+              </div>
+              <div className="im-agenda-column">
+                <div className="im-agenda-title"><strong>Últimas publicações</strong><span>{published} publicadas</span></div>
+                {published===0 ? <div className="im-agenda-empty">Ainda não há publicações registradas.</div>
+                : <div className="im-agenda-list">{items.filter(i=>i.status==="published").sort((a,b)=>String(b.published_at||b.created_at).localeCompare(String(a.published_at||a.created_at))).slice(0,6).map(item=><div className="im-agenda-row" key={"history-"+item.id}><span>PUBLICADO</span><strong>{item.published_at?new Intl.DateTimeFormat("pt-BR",{dateStyle:"short",timeStyle:"short",timeZone:"America/Cuiaba"}).format(new Date(item.published_at)):"—"}</strong><small>{item.title||"Vídeo sem título"}</small></div>)}</div>}
+              </div>
             </div>
           </div>
 
