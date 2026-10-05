@@ -224,10 +224,9 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
   try {
     const fixedTitle = String(profile.fixed_publish_title || "").trim();
     const fixedDescription = String(profile.fixed_publish_description || "").trim();
-    const sharedCopy = shareId ? destinationCopy(String((profile as any).caption_mode || "zh_ja_random"), String(item.id)) : null;
     const captionParts = [
-      fixedTitle || sharedCopy?.title || String(item.publish_title || "").trim(),
-      fixedDescription || sharedCopy?.description || String(item.publish_description || "").trim()
+      fixedTitle || String(item.publish_title || "").trim(),
+      fixedDescription || String(item.publish_description || "").trim()
     ].filter(Boolean);
     const caption = captionParts.join("\n\n") || "✨";
     let coverUrl = "";
