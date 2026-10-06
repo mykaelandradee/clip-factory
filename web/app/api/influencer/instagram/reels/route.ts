@@ -143,7 +143,7 @@ export async function GET(request: Request) {
     const normalizedUrls = urls.map((value: string) => {
       try {
         const url = new URL(value);
-        return `instagram:${url.pathname.replace(/\\/+$/, "").toLowerCase()}`;
+        return `instagram:${url.pathname.replace(/\/+$/, "").toLowerCase()}`;
       } catch {
         return "";
       }
@@ -164,7 +164,7 @@ export async function GET(request: Request) {
       (existing || []).map((item: any) => {
         try {
           const url = new URL(item.source_url);
-          return `instagram:${url.pathname.replace(/\\/+$/, "").toLowerCase()}`;
+          return `instagram:${url.pathname.replace(/\/+$/, "").toLowerCase()}`;
         } catch {
           return "";
         }
@@ -174,7 +174,7 @@ export async function GET(request: Request) {
     const normalized = reels.map((item: any) => ({
       ...item,
       duplicate: existingKeys.has(
-        `instagram:${new URL(item.url).pathname.replace(/\\/+$/, "").toLowerCase()}`
+        `instagram:${new URL(item.url).pathname.replace(/\/+$/, "").toLowerCase()}`
       ),
     }));
 
