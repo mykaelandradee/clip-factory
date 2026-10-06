@@ -100,6 +100,36 @@ export async function GET(request:Request) {
   if(itemError) return NextResponse.json({error:"Não foi possível carregar a biblioteca."},{status:500});
 
   const itemIds=(items||[]).map((item:any)=>item.id);
+
+  // Reconcilia vídeos já processados que tenham ficado fora da fila do perfil.
+  // Isso também corrige itens concluídos antes da implantação do sincronizador.
+  if(itemIds.length){
+    const availableIds=(items||[]).filter((item:any)=>item.status==="available").map((item:any)=>item.id);
+    if(availableIds.length){
+      const {data:existingQueue,error:queueLookupError}=await admin.from("influencer_profile_content")
+        .select("item_id,status").eq("profile_id",profileId).eq("user_id",user.id).in("item_id",availableIds);
+      if(queueLookupError){
+        console.error("Não foi possível reconciliar a fila do perfil:",queueLookupError);
+      }else{
+        const queueByItem=new Map((existingQueue||[]).map((row:any)=>[row.item_id,row]));
+        const missing=availableIds.filter((id:string)=>!queueByItem.has(id)).map((id:string)=>({
+          profile_id:profileId,item_id:id,user_id:user.id,status:"available",retry_count:0
+        }));
+        if(missing.length){
+          const {error:insertError}=await admin.from("influencer_profile_content").insert(missing);
+          if(insertError) console.error("Não foi possível inserir vídeos disponíveis na fila:",insertError);
+        }
+        const stale=availableIds.filter((id:string)=>["queued","processing"].includes(queueByItem.get(id)?.status||""));
+        if(stale.length){
+          const {error:updateError}=await admin.from("influencer_profile_content")
+            .update({status:"available",scheduled_at:null,error_message:null,updated_at:new Date().toISOString()})
+            .eq("profile_id",profileId).eq("user_id",user.id).in("item_id",stale);
+          if(updateError) console.error("Não foi possível liberar vídeos disponíveis na fila:",updateError);
+        }
+      }
+    }
+  }
+
   const {data:states}=itemIds.length
     ? await admin.from("influencer_profile_content")
       .select("item_id,status,scheduled_at,published_at,error_message,retry_count")
