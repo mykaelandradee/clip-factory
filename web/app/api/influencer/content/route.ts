@@ -377,6 +377,7 @@ export async function DELETE(request:Request) {
       .delete().eq("profile_id",profileId).eq("item_id",id).eq("user_id",user.id);
     if(error) return NextResponse.json({error:"Não foi possível remover o vídeo deste perfil."},{status:500});
     return NextResponse.json({ok:true,removedFromProfile:true});
+    }
   }
 
   if(item.status==="processing"&&item.worker_run_id){
