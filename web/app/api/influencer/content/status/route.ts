@@ -35,12 +35,35 @@ async function fetchSourceMetadata(sourceUrl:string):Promise<{title:string|null,
   }catch{return {title:null,description:null}}
 }
 
+async function syncLinkedProfileQueue(admin:any,userId:string,item:any){
+  if(!item.library_id || item.status!=="available") return;
+  const {data:links,error:linksError}=await admin.from("influencer_profile_libraries")
+    .select("profile_id").eq("library_id",item.library_id).eq("user_id",userId).eq("enabled",true);
+  if(linksError){console.error("Não foi possível localizar perfis vinculados ao sincronizar o vídeo:",linksError);return;}
+  for(const link of links||[]){
+    const {data:existingState,error:stateLookupError}=await admin.from("influencer_profile_content")
+      .select("id,status").eq("profile_id",link.profile_id).eq("item_id",item.id).eq("user_id",userId).maybeSingle();
+    if(stateLookupError){console.error("Não foi possível consultar o estado do vídeo na fila:",stateLookupError);continue;}
+    if(!existingState){
+      const {error:insertError}=await admin.from("influencer_profile_content").insert({
+        profile_id:link.profile_id,item_id:item.id,user_id:userId,status:"available",retry_count:0
+      });
+      if(insertError) console.error("Não foi possível inserir o vídeo na fila do perfil:",insertError);
+    }else if(["queued","processing"].includes(existingState.status)){
+      const {error:updateError}=await admin.from("influencer_profile_content")
+        .update({status:"available",scheduled_at:null,error_message:null,updated_at:new Date().toISOString()})
+        .eq("id",existingState.id).eq("user_id",userId);
+      if(updateError) console.error("Não foi possível liberar o vídeo na fila do perfil:",updateError);
+    }
+  }
+}
+
 export async function GET(request:Request){
  const supabase=await createClient();const {data:{user}}=await supabase.auth.getUser();if(!user)return NextResponse.json({error:"Entre no Clip Factory."},{status:401});
  const id=new URL(request.url).searchParams.get("id")||"";if(!/^[0-9a-f-]{36}$/i.test(id))return NextResponse.json({error:"Conteúdo inválido."},{status:400});
  const admin=createAdminClient();const {data:item,error}=await admin.from("influencer_content_items").select("*").eq("id",id).eq("user_id",user.id).maybeSingle();
  if(error||!item)return NextResponse.json({error:"Conteúdo não encontrado."},{status:404});
- if(item.status!=="processing")return NextResponse.json({item},{headers:{"Cache-Control":"no-store"}});
+ if(item.status!=="processing"){if(item.status==="available")await syncLinkedProfileQueue(admin,user.id,item);return NextResponse.json({item},{headers:{"Cache-Control":"no-store"}});}
  try{
   const response=await fetch(`${GITHUB_API}/repos/${OWNER}/${REPO}/actions/workflows/${WORKFLOW}/runs?event=repository_dispatch&per_page=30`,{headers:headers(),cache:"no-store"});
   if(!response.ok)throw new Error("Não foi possível consultar o Influencer Manager Worker.");
@@ -67,33 +90,8 @@ export async function GET(request:Request){
     const updated={status:"available",progress:100,stage:"ready",r2_key:`influencer/${user.id}/${item.profile_id}/${item.id}/video.mp4`,result_url:resultUrl,title:sourceTitle,source_description:sourceDescription,duration_seconds:item.duration_seconds||null,error_message:null,updated_at:new Date().toISOString()};
     const {data:done}=await admin.from("influencer_content_items").update(updated).eq("id",id).eq("user_id",user.id).select("*").single();
 
-    // Ao concluir o processamento, inserir o vídeo na fila independente de cada
-    // perfil que esteja vinculado à biblioteca. O vínculo pode existir desde
-    // antes do vídeo ficar disponível, então não basta preparar a fila ao vincular.
-    if(item.library_id){
-      const {data:links,error:linksError}=await admin.from("influencer_profile_libraries")
-        .select("profile_id").eq("library_id",item.library_id).eq("user_id",user.id).eq("enabled",true);
-      if(linksError) console.error("Não foi possível localizar perfis vinculados ao concluir o vídeo:",linksError);
-      for(const link of links||[]){
-        const {data:existingState,error:stateLookupError}=await admin.from("influencer_profile_content")
-          .select("id,status").eq("profile_id",link.profile_id).eq("item_id",id).eq("user_id",user.id).maybeSingle();
-        if(stateLookupError){
-          console.error("Não foi possível consultar o estado do vídeo na fila:",stateLookupError);
-          continue;
-        }
-        if(!existingState){
-          const {error:insertError}=await admin.from("influencer_profile_content").insert({
-            profile_id:link.profile_id,item_id:id,user_id:user.id,status:"available",retry_count:0
-          });
-          if(insertError) console.error("Não foi possível inserir o vídeo na fila do perfil:",insertError);
-        }else if(["queued","processing"].includes(existingState.status)){
-          const {error:updateError}=await admin.from("influencer_profile_content")
-            .update({status:"available",scheduled_at:null,error_message:null,updated_at:new Date().toISOString()})
-            .eq("id",existingState.id).eq("user_id",user.id);
-          if(updateError) console.error("Não foi possível liberar o vídeo na fila do perfil:",updateError);
-        }
-      }
-    }
+    // Sincroniza também os perfis vinculados à biblioteca; a operação é idempotente.
+    await syncLinkedProfileQueue(admin,user.id,{...item,...updated,status:"available"});
 
     await admin.from("influencer_content_shares")
       .update({status:"available",error_message:null,updated_at:new Date().toISOString()})
