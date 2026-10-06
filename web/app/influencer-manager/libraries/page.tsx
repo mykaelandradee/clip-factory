@@ -195,10 +195,10 @@ export default function InfluencerLibrariesPage(){
             const publication=(showPublishVideo.profile_publications||[]).find(pub=>pub.profile_id===p.profile_id);
             const published=publication?.status==="published";
             const scheduled=publication?.status==="scheduled";
-            const disabled=published||scheduled;
+            const disabled=scheduled;
             return <button key={p.profile_id} type="button" className={"im-publish-profile-option "+(publishProfileId===p.profile_id?"selected ":"")+(disabled?"disabled":"")} disabled={disabled||publishingItem} onClick={()=>setPublishProfileId(p.profile_id)}>
               <span className="im-publish-profile-radio">{publishProfileId===p.profile_id&&!disabled?"✓":""}</span>
-              <span className="im-publish-profile-copy"><strong>{p.profile_name}</strong><small>{published?"Já publicado":scheduled?"Já está agendado":"Disponível para publicação"}</small></span>
+              <span className="im-publish-profile-copy"><strong>{p.profile_name}</strong><small>{published?"Já publicado · disponível para nova publicação":scheduled?"Já está agendado":"Disponível para publicação"}</small></span>
             </button>;
           })}
         </div>
