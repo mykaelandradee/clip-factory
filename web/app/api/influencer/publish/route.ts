@@ -245,13 +245,20 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
   }
 
   const originalStatus=profileContent?.status || "available";
+  const isExistingReservation = originalStatus === "scheduled";
   const claimTime=new Date().toISOString();
-  const claimableStatuses = repeatWhenExhausted && originalStatus === "published" ? ["published"] : ["available"];
-  const {data:claimed}=await admin.from("influencer_profile_content")
-    .update({status:"scheduled",scheduled_at:claimTime,error_message:null,updated_at:claimTime})
-    .eq("id",profileContent.id).eq("user_id",userId).in("status",claimableStatuses)
-    .select("id").maybeSingle();
-  if(!claimed) return {status:"busy",itemId:item.id,error:"Este Reel já está em processamento ou foi publicado por outro processo."};
+
+  // Uma reserva "scheduled" já foi criada por outro ciclo do scheduler.
+  // Nesse caso, não tentamos reivindicá-la novamente: devemos retomar exatamente
+  // o mesmo Reel. Para estados novos, mantemos a proteção atômica contra concorrência.
+  if(!isExistingReservation){
+    const claimableStatuses = repeatWhenExhausted && originalStatus === "published" ? ["published"] : ["available"];
+    const {data:claimed}=await admin.from("influencer_profile_content")
+      .update({status:"scheduled",scheduled_at:claimTime,error_message:null,updated_at:claimTime})
+      .eq("id",profileContent.id).eq("user_id",userId).in("status",claimableStatuses)
+      .select("id").maybeSingle();
+    if(!claimed) return {status:"busy",itemId:item.id,error:"Este Reel já está em processamento ou foi publicado por outro processo."};
+  }
 
   try {
     const fixedTitle = String(profile.fixed_publish_title || "").trim();
