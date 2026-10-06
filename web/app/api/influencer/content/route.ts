@@ -91,6 +91,10 @@ export async function GET(request:Request) {
       .select("id").eq("id",libraryId).eq("user_id",user.id).maybeSingle();
     if(libraryError) return NextResponse.json({error:"Não foi possível carregar a biblioteca."},{status:500});
     if(!library) return NextResponse.json({error:"Biblioteca não encontrada."},{status:404});
+    const {data:libraryLinks,error:libraryLinksError}=await admin.from("influencer_profile_libraries")
+      .select("profile_id,priority,enabled").eq("library_id",libraryId).eq("user_id",user.id);
+    if(libraryLinksError) return NextResponse.json({error:"Não foi possível carregar os perfis vinculados à biblioteca."},{status:500});
+    links=libraryLinks||[];
     libraryIds=[libraryId];
   }else{
     if(!profileId) return NextResponse.json({error:"Perfil inválido."},{status:400});
@@ -149,12 +153,28 @@ export async function GET(request:Request) {
 
   }
 
-  const {data:states}=itemIds.length
-    ? await admin.from("influencer_profile_content")
-      .select("id,item_id,status,scheduled_at,published_at,error_message,retry_count")
-      .eq("profile_id",profileId).eq("user_id",user.id).in("item_id",itemIds)
+  let states:any[]=[];
+  if(itemIds.length){
+    if(profileId){
+      const {data:profileStates}=await admin.from("influencer_profile_content")
+        .select("id,item_id,status,scheduled_at,published_at,error_message,retry_count")
+        .eq("profile_id",profileId).eq("user_id",user.id).in("item_id",itemIds);
+      states=profileStates||[];
+    }else if(libraryId && links.length){
+      const linkedIds=links.map((row:any)=>row.profile_id).filter(Boolean);
+      const {data:libraryStates}=await admin.from("influencer_profile_content")
+        .select("id,item_id,profile_id,status,scheduled_at,published_at,error_message,retry_count")
+        .eq("user_id",user.id).in("profile_id",linkedIds).in("item_id",itemIds);
+      states=libraryStates||[];
+    }
+  }
+  const stateByItem=new Map((states||[]).filter((row:any)=>!row.profile_id || row.profile_id===profileId).map((row:any)=>[row.item_id,row]));
+  
+  const linkedProfileIds=Array.from(new Set((links||[]).map((row:any)=>row.profile_id).filter(Boolean)));
+  const {data:linkedProfiles}=linkedProfileIds.length
+    ? await admin.from("influencer_profiles").select("id,name").in("id",linkedProfileIds).eq("user_id",user.id)
     : {data:[]};
-  const stateByItem=new Map((states||[]).map((row:any)=>[row.item_id,row]));
+  const linkedProfileNames=new Map((linkedProfiles||[]).map((p:any)=>[p.id,p.name]));
 
   // Não deixar um vídeo recém-adicionado aparecer como repetição de um antigo
   // por causa de um estado de publicação impossível (publicado antes de criado).
@@ -181,8 +201,20 @@ export async function GET(request:Request) {
   const normalized=(items||[]).map((item:any)=>{
     const state=stateByItem.get(item.id);
     const shared=Boolean(profileId) && item.profile_id!==profileId;
+    const itemStates=(states||[]).filter((row:any)=>row.item_id===item.id);
+    const profilePublications=linkedProfileIds.map((linkedId:string)=>{
+      const row=itemStates.find((stateRow:any)=>stateRow.profile_id===linkedId);
+      return {
+        profile_id:linkedId,
+        profile_name:linkedProfileNames.get(linkedId)||"Perfil",
+        status:row?.status||"available",
+        published_at:row?.published_at||null,
+        scheduled_at:row?.scheduled_at||null
+      };
+    });
     return {
       ...item,
+      profile_publications:profilePublications,
       profile_id:profileId || item.profile_id,
       source_profile_id:item.profile_id,
       source_profile_name:shared ? (sourceNames.get(item.profile_id)||"Outro perfil") : undefined,
