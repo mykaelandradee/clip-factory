@@ -135,10 +135,9 @@ export default function InfluencerLibrariesPage(){
   }
 
   function openPublish(item:Item){
-    const publishedIds=new Set((item.profile_publications||[]).filter(p=>p.status==="published").map(p=>p.profile_id));
-    const availableProfiles=(selected?.profiles||[]).filter(p=>p.enabled&&!publishedIds.has(p.profile_id));
+    const availableProfiles=(selected?.profiles||[]).filter(p=>p.enabled);
     if(!availableProfiles.length){
-      showError("Este vídeo já foi publicado por todos os perfis ativos vinculados a esta biblioteca.","Vídeo já publicado");
+      showError("Esta biblioteca não possui perfis ativos vinculados para publicação.","Nenhum perfil disponível");
       return;
     }
     setPublishProfileId(availableProfiles.length===1?availableProfiles[0].profile_id:"");
