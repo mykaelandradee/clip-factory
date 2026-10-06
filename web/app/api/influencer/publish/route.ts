@@ -102,7 +102,7 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
   if(!libraryIds.length) return {status:"empty"};
 
   const {data:libraryItems}=await admin.from("influencer_content_items")
-    .select("id,profile_id,user_id,r2_key,publish_title,publish_description,status,scheduled_at,retry_count,created_at,published_at")
+    .select("id,user_id,r2_key,publish_title,publish_description,status,scheduled_at,retry_count,created_at,published_at")
     .in("library_id",libraryIds).eq("user_id",userId)
     .in("status",["available","published"])
     .order("created_at",{ascending:true});
