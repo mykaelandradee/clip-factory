@@ -163,7 +163,7 @@ async function fetchProfile(username: string) {
     if (readerResponse.ok) {
       const text = await readerResponse.text();
       const matches = Array.from(
-        text.matchAll(/https?:\\/\\/www\\.instagram\\.com\\/(?:reel|p)\\/([A-Za-z0-9_-]+)\\/?/gi)
+        text.matchAll(/https?:\/\/www\.instagram\.com\/(?:reel|p)\/([A-Za-z0-9_-]+)\/?/gi)
       );
       const seen = new Set<string>();
       const feedItems = matches
