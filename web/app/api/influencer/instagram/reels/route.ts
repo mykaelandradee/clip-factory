@@ -149,13 +149,16 @@ export async function GET(request: Request) {
       }
     }).filter(Boolean);
 
-    const { data: existing } = normalizedUrls.length
-      ? await admin
-          .from("influencer_content_items")
-          .select("source_url")
-          .eq("user_id", user.id)
-          .eq("source_type", "instagram")
-      : { data: [] };
+    const libraryId = new URL(request.url).searchParams.get("libraryId") || "";
+    let existing: any[] = [];
+    if (libraryId && normalizedUrls.length) {
+      const { data } = await admin
+        .from("influencer_content_items")
+        .select("source_url")
+        .eq("user_id", user.id)
+        .eq("library_id", libraryId);
+      existing = data || [];
+    }
 
     const existingKeys = new Set(
       (existing || []).map((item: any) => {
