@@ -164,6 +164,38 @@ export async function POST(request: Request) {
     return NextResponse.json({ library: data }, { status: 201 });
   }
 
+  if (action === "cleanup-orphaned-states") {
+    const [{ data: states }, { data: items }, { data: profiles }, { data: links }] = await Promise.all([
+      admin.from("influencer_profile_content").select("id,profile_id,item_id").eq("user_id", user.id),
+      admin.from("influencer_content_items").select("id,library_id").eq("user_id", user.id),
+      admin.from("influencer_profiles").select("id").eq("user_id", user.id),
+      admin.from("influencer_profile_libraries").select("profile_id,library_id").eq("user_id", user.id)
+    ]);
+
+    const itemById = new Map((items || []).map((item: any) => [item.id, item]));
+    const profileIds = new Set((profiles || []).map((profile: any) => profile.id));
+    const linkedPairs = new Set((links || []).map((link: any) => link.profile_id + ":" + link.library_id));
+
+    const orphanIds = (states || [])
+      .filter((state: any) => {
+        const item = itemById.get(state.item_id);
+        if (!item || !profileIds.has(state.profile_id)) return true;
+        return !linkedPairs.has(state.profile_id + ":" + item.library_id);
+      })
+      .map((state: any) => state.id);
+
+    if (orphanIds.length) {
+      const { error: cleanupError } = await admin.from("influencer_profile_content")
+        .delete().eq("user_id", user.id).in("id", orphanIds);
+      if (cleanupError) {
+        console.error("Influencer orphaned queue cleanup failed:", cleanupError);
+        return NextResponse.json({ error: "Não foi possível limpar os estados órfãos da fila." }, { status: 500 });
+      }
+    }
+
+    return NextResponse.json({ ok: true, removed: orphanIds.length });
+  }
+
   if (action === "link" || action === "unlink") {
     const libraryId = typeof body?.libraryId === "string" ? body.libraryId : "";
     const profileId = typeof body?.profileId === "string" ? body.profileId : "";
