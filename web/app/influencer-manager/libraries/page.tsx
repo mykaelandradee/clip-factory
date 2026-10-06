@@ -305,12 +305,12 @@ export default function InfluencerLibrariesPage(){
               </div>
               <div className="im-item-actions">
                 <div className="im-video-status-row">
-                  {false&&<span className={"im-status "+item.status}>{STATUS[item.status]||item.status}</span>}
+                  <span className={"im-status "+item.status}>{STATUS[item.status]||item.status}</span>
                   {(item.profile_publications||[]).filter(p=>p.status==="published").length>0&&<span className="im-publication-count">{(item.profile_publications||[]).filter(p=>p.status==="published").length} {(item.profile_publications||[]).filter(p=>p.status==="published").length===1?"perfil":"perfis"} publicados</span>}
                 </div>
                 <div className="im-item-action-buttons">
                   {item.result_url&&<a className="im-ghost" href={item.result_url} target="_blank" rel="noreferrer">Abrir vídeo</a>}
-                  {(()=>{const activeProfiles=(selected?.profiles||[]).filter(p=>p.enabled);const publishedIds=new Set((item.profile_publications||[]).filter(p=>p.status==="published").map(p=>p.profile_id));const fullyPublished=activeProfiles.length>0&&activeProfiles.every(p=>publishedIds.has(p.profile_id));return <><span className={"im-status "+(fullyPublished?"published":item.status)}>{fullyPublished?"Publicado":(STATUS[item.status]||item.status)}</span><button className="im-primary" disabled={busy||publishingItem||item.status!=="available"} onClick={()=>openPublish(item)}>{publishedIds.size>0?"Publicar em outro perfil":"Publicar Reel"}</button></>})()}
+                  {(()=>{const activeProfiles=(selected?.profiles||[]).filter(p=>p.enabled);const publishedIds=new Set((item.profile_publications||[]).filter(p=>p.status==="published").map(p=>p.profile_id));const fullyPublished=activeProfiles.length>0&&activeProfiles.every(p=>publishedIds.has(p.profile_id));return <><span className={"im-status "+(fullyPublished?"published":item.status)}>{fullyPublished?"Publicado":(STATUS[item.status]||item.status)}</span><button className="im-primary" disabled={busy||publishingItem} onClick={()=>openPublish(item)}>{publishedIds.size>0?"Publicar em outro perfil":"Publicar Reel"}</button></>})()}
                   {editing===item.id?<><input className="im-form-select" value={titleDraft} onChange={e=>setTitleDraft(e.target.value)} /><button className="im-primary" disabled={busy} onClick={()=>void rename(item.id)}>Salvar</button><button className="im-ghost" onClick={()=>setEditing(null)}>Cancelar</button></>:<button className="im-ghost" onClick={()=>{setEditing(item.id);setTitleDraft(item.title||"")}}>Renomear</button>}
                   <button className="im-ghost im-delete-item" disabled={busy||publishingItem} onClick={()=>void remove(item)}>Excluir vídeo</button>
                 </div>
