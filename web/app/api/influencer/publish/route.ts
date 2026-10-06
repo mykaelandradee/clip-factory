@@ -252,7 +252,7 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
   // Nesse caso, não tentamos reivindicá-la novamente: devemos retomar exatamente
   // o mesmo Reel. Para estados novos, mantemos a proteção atômica contra concorrência.
   if(!isExistingReservation){
-    const claimableStatuses = repeatWhenExhausted && originalStatus === "published" ? ["published"] : ["available"];
+    const claimableStatuses = (itemId && originalStatus === "published") || (repeatWhenExhausted && originalStatus === "published") ? ["published"] : ["available"];
     const {data:claimed}=await admin.from("influencer_profile_content")
       .update({status:"scheduled",scheduled_at:claimTime,error_message:null,updated_at:claimTime})
       .eq("id",profileContent.id).eq("user_id",userId).in("status",claimableStatuses)
