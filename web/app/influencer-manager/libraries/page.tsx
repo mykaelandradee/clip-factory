@@ -50,6 +50,35 @@ export default function InfluencerLibrariesPage(){
   useEffect(()=>{void Promise.all([loadLibraries(),loadProfiles()]);},[]);
   useEffect(()=>{if(selectedId)void loadItems(selectedId);},[selectedId,libraries,profiles]);
 
+  // A conclusão do worker é reconciliada pela rota de status. Consultá-la
+  // enquanto houver vídeos processando garante que result_url chegue à tela.
+  const processingKey=items.filter(item=>item.status==="processing").map(item=>item.id).join(",");
+  useEffect(()=>{
+    if(!processingKey)return;
+    let active=true;
+    let running=false;
+    const ids=processingKey.split(",").filter(Boolean);
+    async function refreshProcessing(){
+      if(running||!active)return;
+      running=true;
+      try{
+        for(const id of ids){
+          if(!active)break;
+          try{
+            const response=await fetch("/api/influencer/content/status?id="+encodeURIComponent(id),{cache:"no-store"});
+            const data=await response.json().catch(()=>({}));
+            if(response.ok&&data.item&&active){
+              setItems(current=>current.map(item=>item.id===id?{...item,...data.item}:item));
+            }
+          }catch{}
+        }
+      }finally{running=false;}
+    }
+    void refreshProcessing();
+    const timer=setInterval(()=>void refreshProcessing(),10000);
+    return ()=>{active=false;clearInterval(timer);};
+  },[processingKey]);
+
   async function createLibrary(e:FormEvent){
     e.preventDefault();if(!name.trim())return;setBusy(true);setError("");
     try{
