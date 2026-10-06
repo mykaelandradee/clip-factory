@@ -118,7 +118,13 @@ export async function DELETE(request: Request) {
   }
 
   if (items?.length) {
-    const { error: itemsError } = await admin.from("influencer_content_items").delete().eq("user_id", user.id).eq("library_id", id);
+    const itemIds = items.map((item: any) => item.id);
+    const { error: statesError } = await admin.from("influencer_profile_content")
+      .delete().eq("user_id", user.id).in("item_id", itemIds);
+    if (statesError) return NextResponse.json({ error: "Não foi possível limpar a fila dos perfis antes de excluir a biblioteca." }, { status: 500 });
+
+    const { error: itemsError } = await admin.from("influencer_content_items")
+      .delete().eq("user_id", user.id).eq("library_id", id);
     if (itemsError) return NextResponse.json({ error: "Não foi possível excluir os vídeos da biblioteca." }, { status: 500 });
   }
   const { error } = await admin.from("influencer_libraries").delete().eq("id", id).eq("user_id", user.id);
@@ -170,6 +176,21 @@ export async function POST(request: Request) {
     if (!library || !profile) return NextResponse.json({ error: "Biblioteca ou perfil não encontrado." }, { status: 404 });
 
     if (action === "unlink") {
+      // O estado de fila pertence ao vínculo perfil ↔ biblioteca.
+      // Ao desfazer o vínculo, remova também os estados de publicação desse perfil
+      // para evitar filas órfãs que possam reaparecer quando a biblioteca for vinculada novamente.
+      const { data: libraryItems } = await admin.from("influencer_content_items")
+        .select("id").eq("library_id", libraryId).eq("user_id", user.id);
+
+      const itemIds = (libraryItems || []).map((item: any) => item.id);
+      if (itemIds.length) {
+        const { error: stateError } = await admin.from("influencer_profile_content")
+          .delete().eq("profile_id", profileId).eq("user_id", user.id).in("item_id", itemIds);
+        if (stateError) {
+          return NextResponse.json({ error: "Não foi possível limpar a fila do perfil antes de desvincular a biblioteca." }, { status: 500 });
+        }
+      }
+
       const { error } = await admin.from("influencer_profile_libraries")
         .delete().eq("library_id", libraryId).eq("profile_id", profileId).eq("user_id", user.id);
       if (error) return NextResponse.json({ error: "Não foi possível desvincular a biblioteca." }, { status: 500 });
