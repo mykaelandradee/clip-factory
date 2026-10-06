@@ -126,19 +126,24 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
         published_at:null,retry_count:0
       }).select("id,item_id,status,scheduled_at,published_at,error_message,retry_count").single();
       if(created) stateByItem.set(source.id,created);
-    } else if(state.status==="processing" || state.status==="queued"){
-      // O status de publicação é específico do perfil. Um item pode continuar
-      // "available" na biblioteca global mesmo depois de publicado por este
-      // perfil. Nunca devemos rebaixar "published" para "available" apenas
-      // porque o item de origem continua disponível na biblioteca.
-      const nextStatus=source.status==="available"
+    } else {
+      // Repara um estado "published" impossível: a publicação não pode ter
+      // ocorrido antes da própria criação do vídeo. Mantém publicações válidas.
+      const publishedAt=state.published_at ? Date.parse(state.published_at) : NaN;
+      const createdAt=Date.parse(source.created_at||"");
+      const stalePublished=state.status==="published" &&
+        Number.isFinite(publishedAt) && Number.isFinite(createdAt) &&
+        publishedAt < createdAt;
+      const nextStatus=stalePublished
         ? "available"
-        : source.status==="published"
+        : (["processing","queued"].includes(state.status) && ["available","published"].includes(source.status))
           ? "available"
           : state.status;
       if(nextStatus!==state.status){
+        const patch:any={status:nextStatus,updated_at:new Date().toISOString()};
+        if(nextStatus==="available") patch.scheduled_at=null;
         const {data:updated}=await admin.from("influencer_profile_content")
-          .update({status:nextStatus,updated_at:new Date().toISOString()})
+          .update(patch)
           .eq("id",state.id).eq("user_id",userId)
           .select("id,item_id,status,scheduled_at,published_at,error_message,retry_count").single();
         if(updated) stateByItem.set(source.id,updated);
