@@ -156,7 +156,6 @@ function ScheduleScreen() {
   const activeCount = items.filter((item) => item.status === "scheduled").length;
   const instagramCount = items.filter((item) => item.platform === "instagram" && item.status === "scheduled").length;
   const youtubeCount = items.filter((item) => item.platform === "youtube" && item.status === "scheduled").length;
-  const influencerCount = items.filter((item) => item.platform === "influencer" && item.status === "scheduled").length;
 
   return (
     <section className="cf-schedules">
@@ -181,9 +180,6 @@ function ScheduleScreen() {
         </button>
         <button type="button" className={filter === "youtube" ? "active" : ""} onClick={() => setFilter("youtube")}>
           <span>YOUTUBE</span><strong>{youtubeCount}</strong>
-        </button>
-        <button type="button" className={filter === "influencer" ? "active" : ""} onClick={() => setFilter("influencer")}>
-          <span>INFLUENCER</span><strong>{influencerCount}</strong>
         </button>
       </div>
 
