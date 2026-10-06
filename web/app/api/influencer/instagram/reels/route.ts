@@ -7,6 +7,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const IG_APP_ID = "936619743392459";
+const IG_ASBD_ID = "198387";
 const MAX_RESULTS = 50;
 
 async function auth() {
@@ -47,6 +48,22 @@ function isReel(node: any) {
 
 function normalizeNode(edge: any) {
   const node = edge?.node || {};
+  const isFeedItem = Boolean(edge?.media_type || edge?.pk || edge?.taken_at);
+  if (isFeedItem) {
+    const shortcode = typeof edge.code === "string" ? edge.code : "";
+    const caption = typeof edge.caption?.text === "string" ? edge.caption.text.trim() : "";
+    const isVideo = edge.media_type === 2 || edge.product_type === "clips" || Boolean(edge.video_versions?.length);
+    if (!shortcode || !isVideo) return null;
+    return {
+      id: String(edge.pk || shortcode),
+      shortcode,
+      url: `https://www.instagram.com/reel/${shortcode}/`,
+      thumbnail: typeof edge.image_versions2?.candidates?.[0]?.url === "string" ? edge.image_versions2.candidates[0].url : null,
+      title: caption ? caption.slice(0, 180) : `Instagram Reel · ${shortcode}`,
+      caption,
+      publishedAt: typeof edge.taken_at === "number" ? new Date(edge.taken_at * 1000).toISOString() : null,
+    };
+  }
   const shortcode = typeof node.shortcode === "string" ? node.shortcode : "";
   if (!shortcode || !isReel(node)) return null;
 
@@ -78,6 +95,7 @@ async function fetchProfile(username: string) {
         headers: {
           Accept: "application/json",
           "X-IG-App-ID": IG_APP_ID,
+          "X-ASBD-ID": IG_ASBD_ID,
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/153.0 Safari/537.36",
         },
         cache: "no-store",
@@ -91,6 +109,42 @@ async function fetchProfile(username: string) {
     } catch {
       // Try the second public endpoint before returning a controlled error.
     }
+  }
+
+  // Instagram passou a limitar/gatear o endpoint web_profile_info em vários perfis.
+  // O feed por username é um fallback mais simples e não altera banco, fila ou publicação.
+  try {
+    const feedResponse = await fetch(
+      `https://www.instagram.com/api/v1/feed/user/${encoded}/username/?count=${MAX_RESULTS}`,
+      {
+        headers: {
+          Accept: "application/json",
+          "X-IG-App-ID": IG_APP_ID,
+          "X-ASBD-ID": IG_ASBD_ID,
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/153.0 Safari/537.36",
+        },
+        cache: "no-store",
+        signal: AbortSignal.timeout(12000),
+      }
+    );
+    if (feedResponse.ok) {
+      const feed = await feedResponse.json().catch(() => null);
+      if (Array.isArray(feed?.items)) {
+        return {
+          user: {
+            username,
+            full_name: username,
+            is_private: false,
+            is_verified: false,
+            profile_pic_url: null,
+          },
+          feedItems: feed.items,
+          status: feedResponse.status,
+        };
+      }
+    }
+  } catch {
+    // Keep the controlled error below if the fallback is also unavailable.
   }
 
   throw new Error(
@@ -122,7 +176,8 @@ export async function GET(request: Request) {
   }
 
   try {
-    const { user: instagramUser } = await fetchProfile(username);
+    const profileData = await fetchProfile(username);
+    const instagramUser = profileData.user;
     if (instagramUser?.is_private) {
       return NextResponse.json({ error: "Este perfil é privado. Apenas perfis públicos podem ser importados." }, { status: 400 });
     }
@@ -132,7 +187,9 @@ export async function GET(request: Request) {
         ? instagramUser.edge_felix_video_timeline
         : instagramUser.edge_owner_to_timeline_media;
 
-    const candidates = Array.isArray(connection?.edges) ? connection.edges : [];
+    const candidates = Array.isArray(profileData.feedItems)
+      ? profileData.feedItems
+      : (Array.isArray(connection?.edges) ? connection.edges : []);
     const reels = candidates
       .map(normalizeNode)
       .filter(Boolean)
@@ -188,8 +245,8 @@ export async function GET(request: Request) {
       },
       reels: normalized,
       totalFound: normalized.length,
-      hasMore: Boolean(connection?.page_info?.has_next_page),
-      note: connection?.page_info?.has_next_page
+      hasMore: Boolean(profileData.feedItems ? false : connection?.page_info?.has_next_page),
+      note: profileData.feedItems ? null : connection?.page_info?.has_next_page
         ? "Foram exibidos os primeiros Reels disponíveis nesta consulta."
         : null,
     }, { headers: { "Cache-Control": "no-store" } });
