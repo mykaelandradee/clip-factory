@@ -189,16 +189,19 @@ export default function InfluencerLibrariesPage(){
       </div>
     </div>}
     {showPublishVideo&&selected&&<div className="im-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="publicar-reel-title">
-      <div className="im-modal im-standard-modal">
-        <div className="im-card-head"><div><span className="im-kicker">PUBLICAR REEL</span><h2 id="publicar-reel-title">Escolha o perfil</h2><p>Este vídeo pertence à biblioteca <strong>{selected.name}</strong>. Selecione qual perfil vinculado fará a publicação.</p></div><button className="im-ghost" type="button" disabled={publishingItem} onClick={()=>setShowPublishVideo(null)}>Fechar</button></div>
-        <div className="im-form">
-          <label>Perfil para publicação
-            <select className="im-form-select" value={publishProfileId} onChange={e=>setPublishProfileId(e.target.value)} disabled={publishingItem}>
-              <option value="">Selecione um perfil</option>
-              {selected.profiles.filter(p=>p.enabled).map(p=><option key={p.profile_id} value={p.profile_id}>{p.profile_name}</option>)}
-            </select>
-          </label>
-          <div className="im-form-note"><strong>{showPublishVideo.title||"Vídeo sem título"}</strong><span>A publicação usará as configurações do perfil selecionado.</span></div>
+      <div className="im-modal im-standard-modal im-publish-modal">
+        <div className="im-card-head"><div><span className="im-kicker">COMPARTILHAR VÍDEO</span><h2 id="publicar-reel-title">Escolha o perfil</h2><p><strong>{showPublishVideo.title||"Vídeo sem título"}</strong> será publicado usando as configurações do perfil escolhido.</p></div><button className="im-ghost" type="button" disabled={publishingItem} onClick={()=>setShowPublishVideo(null)}>Fechar</button></div>
+        <div className="im-publish-profile-list">
+          {selected.profiles.filter(p=>p.enabled).map(p=>{
+            const publication=(showPublishVideo.profile_publications||[]).find(pub=>pub.profile_id===p.profile_id);
+            const published=publication?.status==="published";
+            const scheduled=publication?.status==="scheduled";
+            const disabled=published||scheduled;
+            return <button key={p.profile_id} type="button" className={"im-publish-profile-option "+(publishProfileId===p.profile_id?"selected ":"")+(disabled?"disabled":"")} disabled={disabled||publishingItem} onClick={()=>setPublishProfileId(p.profile_id)}>
+              <span className="im-publish-profile-radio">{publishProfileId===p.profile_id&&!disabled?"✓":""}</span>
+              <span className="im-publish-profile-copy"><strong>{p.profile_name}</strong><small>{published?"Já publicado":scheduled?"Já está agendado":"Disponível para publicação"}</small></span>
+            </button>;
+          })}
         </div>
         <div className="im-modal-actions"><button className="im-ghost" type="button" disabled={publishingItem} onClick={()=>setShowPublishVideo(null)}>Cancelar</button><button className="im-primary" type="button" disabled={!publishProfileId||publishingItem} onClick={()=>void publishVideo()}>{publishingItem?"Publicando…":"Publicar Reel"}</button></div>
       </div>
@@ -303,27 +306,14 @@ export default function InfluencerLibrariesPage(){
               <div className="im-item-actions">
                 <div className="im-video-status-row">
                   <span className={"im-status "+item.status}>{STATUS[item.status]||item.status}</span>
-                  {(item.profile_publications||[]).filter(p=>p.status==="published").length>0&&<span className="im-publication-count">{(item.profile_publications||[]).filter(p=>p.status==="published").length} {(item.profile_publications||[]).filter(p=>p.status==="published").length===1?"perfil":"perfis"}</span>}
+                  {(item.profile_publications||[]).filter(p=>p.status==="published").length>0&&<span className="im-publication-count">{(item.profile_publications||[]).filter(p=>p.status==="published").length} {(item.profile_publications||[]).filter(p=>p.status==="published").length===1?"perfil":"perfis"} publicados</span>}
                 </div>
-                {(item.profile_publications||[]).filter(p=>p.status==="published").length>0&&<div className="im-publications">
-                  <div className="im-publications-label"><span>PUBLICADO EM</span><small>{(item.profile_publications||[]).filter(p=>p.status==="published").length} {(item.profile_publications||[]).filter(p=>p.status==="published").length===1?"publicação":"publicações"}</small></div>
-                  <div className="im-publication-chips">
-                    {(item.profile_publications||[]).filter(p=>p.status==="published").map(p=><span key={p.profile_id} className="im-publication-chip"><span className="im-publication-check">✓</span>{p.profile_name}</span>)}
-                  </div>
-                </div>}
-                {(item.profile_publications||[]).some(p=>p.status==="scheduled")&&<div className="im-publications im-publications-scheduled">
-                  <div className="im-publications-label"><span>AGENDADO</span></div>
-                  <div className="im-publication-chips">
-                    {(item.profile_publications||[]).filter(p=>p.status==="scheduled").map(p=><span key={p.profile_id} className="im-publication-chip scheduled"><span className="im-publication-dot">•</span>{p.profile_name}</span>)}
-                  </div>
-                </div>}
                 <div className="im-item-action-buttons">
                   {item.result_url&&<a className="im-ghost" href={item.result_url} target="_blank" rel="noreferrer">Abrir vídeo</a>}
                   {item.status==="available"&&<button className="im-primary" disabled={busy||publishingItem} onClick={()=>openPublish(item)}>{(item.profile_publications||[]).filter(p=>p.status==="published").length>0?"Publicar em outro perfil":"Publicar Reel"}</button>}
                   {editing===item.id?<><input className="im-form-select" value={titleDraft} onChange={e=>setTitleDraft(e.target.value)} /><button className="im-primary" disabled={busy} onClick={()=>void rename(item.id)}>Salvar</button><button className="im-ghost" onClick={()=>setEditing(null)}>Cancelar</button></>:<button className="im-ghost" onClick={()=>{setEditing(item.id);setTitleDraft(item.title||"")}}>Renomear</button>}
                   <button className="im-ghost im-delete-item" disabled={busy||publishingItem} onClick={()=>void remove(item)}>Excluir vídeo</button>
                 </div>
-                {item.status==="available"&&(item.profile_publications||[]).length>0&&(item.profile_publications||[]).every(p=>p.status==="published")&&<small className="im-publication-complete">Todos os perfis vinculados já receberam este vídeo.</small>}
               </div>
             </article>)}
           </div>}
