@@ -14,6 +14,7 @@ export default function InfluencerLibrariesPage(){
   const [profiles,setProfiles]=useState<Profile[]>([]);
   const [items,setItems]=useState<Item[]>([]);
   const [loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState("");
+  const [orphanCleanupDone,setOrphanCleanupDone]=useState(false);
   const [name,setName]=useState(""),[description,setDescription]=useState("");
   const [url,setUrl]=useState(""),[videoTitle,setVideoTitle]=useState(""),[adding,setAdding]=useState(false);
   const [editing,setEditing]=useState<string|null>(null),[titleDraft,setTitleDraft]=useState("");
@@ -26,6 +27,10 @@ export default function InfluencerLibrariesPage(){
   async function loadLibraries(preferred?:string){
     setLoading(true);setError("");
     try{
+      if(!orphanCleanupDone){
+        const cleanup=await fetch("/api/influencer/libraries",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"cleanup-orphaned-states"})});
+        if(cleanup.ok)setOrphanCleanupDone(true);
+      }
       const r=await fetch("/api/influencer/libraries",{cache:"no-store"});const d=await r.json().catch(()=>({}));
       if(!r.ok)throw new Error(d.error||"Não foi possível carregar as bibliotecas.");
       const next=d.libraries||[];setLibraries(next);
