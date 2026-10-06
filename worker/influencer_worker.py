@@ -45,7 +45,6 @@ def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("url")
     p.add_argument("--item-id", required=True)
-    p.add_argument("--profile-id", required=False, default="")
     p.add_argument("--library-id", required=True)
     p.add_argument("--user-id", required=True)
     a = p.parse_args()
@@ -119,7 +118,6 @@ def main() -> None:
 
     result = {
         "itemId": a.item_id,
-        "profileId": a.profile_id,
         "libraryId": a.library_id,
         "key": key,
         "url": f"{public_url}/{key}",
