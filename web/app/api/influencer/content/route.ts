@@ -355,12 +355,10 @@ export async function DELETE(request:Request) {
   const id=requestUrl.searchParams.get("id")||"";
   const profileId=requestUrl.searchParams.get("profileId")||"";
   const libraryId=requestUrl.searchParams.get("libraryId")||"";
-  if(!id||!profileId) return NextResponse.json({error:"Conteúdo ou perfil inválido."},{status:400});
+  if(!id) return NextResponse.json({error:"Conteúdo inválido."},{status:400});
+  if(!libraryId&&!profileId) return NextResponse.json({error:"Informe a biblioteca ou o perfil."},{status:400});
 
   const admin=createAdminClient();
-  const {data:profile}=await admin.from("influencer_profiles").select("id").eq("id",profileId).eq("user_id",user.id).maybeSingle();
-  if(!profile) return NextResponse.json({error:"Perfil não encontrado."},{status:404});
-
   const {data:item}=await admin.from("influencer_content_items")
     .select("id,profile_id,library_id,status,worker_run_id,r2_key")
     .eq("id",id).eq("user_id",user.id).maybeSingle();
@@ -371,7 +369,10 @@ export async function DELETE(request:Request) {
       .select("id").eq("id",libraryId).eq("user_id",user.id).maybeSingle();
     if(!library) return NextResponse.json({error:"Biblioteca não encontrada."},{status:404});
     if(item.library_id!==libraryId) return NextResponse.json({error:"O vídeo não pertence a esta biblioteca."},{status:403});
-  } else if(item.profile_id!==profileId){
+  } else {
+    const {data:profile}=await admin.from("influencer_profiles").select("id").eq("id",profileId).eq("user_id",user.id).maybeSingle();
+    if(!profile) return NextResponse.json({error:"Perfil não encontrado."},{status:404});
+    if(item.profile_id!==profileId){
     const {error}=await admin.from("influencer_profile_content")
       .delete().eq("profile_id",profileId).eq("item_id",id).eq("user_id",user.id);
     if(error) return NextResponse.json({error:"Não foi possível remover o vídeo deste perfil."},{status:500});
