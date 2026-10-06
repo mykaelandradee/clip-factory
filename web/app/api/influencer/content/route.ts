@@ -281,10 +281,11 @@ export async function POST(request:Request) {
   };
 
   const itemId=crypto.randomUUID();
-  // A biblioteca é a dona do conteúdo. O perfil é apenas o contexto
-  // usado para processar o vídeo e não deve mais ser gravado como proprietário.
+  // Mantemos profile_id temporariamente como contexto de processamento/R2.
+  // A biblioteca continua sendo a dona lógica do conteúdo; esse campo não é usado
+  // para decidir a fila ou a biblioteca disponível para publicação.
   const {data:item,error}=await admin.from("influencer_content_items").insert({
-    id:itemId,library_id:requestedLibraryId,user_id:user.id,source_url:sourceUrl,title:title||null,source_type:"url",status:"processing",progress:5,stage:"queued",worker_job_id:itemId,publish_title:copy.title,publish_description:copy.description,source_description:null
+    id:itemId,profile_id:processingProfileId,library_id:requestedLibraryId,user_id:user.id,source_url:sourceUrl,title:title||null,source_type:"url",status:"processing",progress:5,stage:"queued",worker_job_id:itemId,publish_title:copy.title,publish_description:copy.description,source_description:null
   }).select("*").single();
   if(error){console.error("Influencer item creation failed:",error);return NextResponse.json({error:"Não foi possível adicionar o vídeo à biblioteca."},{status:500});}
 
