@@ -192,15 +192,8 @@ export async function GET(request:Request) {
     }
   }
 
-  const sourceProfileIds=Array.from(new Set((items||[]).map((item:any)=>item.profile_id).filter(Boolean)));
-  const {data:sourceProfiles}=sourceProfileIds.length
-    ? await admin.from("influencer_profiles").select("id,name").in("id",sourceProfileIds).eq("user_id",user.id)
-    : {data:[]};
-  const sourceNames=new Map((sourceProfiles||[]).map((p:any)=>[p.id,p.name]));
-
   const normalized=(items||[]).map((item:any)=>{
     const state=stateByItem.get(item.id);
-    const shared=Boolean(profileId) && item.profile_id!==profileId;
     const itemStates=(states||[]).filter((row:any)=>row.item_id===item.id);
     const profilePublications=linkedProfileIds.map((linkedId:string)=>{
       const row=itemStates.find((stateRow:any)=>stateRow.profile_id===linkedId);
@@ -215,10 +208,8 @@ export async function GET(request:Request) {
     return {
       ...item,
       profile_publications:profilePublications,
-      profile_id:profileId || item.profile_id,
-      source_profile_id:item.profile_id,
-      source_profile_name:shared ? (sourceNames.get(item.profile_id)||"Outro perfil") : undefined,
-      shared,
+      profile_id:profileId || null,
+      shared:false,
       status:profileId
         ? ((item.status==="available" && ["processing","queued","scheduled"].includes(state?.status||"")) ? "available" : (state?.status || (item.status==="processing" ? "processing" : item.status)))
         : item.status,
@@ -313,11 +304,8 @@ export async function POST(request:Request) {
   };
 
   const itemId=crypto.randomUUID();
-  // Mantemos profile_id temporariamente como contexto de processamento/R2.
-  // A biblioteca continua sendo a dona lógica do conteúdo; esse campo não é usado
-  // para decidir a fila ou a biblioteca disponível para publicação.
   const {data:item,error}=await admin.from("influencer_content_items").insert({
-    id:itemId,profile_id:processingProfileId,library_id:requestedLibraryId,user_id:user.id,source_url:sourceUrl,title:title||null,source_type:"url",status:"processing",progress:5,stage:"queued",worker_job_id:itemId,publish_title:copy.title,publish_description:copy.description,source_description:null
+    id:itemId,library_id:requestedLibraryId,user_id:user.id,source_url:sourceUrl,title:title||null,source_type:"url",status:"processing",progress:5,stage:"queued",worker_job_id:itemId,publish_title:copy.title,publish_description:copy.description,source_description:null
   }).select("*").single();
   if(error){console.error("Influencer item creation failed:",error);return NextResponse.json({error:"Não foi possível adicionar o vídeo à biblioteca."},{status:500});}
 
@@ -333,7 +321,7 @@ export async function POST(request:Request) {
   try{
     const response=await githubFetch(`/repos/${OWNER}/${REPO}/dispatches`,{
       method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({event_type:"influencer-manager-job",client_payload:{item_id:itemId,profile_id:processingProfileId,library_id:requestedLibraryId,user_id:user.id,url:sourceUrl}})
+      body:JSON.stringify({event_type:"influencer-manager-job",client_payload:{item_id:itemId,library_id:requestedLibraryId,user_id:user.id,url:sourceUrl}})
     });
     if(!response.ok){
       const details=await response.text();
@@ -358,10 +346,15 @@ export async function PATCH(request:Request) {
   if(!id) return NextResponse.json({error:"Conteúdo inválido."},{status:400});
   const admin=createAdminClient();
   const requestedProfileId=typeof body?.profileId==="string"?body.profileId:"";
-  const {data:item,error:itemError}=await admin.from("influencer_content_items").select("id,profile_id,title,publish_title,publish_description").eq("id",id).eq("user_id",user.id).maybeSingle();
+  const {data:item,error:itemError}=await admin.from("influencer_content_items").select("id,library_id,title,publish_title,publish_description").eq("id",id).eq("user_id",user.id).maybeSingle();
   if(itemError||!item) return NextResponse.json({error:"Conteúdo não encontrado."},{status:404});
   if(body?.randomize===true){
-    const effectiveProfileId=requestedProfileId||item.profile_id;
+    let effectiveProfileId=requestedProfileId;
+    if(!effectiveProfileId){
+      const {data:link}=await admin.from("influencer_profile_libraries").select("profile_id").eq("library_id",item.library_id).eq("user_id",user.id).eq("enabled",true).order("priority",{ascending:true}).limit(1).maybeSingle();
+      effectiveProfileId=link?.profile_id||"";
+    }
+    if(!effectiveProfileId) return NextResponse.json({error:"Nenhum perfil ativo está vinculado a esta biblioteca."},{status:409});
     const {data:profile}=await admin.from("influencer_profiles").select("caption_mode").eq("id",effectiveProfileId).eq("user_id",user.id).maybeSingle();
     const mode=profile?.caption_mode||"zh_ja_random";
     const language=mode==="ja_random"?"ja":mode==="zh_random"?"zh":Math.random()<0.5?"ja":"zh";
@@ -395,7 +388,7 @@ export async function DELETE(request:Request) {
 
   const admin=createAdminClient();
   const {data:item}=await admin.from("influencer_content_items")
-    .select("id,profile_id,library_id,status,worker_run_id,r2_key")
+    .select("id,library_id,status,worker_run_id,r2_key")
     .eq("id",id).eq("user_id",user.id).maybeSingle();
   if(!item) return NextResponse.json({error:"Conteúdo não encontrado."},{status:404});
 
