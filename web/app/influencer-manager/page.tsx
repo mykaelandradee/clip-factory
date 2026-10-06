@@ -59,17 +59,16 @@ export default function InfluencerManagerPage(){
     }catch{setInstagramConnected(false);setInstagramReconnect(false);setInstagramExpiresAt(null);setInstagramAccount("");}
   }
   useEffect(()=>{void loadProfiles();void loadLibraries();},[]);
-  // Atualiza a agenda enquanto há vídeos em processamento para que um
-  // vídeo recém-concluído entre na fila sem exigir que o usuário recarregue a página.
+  // Mantém a agenda sincronizada durante o processamento e a publicação automática.
   const processingItemsKey=items.filter(item=>item.status==="processing").map(item=>item.id).join(",");
   useEffect(()=>{
-    if(!selected?.id||!processingItemsKey)return;
+    if(!selected?.id||(!selected.publishing_enabled&&!processingItemsKey))return;
     let active=true;
     const timer=setInterval(()=>{
       if(active)void loadItems(selected.id);
-    },10000);
+    },15000);
     return ()=>{active=false;clearInterval(timer);};
-  },[selected?.id,processingItemsKey]);
+  },[selected?.id,selected?.publishing_enabled,processingItemsKey]);
 
   useEffect(()=>{
     if(!selected)return;
@@ -181,17 +180,25 @@ export default function InfluencerManagerPage(){
     if(!selected||!selected.publishing_enabled)return [];
     const times=(draft.posting_times||[]).filter(v=>/^([01]\d|2[0-3]):[0-5]\d$/.test(v)).sort();
     if(!times.length)return [];
-    const available=items.filter(i=>i.status==="available").sort((a,b)=>String(a.created_at||"").localeCompare(String(b.created_at||"")));
-    if(!available.length)return [];
+    const available=items.filter(i=>i.status==="available")
+      .sort((a,b)=>String(a.created_at||"").localeCompare(String(b.created_at||"")));
+    // A fila real publica primeiro todos os disponíveis e, quando acabam,
+    // reutiliza os já publicados se a repetição estiver habilitada.
+    const publishedForRepeat=draft.repeat_when_exhausted
+      ? items.filter(i=>i.status==="published")
+          .sort((a,b)=>String(a.published_at||a.created_at||"").localeCompare(String(b.published_at||b.created_at||"")))
+      : [];
+    const queueItems=[...available,...publishedForRepeat];
+    if(!queueItems.length)return [];
     const anchor=selected.next_publish_at?new Date(selected.next_publish_at):new Date();
     const out:{time:string;item:Item}[]=[];
-    for(let day=0;day<7&&out.length<available.length;day++){
+    for(let day=0;day<7&&out.length<queueItems.length;day++){
       for(const time of times){
         const [h,m]=time.split(":").map(Number);
         const d=new Date(anchor);
         d.setDate(d.getDate()+day); d.setHours(h,m,0,0);
         if(d.getTime()<anchor.getTime())continue;
-        const item=available[out.length];
+        const item=queueItems[out.length];
         if(!item)break;
         out.push({time,item});
       }
