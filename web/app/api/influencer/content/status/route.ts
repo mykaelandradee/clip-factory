@@ -63,7 +63,8 @@ export async function GET(request:Request){
  const id=new URL(request.url).searchParams.get("id")||"";if(!/^[0-9a-f-]{36}$/i.test(id))return NextResponse.json({error:"Conteúdo inválido."},{status:400});
  const admin=createAdminClient();const {data:item,error}=await admin.from("influencer_content_items").select("*").eq("id",id).eq("user_id",user.id).maybeSingle();
  if(error||!item)return NextResponse.json({error:"Conteúdo não encontrado."},{status:404});
- if(item.status!=="processing"){if(item.status==="available")await syncLinkedProfileQueue(admin,user.id,item);return NextResponse.json({item},{headers:{"Cache-Control":"no-store"}});}
+ if(item.status!=="processing"){if(item.status==="available")await syncLinkedProfileQueue(admin,user.id,item);return NextResponse.json({item},{headers:{"Cache-Control":"no-store"}});
+ }
  try{
   const response=await fetch(`${GITHUB_API}/repos/${OWNER}/${REPO}/actions/workflows/${WORKFLOW}/runs?event=repository_dispatch&per_page=30`,{headers:headers(),cache:"no-store"});
   if(!response.ok)throw new Error("Não foi possível consultar o Influencer Manager Worker.");
@@ -90,19 +91,13 @@ export async function GET(request:Request){
     const updated={status:"available",progress:100,stage:"ready",r2_key:`influencer/${user.id}/${item.profile_id}/${item.id}/video.mp4`,result_url:resultUrl,title:sourceTitle,source_description:sourceDescription,duration_seconds:item.duration_seconds||null,error_message:null,updated_at:new Date().toISOString()};
     const {data:done}=await admin.from("influencer_content_items").update(updated).eq("id",id).eq("user_id",user.id).select("*").single();
 
-    // Sincroniza também os perfis vinculados à biblioteca; a operação é idempotente.
+    // Sincroniza os perfis vinculados à biblioteca; a operação é idempotente.
     await syncLinkedProfileQueue(admin,user.id,{...item,...updated,status:"available"});
 
-    await admin.from("influencer_content_shares")
-      .update({status:"available",error_message:null,updated_at:new Date().toISOString()})
-      .eq("item_id",id).eq("user_id",user.id).eq("status","queued");
     return NextResponse.json({item:done||{...item,...updated}},{headers:{"Cache-Control":"no-store"}});
    }
    const updated={status:"failed",progress,stage:"error",error_message:run.conclusion==="cancelled"?"Processamento cancelado.":"O Influencer Manager Worker terminou com erro.",updated_at:new Date().toISOString()};
    const {data:failed}=await admin.from("influencer_content_items").update(updated).eq("id",id).eq("user_id",user.id).select("*").single();
-   await admin.from("influencer_content_shares")
-     .update({status:"failed",error_message:updated.error_message,updated_at:new Date().toISOString()})
-     .eq("item_id",id).eq("user_id",user.id).eq("status","queued");
    return NextResponse.json({item:failed||{...item,...updated}},{headers:{"Cache-Control":"no-store"}});
   }
   if(!item.worker_run_id){await admin.from("influencer_content_items").update({worker_run_id:run.id,progress,stage,updated_at:new Date().toISOString()}).eq("id",id).eq("user_id",user.id);}
