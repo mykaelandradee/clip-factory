@@ -97,51 +97,16 @@ export async function DELETE(request: Request) {
 
   const admin = createAdminClient();
 
-  // A UI de agenda normalmente envia o ID de influencer_profile_content.
-  // Mantemos o item_id como fallback para compatibilidade com a agenda antiga.
+  // O ID da agenda é o ID do estado de publicação do perfil.
+  // Não fazemos mais fallback pelo item legado nem por influencer_content_items.profile_id.
   const { data: state } = await admin
     .from("influencer_profile_content")
-    .select("id,item_id,profile_id,status")
+    .select("id,status")
     .eq("id", id)
     .eq("user_id", user.id)
     .maybeSingle();
 
-  if (state) {
-    const { error } = await admin
-      .from("influencer_profile_content")
-      .update({
-        status: "available",
-        scheduled_at: null,
-        error_message: "Agendamento cancelado pelo usuário.",
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", state.id)
-      .eq("user_id", user.id);
-
-    if (error) return NextResponse.json({ error: "Não foi possível cancelar o agendamento." }, { status: 500 });
-    return NextResponse.json({ ok: true });
-  }
-
-  const { data: item } = await admin
-    .from("influencer_content_items")
-    .select("id,profile_id")
-    .eq("id", id)
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (!item || !item.profile_id) {
-    return NextResponse.json({ error: "Agendamento não encontrado." }, { status: 404 });
-  }
-
-  const { data: itemState } = await admin
-    .from("influencer_profile_content")
-    .select("id")
-    .eq("item_id", item.id)
-    .eq("profile_id", item.profile_id)
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (!itemState) {
+  if (!state) {
     return NextResponse.json({ error: "Agendamento não encontrado." }, { status: 404 });
   }
 
@@ -153,7 +118,7 @@ export async function DELETE(request: Request) {
       error_message: "Agendamento cancelado pelo usuário.",
       updated_at: new Date().toISOString()
     })
-    .eq("id", itemState.id)
+    .eq("id", state.id)
     .eq("user_id", user.id);
 
   if (error) return NextResponse.json({ error: "Não foi possível cancelar o agendamento." }, { status: 500 });
