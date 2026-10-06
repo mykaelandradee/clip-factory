@@ -42,7 +42,7 @@ export default function InfluencerLibrariesPage(){
     const profileId=lib?.profiles.find(p=>p.enabled)?.profile_id||profiles[0]?.id||"";
     if(!profileId){setItems([]);return;}
     try{
-      const r=await fetch("/api/influencer/content?profileId="+encodeURIComponent(profileId),{cache:"no-store"});const d=await r.json().catch(()=>({}));
+      const r=await fetch("/api/influencer/content?profileId="+encodeURIComponent(profileId)+"&libraryView=true",{cache:"no-store"});const d=await r.json().catch(()=>({}));
       if(!r.ok)throw new Error(d.error||"Não foi possível carregar o conteúdo.");
       setItems((d.items||[]).filter((item:Item)=>item.library_id===libraryId));
     }catch(e){setError(e instanceof Error?e.message:"Erro ao carregar o conteúdo.");}
