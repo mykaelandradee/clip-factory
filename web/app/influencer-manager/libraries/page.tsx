@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import InstagramReelsImporter from "./InstagramReelsImporter";
 
 type Profile = { id:string; name:string; posting_times?:string[]; posts_per_day?:number; publishing_enabled?:boolean };
 type Library = { id:string; name:string; description?:string|null; item_count:number; profiles:{profile_id:string;profile_name:string;priority:number;enabled:boolean}[] };
@@ -283,7 +284,7 @@ export default function InfluencerLibrariesPage(){
         </div>
 
         {selected&&<div className="im-card im-content-add">
-          <div className="im-card-head"><div><span className="im-kicker">CONTEÚDO</span><h2>Adicionar vídeo</h2><p>O vídeo será salvo diretamente em <strong>{selected.name}</strong>.</p></div></div>
+          <div className="im-card-head"><div><span className="im-kicker">CONTEÚDO</span><h2>Adicionar vídeo</h2><p>O vídeo será salvo diretamente em <strong>{selected.name}</strong>.</p></div><InstagramReelsImporter currentLibraryId={selected.id} /></div>
           {!linkedProfileId?<div className="im-empty"><strong>Vincule um perfil a esta biblioteca primeiro.</strong><span>O perfil é usado apenas para preparar o processamento; o conteúdo continua pertencendo à biblioteca.</span><a className="im-ghost" href="/influencer-manager">Ir para Perfis</a></div>:
           <form className="im-url-form" onSubmit={addVideo}>
             <input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://youtube.com/... ou https://instagram.com/reel/..." required />
