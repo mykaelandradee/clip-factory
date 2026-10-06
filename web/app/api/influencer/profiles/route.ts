@@ -156,5 +156,5 @@ export async function DELETE(request: Request) {
   // Excluir um perfil remove apenas os dados próprios do perfil; o conteúdo da biblioteca permanece.
   const { error } = await admin.from("influencer_profiles").delete().eq("id", id).eq("user_id", user.id);
   if (error) return NextResponse.json({ error: "Não foi possível excluir o perfil." }, { status: 500 });
-  return NextResponse.json({ ok: true, deletedItems: items?.length || 0 });
+  return NextResponse.json({ ok: true });
 }
