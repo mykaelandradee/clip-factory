@@ -204,7 +204,7 @@ export default function InfluencerManagerPage(){
       }
     }
     return out;
-  },[items,selected?.id,selected?.publishing_enabled,selected?.next_publish_at,draft.posting_times]);
+  },[items,selected?.id,selected?.publishing_enabled,selected?.next_publish_at,draft.posting_times,draft.repeat_when_exhausted]);
 
   return <main className="im-page">
     <header className="im-header">
