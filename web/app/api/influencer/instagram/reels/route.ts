@@ -147,10 +147,65 @@ async function fetchProfile(username: string) {
     // Keep the controlled error below if the fallback is also unavailable.
   }
 
+  // Último fallback: leitor público que renderiza a página de Reels fora do
+  // ambiente do Render. Continua sendo somente descoberta de conteúdo público.
+  try {
+    const readerUrl = `https://r.jina.ai/https://www.instagram.com/${encoded}/reels/`;
+    const readerResponse = await fetch(readerUrl, {
+      headers: {
+        Accept: "text/plain",
+        "User-Agent": "ClipFactory/InstagramReelsImporter",
+      },
+      cache: "no-store",
+      signal: AbortSignal.timeout(20000),
+    });
+
+    if (readerResponse.ok) {
+      const text = await readerResponse.text();
+      const matches = Array.from(
+        text.matchAll(/https?:\\/\\/www\\.instagram\\.com\\/(?:reel|p)\\/([A-Za-z0-9_-]+)\\/?/gi)
+      );
+      const seen = new Set<string>();
+      const feedItems = matches
+        .map((match) => String(match[1] || ""))
+        .filter(Boolean)
+        .filter((code) => {
+          if (seen.has(code)) return false;
+          seen.add(code);
+          return true;
+        })
+        .slice(0, MAX_RESULTS)
+        .map((code) => ({
+          code,
+          pk: code,
+          media_type: 2,
+          product_type: "clips",
+          taken_at: 0,
+          caption: { text: "" },
+        }));
+
+      if (feedItems.length) {
+        return {
+          user: {
+            username,
+            full_name: username,
+            is_private: false,
+            is_verified: false,
+            profile_pic_url: null,
+          },
+          feedItems,
+          status: 200,
+        };
+      }
+    }
+  } catch {
+    // Instagram pode bloquear também o leitor público; manter erro controlado.
+  }
+
   throw new Error(
     lastStatus === 429
-      ? "O Instagram limitou temporariamente a consulta desse perfil. Aguarde alguns minutos e tente novamente."
-      : "Não foi possível consultar esse perfil do Instagram agora. O perfil precisa ser público e acessível sem login."
+      ? "O Instagram está bloqueando temporariamente a descoberta automática desse perfil. Tente novamente mais tarde."
+      : "Não foi possível consultar os Reels desse perfil agora. O perfil precisa ser público."
   );
 }
 
