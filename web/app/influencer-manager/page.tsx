@@ -25,11 +25,17 @@ export default function InfluencerManagerPage(){
   const [items,setItems]=useState<Item[]>([]);
   const [libraries,setLibraries]=useState<Library[]>([]);
   const [loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[error,setError]=useState("");
+  const [showFeedback,setShowFeedback]=useState(false),[feedbackTitle,setFeedbackTitle]=useState("Algo deu errado"),[feedbackMessage,setFeedbackMessage]=useState("");
+  const [showDisconnectConfirm,setShowDisconnectConfirm]=useState(false);
   const [showProfiles,setShowProfiles]=useState(false),[showNew,setShowNew]=useState(false),[showEditProfile,setShowEditProfile]=useState(false),[showDeleteProfile,setShowDeleteProfile]=useState(false);
   const [name,setName]=useState(""),[posts,setPosts]=useState("3"),[editProfileName,setEditProfileName]=useState("");
   const [librarySaving,setLibrarySaving]=useState(false),[coverFile,setCoverFile]=useState<File|null>(null),[coverPreview,setCoverPreview]=useState("");
   const [instagramConnected,setInstagramConnected]=useState(false),[instagramAccount,setInstagramAccount]=useState(""),[instagramReconnect,setInstagramReconnect]=useState(false),[instagramExpiresAt,setInstagramExpiresAt]=useState<string|null>(null);
   const [draft,setDraft]=useState({posts_per_day:3,caption_mode:"zh_ja_random",repeat_when_exhausted:false,posting_times:["09:00","11:30","14:00"],fixed_publish_title:"",fixed_publish_description:"",share_to_feed:true});
+
+  function showError(message:string,title="Não foi possível concluir a ação"){
+    setError(message);setFeedbackTitle(title);setFeedbackMessage(message);setShowFeedback(true);
+  }
 
   async function loadProfiles(){
     setLoading(true);setError("");
@@ -38,7 +44,7 @@ export default function InfluencerManagerPage(){
       if(!r.ok)throw new Error(d.error||"Não foi possível carregar os perfis.");
       const next=d.profiles||[];setProfiles(next);
       setSelected(current=>{const requested=new URLSearchParams(window.location.search).get("profileId");return (requested&&next.find((p:Profile)=>p.id===requested))||next.find((p:Profile)=>p.id===current?.id)||next[0]||null;});
-    }catch(e){setError(e instanceof Error?e.message:"Erro ao carregar os perfis.");}
+    }catch(e){showError(e instanceof Error?e.message:"Erro ao carregar os perfis.","Não foi possível carregar os perfis");}
     finally{setLoading(false);}
   }
   async function loadLibraries(){
@@ -91,7 +97,7 @@ export default function InfluencerManagerPage(){
       })});
       const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível criar o perfil.");
       setProfiles(all=>[...all,d.profile]);setSelected(d.profile);setName("");setPosts("3");setShowNew(false);
-    }catch(e){setError(e instanceof Error?e.message:"Erro ao criar o perfil.");}finally{setSaving(false);}
+    }catch(e){showError(e instanceof Error?e.message:"Erro ao criar o perfil.","Não foi possível criar o perfil");}finally{setSaving(false);}
   }
 
   async function toggleLibrary(library:Library){
@@ -102,7 +108,7 @@ export default function InfluencerManagerPage(){
       const r=await fetch("/api/influencer/libraries",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:linked?"unlink":"link",libraryId:library.id,profileId:selected.id})});
       const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível alterar o vínculo.");
       await loadLibraries();
-    }catch(e){setError(e instanceof Error?e.message:"Erro ao alterar o vínculo.");}finally{setLibrarySaving(false);}
+    }catch(e){showError(e instanceof Error?e.message:"Erro ao alterar o vínculo.","Não foi possível alterar a biblioteca");}finally{setLibrarySaving(false);}
   }
 
   async function saveProfileName(e:FormEvent){
@@ -111,7 +117,7 @@ export default function InfluencerManagerPage(){
       const r=await fetch("/api/influencer/profiles",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:selected.id,name:editProfileName.trim()})});
       const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível renomear o perfil.");
       setSelected(d.profile);setProfiles(all=>all.map(item=>item.id===d.profile.id?d.profile:item));setShowEditProfile(false);
-    }catch(e){setError(e instanceof Error?e.message:"Erro ao renomear o perfil.");}finally{setSaving(false);}
+    }catch(e){showError(e instanceof Error?e.message:"Erro ao renomear o perfil.","Não foi possível renomear o perfil");}finally{setSaving(false);}
   }
 
   async function saveProfile(){
@@ -124,7 +130,7 @@ export default function InfluencerManagerPage(){
       })});
       const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível salvar o perfil.");
       setSelected(d.profile);setProfiles(all=>all.map(p=>p.id===d.profile.id?d.profile:p));
-    }catch(e){setError(e instanceof Error?e.message:"Erro ao salvar o perfil.");}finally{setSaving(false);}
+    }catch(e){showError(e instanceof Error?e.message:"Erro ao salvar o perfil.","Não foi possível salvar as configurações");}finally{setSaving(false);}
   }
 
   async function togglePublishing(){
@@ -134,7 +140,7 @@ export default function InfluencerManagerPage(){
       const r=await fetch("/api/influencer/publish",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action,profileId:selected.id})});
       const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||d.message||"Não foi possível alterar a publicação.");
       if(action==="stop")setSelected({...selected,publishing_enabled:false,next_publish_at:null});else await loadProfiles();
-    }catch(e){setError(e instanceof Error?e.message:"Erro na publicação.");}finally{setSaving(false);}
+    }catch(e){showError(e instanceof Error?e.message:"Erro na publicação.","Não foi possível alterar a publicação automática");}finally{setSaving(false);}
   }
 
   async function uploadCover(){
@@ -144,18 +150,18 @@ export default function InfluencerManagerPage(){
       const r=await fetch("/api/influencer/cover",{method:"POST",body:form});const d=await r.json().catch(()=>({}));
       if(!r.ok)throw new Error(d.error||"Não foi possível salvar a capa.");
       setSelected(d.profile);setProfiles(all=>all.map(p=>p.id===d.profile.id?d.profile:p));setCoverFile(null);setCoverPreview("");
-    }catch(e){setError(e instanceof Error?e.message:"Erro ao salvar a capa.");}finally{setSaving(false);}
+    }catch(e){showError(e instanceof Error?e.message:"Erro ao salvar a capa.","Não foi possível salvar a capa");}finally{setSaving(false);}
   }
 
   async function disconnectInstagram(){
-    if(!selected||!window.confirm("Desvincular o Instagram deste perfil? A publicação automática será interrompida."))return;
-    setSaving(true);setError("");
+    if(!selected)return;
+    setShowDisconnectConfirm(false);setSaving(true);setError("");
     try{
       const r=await fetch("/api/influencer/instagram/status?profileId="+encodeURIComponent(selected.id),{method:"DELETE"}),d=await r.json().catch(()=>({}));
       if(!r.ok)throw new Error(d.error||"Não foi possível desvincular o Instagram.");
       setInstagramConnected(false);setInstagramReconnect(false);setInstagramAccount("");setInstagramExpiresAt(null);
       if(d.profile){setSelected(d.profile);setProfiles(all=>all.map(p=>p.id===d.profile.id?d.profile:p));}
-    }catch(e){setError(e instanceof Error?e.message:"Erro ao desvincular o Instagram.");}finally{setSaving(false);}
+    }catch(e){showError(e instanceof Error?e.message:"Erro ao desvincular o Instagram.","Não foi possível desvincular o Instagram");}finally{setSaving(false);}
   }
 
   async function deleteProfile(){
@@ -169,7 +175,7 @@ export default function InfluencerManagerPage(){
       const r=await fetch("/api/influencer/profiles?id="+encodeURIComponent(selected.id),{method:"DELETE"}),d=await r.json().catch(()=>({}));
       if(!r.ok)throw new Error(d.error||"Não foi possível excluir o perfil.");
       const next=profiles.filter(p=>p.id!==selected.id);setProfiles(next);setSelected(next[0]||null);
-    }catch(e){setError(e instanceof Error?e.message:"Erro ao excluir o perfil.");}finally{setSaving(false);}
+    }catch(e){showError(e instanceof Error?e.message:"Erro ao excluir o perfil.","Não foi possível excluir o perfil");}finally{setSaving(false);}
   }
 
   const linked=libraries.filter(l=>l.profiles.some(p=>p.profile_id===selected?.id&&p.enabled));
@@ -225,7 +231,7 @@ export default function InfluencerManagerPage(){
       <a className="im-section-tab" href="/influencer-manager/libraries"><span>02</span> BIBLIOTECAS</a>
     </nav>
 
-    {error&&<div className="im-inline-error im-page-inline-error">{error}</div>}
+    
 
     {showNew&&<div className="im-modal-backdrop" role="dialog" aria-modal="true">
       <div className="im-modal im-new-profile-modal">
@@ -330,6 +336,20 @@ export default function InfluencerManagerPage(){
       </section>
     </section>
 
+    {showFeedback&&<div className="im-modal-backdrop im-feedback-backdrop" role="alertdialog" aria-modal="true" aria-labelledby="feedback-title" onMouseDown={e=>{if(e.target===e.currentTarget)setShowFeedback(false)}}>
+      <div className="im-modal im-feedback-modal">
+        <div className="im-feedback-icon">!</div>
+        <div className="im-feedback-copy"><span className="im-kicker">ATENÇÃO</span><h2 id="feedback-title">{feedbackTitle}</h2><p>{feedbackMessage}</p></div>
+        <button className="im-primary" type="button" onClick={()=>setShowFeedback(false)}>Fechar</button>
+      </div>
+    </div>}
+    {showDisconnectConfirm&&selected&&<div className="im-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="desvincular-instagram-title" onMouseDown={e=>{if(e.target===e.currentTarget)setShowDisconnectConfirm(false)}}>
+      <div className="im-modal im-confirm-modal">
+        <div className="im-confirm-icon">!</div>
+        <div><span className="im-kicker">DESVINCULAR INSTAGRAM</span><h2 id="desvincular-instagram-title">Desvincular esta conta?</h2><p>A publicação automática deste perfil será interrompida. O perfil e as bibliotecas permanecerão intactos.</p></div>
+        <div className="im-modal-actions"><button className="im-ghost" type="button" onClick={()=>setShowDisconnectConfirm(false)}>Cancelar</button><button className="im-primary im-danger-solid" type="button" disabled={saving} onClick={()=>void disconnectInstagram()}>Desvincular Instagram</button></div>
+      </div>
+    </div>}
     {showDeleteProfile&&selected&&<div className="im-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="excluir-perfil-title">
       <div className="im-modal im-confirm-modal"><div className="im-confirm-icon">!</div><div><span className="im-kicker">EXCLUIR PERFIL</span><h2 id="excluir-perfil-title">Excluir “{selected.name}”?</h2><p>O perfil será excluído. As bibliotecas e os vídeos não serão excluídos por esta ação.</p></div>
         <div className="im-modal-actions"><button className="im-ghost" type="button" onClick={()=>setShowDeleteProfile(false)}>Cancelar</button><button className="im-primary im-danger-solid" type="button" disabled={saving} onClick={()=>void confirmDeleteProfile()}>{saving?"Excluindo…":"Excluir perfil"}</button></div>
