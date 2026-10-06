@@ -45,7 +45,8 @@ def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("url")
     p.add_argument("--item-id", required=True)
-    p.add_argument("--profile-id", required=True)
+    p.add_argument("--profile-id", required=False, default="")
+    p.add_argument("--library-id", required=True)
     p.add_argument("--user-id", required=True)
     a = p.parse_args()
 
@@ -87,7 +88,7 @@ def main() -> None:
     )
 
     report("upload", 80, "Enviando Reel 9:16 para o R2...")
-    key = f"influencer/{a.user_id}/{a.profile_id}/{a.item_id}/video.mp4"
+    key = f"influencer/{a.user_id}/libraries/{a.library_id}/{a.item_id}/video.mp4"
     size = vertical.stat().st_size
 
     current = 0
@@ -119,6 +120,7 @@ def main() -> None:
     result = {
         "itemId": a.item_id,
         "profileId": a.profile_id,
+        "libraryId": a.library_id,
         "key": key,
         "url": f"{public_url}/{key}",
         "size": size,
