@@ -84,11 +84,12 @@ export async function GET(request:Request){
   if(run.status==="completed"){
    if(run.conclusion==="success"){
     const publicUrl=process.env.R2_PUBLIC_URL?.replace(/\/$/,"")||"";
-    const resultUrl=publicUrl?`${publicUrl}/influencer/${user.id}/${item.profile_id}/${item.id}/video.mp4`:item.result_url;
+    const r2Key=item.r2_key || `influencer/${user.id}/libraries/${item.library_id}/${item.id}/video.mp4`;
+    const resultUrl=publicUrl?`${publicUrl}/${r2Key}`:item.result_url;
     const sourceMetadata = await fetchSourceMetadata(item.source_url);
     const sourceDescription = item.source_description || sourceMetadata.description;
     const sourceTitle = item.title || sourceMetadata.title || instagramFallbackTitle(item.source_url);
-    const updated={status:"available",progress:100,stage:"ready",r2_key:`influencer/${user.id}/${item.profile_id}/${item.id}/video.mp4`,result_url:resultUrl,title:sourceTitle,source_description:sourceDescription,duration_seconds:item.duration_seconds||null,error_message:null,updated_at:new Date().toISOString()};
+    const updated={status:"available",progress:100,stage:"ready",r2_key:r2Key,result_url:resultUrl,title:sourceTitle,source_description:sourceDescription,duration_seconds:item.duration_seconds||null,error_message:null,updated_at:new Date().toISOString()};
     const {data:done}=await admin.from("influencer_content_items").update(updated).eq("id",id).eq("user_id",user.id).select("*").single();
 
     // Sincroniza os perfis vinculados à biblioteca; a operação é idempotente.
