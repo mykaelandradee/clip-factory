@@ -214,7 +214,7 @@ export async function GET(request:Request) {
         ? ((item.status==="available" && ["processing","queued","scheduled"].includes(state?.status||"")) ? "available" : (state?.status || (item.status==="processing" ? "processing" : item.status)))
         : item.status,
       scheduled_at:state?.scheduled_at ?? item.scheduled_at,
-      published_at:profileId ? (state?.published_at ?? (shared ? null : item.published_at)) : item.published_at,
+      published_at:state?.published_at ?? item.published_at,
       error_message:state?.error_message ?? item.error_message,
       retry_count:state?.retry_count ?? item.retry_count,
       publish_title:profile?.fixed_publish_title?.trim() || item.publish_title,
