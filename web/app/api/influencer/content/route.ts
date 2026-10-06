@@ -375,12 +375,13 @@ export async function DELETE(request:Request) {
   } else {
     const {data:profile}=await admin.from("influencer_profiles").select("id").eq("id",profileId).eq("user_id",user.id).maybeSingle();
     if(!profile) return NextResponse.json({error:"Perfil não encontrado."},{status:404});
-    if(item.profile_id!==profileId){
+
+    // Perfil não é mais proprietário do conteúdo. Excluir pela visão do perfil
+    // remove somente o estado da fila desse perfil; a biblioteca permanece intacta.
     const {error}=await admin.from("influencer_profile_content")
       .delete().eq("profile_id",profileId).eq("item_id",id).eq("user_id",user.id);
     if(error) return NextResponse.json({error:"Não foi possível remover o vídeo deste perfil."},{status:500});
     return NextResponse.json({ok:true,removedFromProfile:true});
-    }
   }
 
   if(item.status==="processing"&&item.worker_run_id){
