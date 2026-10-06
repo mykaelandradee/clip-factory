@@ -77,7 +77,7 @@ async function githubFetch(path:string, init:RequestInit={}) {
 export async function GET(request:Request) {
   const user=await auth();
   if(!user) return NextResponse.json({error:"Entre no Clip Factory."},{status:401});
-  const profileId=new URL(request.url).searchParams.get("profileId")||"";
+  const requestUrl=new URL(request.url);\n  const profileId=requestUrl.searchParams.get("profileId")||"";\n  const libraryView=requestUrl.searchParams.get("libraryView")==="true";
   if(!profileId) return NextResponse.json({error:"Perfil inválido."},{status:400});
   const admin=createAdminClient();
   const {data:profile}=await admin.from("influencer_profiles")
@@ -168,7 +168,7 @@ export async function GET(request:Request) {
       source_profile_id:item.profile_id,
       source_profile_name:shared ? (sourceNames.get(item.profile_id)||"Outro perfil") : undefined,
       shared,
-      status:(item.status==="available" && ["processing","queued","scheduled"].includes(state?.status||"")) ? "available" : (state?.status || (item.status==="processing" ? "processing" : item.status)),
+      // Na visão da Biblioteca, status é global do vídeo. Na visão do perfil, status é por perfil.\n      status:libraryView ? item.status : ((item.status==="available" && ["processing","queued","scheduled"].includes(state?.status||"")) ? "available" : (state?.status || (item.status==="processing" ? "processing" : item.status))),
       scheduled_at:state?.scheduled_at ?? item.scheduled_at,
       published_at:state?.published_at ?? (shared ? null : item.published_at),
       error_message:state?.error_message ?? item.error_message,
