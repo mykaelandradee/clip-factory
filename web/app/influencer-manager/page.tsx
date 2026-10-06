@@ -59,6 +59,18 @@ export default function InfluencerManagerPage(){
     }catch{setInstagramConnected(false);setInstagramReconnect(false);setInstagramExpiresAt(null);setInstagramAccount("");}
   }
   useEffect(()=>{void loadProfiles();void loadLibraries();},[]);
+  // Atualiza a agenda enquanto há vídeos em processamento para que um
+  // vídeo recém-concluído entre na fila sem exigir que o usuário recarregue a página.
+  const processingItemsKey=items.filter(item=>item.status==="processing").map(item=>item.id).join(",");
+  useEffect(()=>{
+    if(!selected?.id||!processingItemsKey)return;
+    let active=true;
+    const timer=setInterval(()=>{
+      if(active)void loadItems(selected.id);
+    },10000);
+    return ()=>{active=false;clearInterval(timer);};
+  },[selected?.id,processingItemsKey]);
+
   useEffect(()=>{
     if(!selected)return;
     setDraft({
