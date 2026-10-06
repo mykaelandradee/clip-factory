@@ -22,7 +22,6 @@ jobs:
       CLIP_FACTORY_DATA_DIR: ${{ github.workspace }}/worker/data
       VIDEO_URL: ${{ github.event.client_payload.url }}
       ITEM_ID: ${{ github.event.client_payload.item_id }}
-      PROFILE_ID: ${{ github.event.client_payload.profile_id }}
       LIBRARY_ID: ${{ github.event.client_payload.library_id }}
       USER_ID: ${{ github.event.client_payload.user_id }}
       BGUTIL_POT_URL: http://127.0.0.1:4416
@@ -112,7 +111,7 @@ jobs:
         working-directory: worker
         env:
           YOUTUBE_COOKIES_FILE: ${{ env.YOUTUBE_COOKIE_FILE }}
-        run: python influencer_worker.py "$VIDEO_URL" --item-id "$ITEM_ID" --profile-id "$PROFILE_ID" --library-id "$LIBRARY_ID" --user-id "$USER_ID"
+        run: python influencer_worker.py "$VIDEO_URL" --item-id "$ITEM_ID" --library-id "$LIBRARY_ID" --user-id "$USER_ID"
 
       - name: Cleanup cookies
         if: always()
