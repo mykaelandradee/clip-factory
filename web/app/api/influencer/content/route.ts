@@ -214,75 +214,12 @@ export async function POST(request:Request) {
   const mutationRate=rateLimit(getClientKey(request,user.id),30,60*60*1000);
   if(!mutationRate.allowed)return NextResponse.json({error:"Limite de alterações do Influencer Manager atingido. Aguarde antes de tentar novamente."},{status:429,headers:{"Retry-After":String(mutationRate.retryAfterSeconds)}});
   const body=await request.json().catch(()=>null);
-  const profileId=typeof body?.profileId==="string"?body.profileId:"";
-
-  if(body?.action==="unshare-library"){
-    const targetProfileId=typeof body?.targetProfileId==="string"?body.targetProfileId:"";
-    if(!profileId||!targetProfileId||profileId===targetProfileId) return NextResponse.json({error:"Perfis de compartilhamento inválidos."},{status:400});
-    const admin=createAdminClient();
-    const {data:sourceProfile}=await admin.from("influencer_profiles").select("id").eq("id",profileId).eq("user_id",user.id).maybeSingle();
-    if(!sourceProfile) return NextResponse.json({error:"Perfil de origem não encontrado."},{status:404});
-    const {data:targetProfile}=await admin.from("influencer_profiles").select("id").eq("id",targetProfileId).eq("user_id",user.id).maybeSingle();
-    if(!targetProfile) return NextResponse.json({error:"Perfil de destino não encontrado."},{status:404});
-    // A biblioteca pode estar vinculada ao destino independentemente de qualquer compartilhamento.
-    // Como o vínculo não registra sua origem, removê-lo aqui poderia retirar acesso legítimo.
-    // A remoção explícita deve ser feita em Gerenciar bibliotecas no perfil de destino.
-    return NextResponse.json({
-      error:"Para não remover um vínculo independente, desvincule a biblioteca em Gerenciar bibliotecas no perfil de destino."
-    },{status:409});
-  }
-  if(body?.action==="share-library"){
-    const targetProfileIds=Array.isArray(body?.targetProfileIds)?body.targetProfileIds.filter((v:unknown)=>typeof v==="string"): [];
-    if(!profileId||!targetProfileIds.length) return NextResponse.json({error:"Selecione pelo menos um perfil de destino."},{status:400});
-    const admin=createAdminClient();
-    const {data:sourceProfile}=await admin.from("influencer_profiles").select("id").eq("id",profileId).eq("user_id",user.id).maybeSingle();
-    if(!sourceProfile) return NextResponse.json({error:"Perfil de origem não encontrado."},{status:404});
-    const uniqueTargets=Array.from(new Set<string>(targetProfileIds)).filter(id=>id!==profileId);
-    if(!uniqueTargets.length) return NextResponse.json({error:"Selecione um perfil de destino diferente do perfil de origem."},{status:400});
-    const {data:profiles}=await admin.from("influencer_profiles").select("id").in("id",uniqueTargets).eq("user_id",user.id);
-    if((profiles||[]).length!==uniqueTargets.length) return NextResponse.json({error:"Um ou mais perfis de destino não pertencem à sua conta."},{status:403});
-    const {data:sourceLinks,error:sourceLinksError}=await admin.from("influencer_profile_libraries").select("library_id,priority")
-      .eq("profile_id",profileId).eq("user_id",user.id).eq("enabled",true);
-    if(sourceLinksError) return NextResponse.json({error:"Não foi possível localizar as bibliotecas do perfil."},{status:500});
-    if(!sourceLinks?.length) return NextResponse.json({error:"O perfil não possui bibliotecas vinculadas."},{status:400});
-    const sourceLibraryIds=sourceLinks.map((link:any)=>link.library_id).filter(Boolean);
-    const {data:existingTargetLinks,error:existingTargetLinksError}=await admin.from("influencer_profile_libraries")
-      .select("profile_id,library_id").in("profile_id",uniqueTargets).in("library_id",sourceLibraryIds).eq("user_id",user.id);
-    if(existingTargetLinksError) return NextResponse.json({error:"Não foi possível verificar os vínculos existentes dos perfis de destino."},{status:500});
-    const existingLinkKeys=new Set((existingTargetLinks||[]).map((row:any)=>row.profile_id+"::"+row.library_id));
-    // Insert only missing links. Do not overwrite a target profile's independent priority/enabled settings.
-    const rows=uniqueTargets.flatMap((targetId:string)=>sourceLinks.filter((link:any)=>!existingLinkKeys.has(targetId+"::"+link.library_id)).map((link:any)=>({
-      profile_id:targetId,library_id:link.library_id,user_id:user.id,priority:Number(link.priority)||0,enabled:true
-    })));
-    if(rows.length){
-      const {error:linkError}=await admin.from("influencer_profile_libraries").insert(rows);
-      if(linkError){
-        console.error("Influencer library share failed:",{code:linkError.code,message:linkError.message,details:linkError.details,hint:linkError.hint});
-        return NextResponse.json({error:"Não foi possível compartilhar as bibliotecas. Código do banco: "+(linkError.code||"desconhecido")},{status:500});
-      }
-    }
-    const libraryIds=sourceLinks.map((link:any)=>link.library_id).filter(Boolean);
-    const {data:items}=await admin.from("influencer_content_items").select("id,status").in("library_id",libraryIds).eq("user_id",user.id);
-    const itemIds=(items||[]).map((item:any)=>item.id);
-    if(itemIds.length){
-      const {data:existingStates,error:stateLookupError}=await admin.from("influencer_profile_content")
-        .select("item_id,profile_id").in("item_id",itemIds).in("profile_id",uniqueTargets).eq("user_id",user.id);
-      if(stateLookupError) return NextResponse.json({error:"As bibliotecas foram vinculadas, mas não foi possível preparar o conteúdo para os perfis."},{status:500});
-      const existingKeys=new Set((existingStates||[]).map((row:any)=>row.item_id+"::"+row.profile_id));
-      const stateRows=uniqueTargets.flatMap((targetId:string)=>(items||[]).filter((item:any)=>!existingKeys.has(item.id+"::"+targetId)).map((item:any)=>({
-        profile_id:targetId,item_id:item.id,user_id:user.id,
-        status:item.status==="processing"||item.status==="queued"?"queued":item.status==="failed"?"failed":"available",retry_count:0
-      })));
-      if(stateRows.length){
-        const {error:stateInsertError}=await admin.from("influencer_profile_content").insert(stateRows);
-        if(stateInsertError) return NextResponse.json({error:"As bibliotecas foram vinculadas, mas não foi possível preparar todo o conteúdo para os perfis."},{status:500});
-      }
-    }
-    return NextResponse.json({ok:true,sharedItems:items?.length||0,sharedProfiles:uniqueTargets.length,sharedLibraries:sourceLinks.length},{status:201});
-  }
+  const requestedProfileId=typeof body?.profileId==="string"?body.profileId:"";
+  const requestedLibraryId=typeof body?.libraryId==="string"?body.libraryId:"";
   const sourceUrl=typeof body?.sourceUrl==="string"?body.sourceUrl.trim():"";
   let title=typeof body?.title==="string"?body.title.trim().slice(0,500):"";
-  if(!profileId||!sourceUrl||sourceUrl.length>2048) return NextResponse.json({error:"Informe o perfil e a URL do vídeo."},{status:400});
+
+  if(!requestedLibraryId||!sourceUrl||sourceUrl.length>2048) return NextResponse.json({error:"Informe a biblioteca e a URL do vídeo."},{status:400});
   let parsed:URL;
   try{parsed=new URL(sourceUrl);}catch{return NextResponse.json({error:"URL inválida."},{status:400});}
   const host=parsed.hostname.toLowerCase();
@@ -291,23 +228,31 @@ export async function POST(request:Request) {
   const isInstagramReel=/^\/((reel|reels|p))\//i.test(parsed.pathname);
   if(parsed.protocol!=="https:"||!isYoutube&&!isInstagram) return NextResponse.json({error:"Informe uma URL válida do YouTube ou de um Reel do Instagram."},{status:400});
   if(isInstagram&&!isInstagramReel) return NextResponse.json({error:"Para Instagram, cole a URL de um Reel público."},{status:400});
+
   const admin=createAdminClient();
-  const {data:profile}=await admin.from("influencer_profiles").select("id,fixed_publish_title,fixed_publish_description,caption_mode").eq("id",profileId).eq("user_id",user.id).maybeSingle();
-  if(!profile) return NextResponse.json({error:"Perfil não encontrado."},{status:404});
-  const requestedLibraryId=typeof body?.libraryId==="string"?body.libraryId:"";
-  const {data:libraryLinks,error:libraryLinksError}=await admin.from("influencer_profile_libraries")
-    .select("library_id,priority").eq("profile_id",profileId).eq("user_id",user.id).eq("enabled",true)
+  const {data:library}=await admin.from("influencer_libraries")
+    .select("id").eq("id",requestedLibraryId).eq("user_id",user.id).maybeSingle();
+  if(!library) return NextResponse.json({error:"Biblioteca não encontrada."},{status:404});
+
+  const {data:links,error:linksError}=await admin.from("influencer_profile_libraries")
+    .select("profile_id,priority").eq("library_id",requestedLibraryId).eq("user_id",user.id).eq("enabled",true)
     .order("priority",{ascending:true});
-  if(libraryLinksError) return NextResponse.json({error:"Não foi possível localizar as bibliotecas deste perfil."},{status:500});
-  const libraryId=requestedLibraryId || libraryLinks?.[0]?.library_id;
-  if(!libraryId) return NextResponse.json({error:"Este perfil ainda não possui uma biblioteca vinculada."},{status:409});
-  if(requestedLibraryId && !(libraryLinks||[]).some((row:any)=>row.library_id===requestedLibraryId)){
-    return NextResponse.json({error:"A biblioteca selecionada não está vinculada a este perfil."},{status:403});
+  if(linksError) return NextResponse.json({error:"Não foi possível localizar os perfis vinculados à biblioteca."},{status:500});
+  const processingProfileId=requestedProfileId || links?.[0]?.profile_id || "";
+  if(!processingProfileId) return NextResponse.json({error:"Vincule pelo menos um perfil à biblioteca antes de processar um vídeo."},{status:409});
+  if(requestedProfileId && !(links||[]).some((row:any)=>row.profile_id===requestedProfileId)){
+    return NextResponse.json({error:"O perfil selecionado não está vinculado a esta biblioteca."},{status:403});
   }
+
+  const {data:profile}=await admin.from("influencer_profiles")
+    .select("id,fixed_publish_title,fixed_publish_description,caption_mode")
+    .eq("id",processingProfileId).eq("user_id",user.id).maybeSingle();
+  if(!profile) return NextResponse.json({error:"Perfil de processamento não encontrado."},{status:404});
+
   const {data:existingItems,error:existingItemsError}=await admin
     .from("influencer_content_items")
     .select("id,source_url,title,status")
-    .eq("library_id",libraryId)
+    .eq("library_id",requestedLibraryId)
     .eq("user_id",user.id);
   if(existingItemsError){
     console.error("Influencer duplicate check failed:",existingItemsError);
@@ -317,15 +262,14 @@ export async function POST(request:Request) {
   const duplicate=(existingItems||[]).find((item:any)=>normalizeSourceUrl(String(item.source_url||""))===normalizedSource);
   if(duplicate){
     return NextResponse.json({
-      error:"Este vídeo já está na biblioteca deste perfil.",
+      error:"Este vídeo já está nesta biblioteca.",
       duplicate:true,
       item:{id:duplicate.id,title:duplicate.title,status:duplicate.status}
     },{status:409});
   }
 
-  if(!profile) return NextResponse.json({error:"Perfil não encontrado."},{status:404});
   if(!title){try{const o=await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(sourceUrl)}&format=json`,{cache:"no-store"});if(o.ok){const m=await o.json().catch(()=>({}));if(typeof m?.title==="string")title=m.title.trim().slice(0,500);}}catch{}}
-  const {data:captionRows}=await admin.from("influencer_captions").select("id,language,caption").eq("profile_id",profileId).eq("active",true);
+  const {data:captionRows}=await admin.from("influencer_captions").select("id,language,caption").eq("profile_id",processingProfileId).eq("active",true);
   const captions=captionRows||[];
   const caption= captions.length ? captions[Math.floor(Math.random()*captions.length)] : null;
 
@@ -338,12 +282,12 @@ export async function POST(request:Request) {
 
   const itemId=crypto.randomUUID();
   const {data:item,error}=await admin.from("influencer_content_items").insert({
-    id:itemId,profile_id:profileId,library_id:libraryId,user_id:user.id,source_url:sourceUrl,title:title||null,source_type:"url",status:"processing",progress:5,stage:"queued",worker_job_id:itemId,publish_title:copy.title,publish_description:copy.description,source_description:null
+    id:itemId,profile_id:processingProfileId,library_id:requestedLibraryId,user_id:user.id,source_url:sourceUrl,title:title||null,source_type:"url",status:"processing",progress:5,stage:"queued",worker_job_id:itemId,publish_title:copy.title,publish_description:copy.description,source_description:null
   }).select("*").single();
   if(error){console.error("Influencer item creation failed:",error);return NextResponse.json({error:"Não foi possível adicionar o vídeo à biblioteca."},{status:500});}
 
   const {error:stateError}=await admin.from("influencer_profile_content").insert({
-    profile_id:profileId,item_id:itemId,user_id:user.id,status:"processing",retry_count:0
+    profile_id:processingProfileId,item_id:itemId,user_id:user.id,status:"processing",retry_count:0
   });
   if(stateError){
     console.error("Influencer profile content state creation failed:",stateError);
@@ -354,7 +298,7 @@ export async function POST(request:Request) {
   try{
     const response=await githubFetch(`/repos/${OWNER}/${REPO}/dispatches`,{
       method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({event_type:"influencer-manager-job",client_payload:{item_id:itemId,profile_id:profileId,user_id:user.id,url:sourceUrl}})
+      body:JSON.stringify({event_type:"influencer-manager-job",client_payload:{item_id:itemId,profile_id:processingProfileId,user_id:user.id,url:sourceUrl}})
     });
     if(!response.ok){
       const details=await response.text();
