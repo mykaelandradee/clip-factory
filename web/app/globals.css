@@ -3157,3 +3157,28 @@ html,body,button,input,select,textarea{
   .im-overview>.im-stats{width:100%}
   .im-overview>.im-overview-actions{display:grid!important;grid-template-columns:1fr!important}
 }
+
+
+/* Influencer Manager — publicação por perfil nos cards de vídeo */
+.im-video-status-row{display:flex;align-items:center;gap:8px;min-width:0;width:100%}
+.im-publication-count{font-size:8px;color:#777b86;letter-spacing:.04em}
+.im-publications{width:100%;margin-top:2px;padding:9px 10px;border:1px solid rgba(255,255,255,.055);border-radius:9px;background:rgba(255,255,255,.018);box-sizing:border-box}
+.im-publications-label{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px}
+.im-publications-label span{font-size:7px;font-weight:800;letter-spacing:.12em;color:#777b86}
+.im-publications-label small{font-size:7px;color:#555963}
+.im-publication-chips{display:flex;flex-wrap:wrap;gap:5px}
+.im-publication-chip{display:inline-flex;align-items:center;gap:5px;min-height:24px;padding:0 8px;border:1px solid rgba(141,124,255,.16);border-radius:7px;background:rgba(141,124,255,.055);color:#d6d2ff;font-size:8px;font-weight:650;line-height:1}
+.im-publication-check{display:grid;place-items:center;width:14px;height:14px;border-radius:50%;background:rgba(141,124,255,.18);color:#c9c2ff;font-size:8px;font-weight:900}
+.im-publication-chip.scheduled{border-color:rgba(255,255,255,.08);background:rgba(255,255,255,.025);color:#aeb1bb}
+.im-publication-dot{color:#8f899f;font-size:12px;line-height:0}
+.im-publications-scheduled{margin-top:0}
+.im-item-action-buttons{display:flex;flex-wrap:wrap;align-items:center;gap:6px;width:100%;margin-top:2px}
+.im-item-action-buttons .im-ghost,.im-item-action-buttons .im-primary{min-height:31px}
+.im-publication-complete{display:block;width:100%;font-size:7px;color:#626670;line-height:1.4}
+@media(max-width:560px){
+  .im-publications{padding:9px}
+  .im-publication-chip{font-size:8px}
+  .im-item-action-buttons{display:grid;grid-template-columns:1fr 1fr}
+  .im-item-action-buttons>*{width:100%;box-sizing:border-box}
+  .im-publication-complete{font-size:8px}
+}
