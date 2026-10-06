@@ -79,21 +79,35 @@ export async function GET(request:Request) {
   if(!user) return NextResponse.json({error:"Entre no Clip Factory."},{status:401});
   const requestUrl=new URL(request.url);
   const profileId=requestUrl.searchParams.get("profileId")||"";
-  const libraryView=requestUrl.searchParams.get("libraryView")==="true";
-  if(!profileId) return NextResponse.json({error:"Perfil inválido."},{status:400});
+  const libraryId=requestUrl.searchParams.get("libraryId")||"";
   const admin=createAdminClient();
-  const {data:profile}=await admin.from("influencer_profiles")
-    .select("id,name,fixed_publish_title,fixed_publish_description")
-    .eq("id",profileId).eq("user_id",user.id).maybeSingle();
-  if(!profile) return NextResponse.json({error:"Perfil não encontrado."},{status:404});
 
-  const {data:links,error:linksError}=await admin.from("influencer_profile_libraries")
-    .select("library_id,priority,enabled")
-    .eq("profile_id",profileId).eq("user_id",user.id).eq("enabled",true)
-    .order("priority",{ascending:true});
-  if(linksError) return NextResponse.json({error:"Não foi possível carregar as bibliotecas do perfil."},{status:500});
+  let profile:any=null;
+  let libraryIds:string[]=[];
+  let links:any[]=[];
 
-  const libraryIds=(links||[]).map((row:any)=>row.library_id).filter(Boolean);
+  if(libraryId){
+    const {data:library,error:libraryError}=await admin.from("influencer_libraries")
+      .select("id").eq("id",libraryId).eq("user_id",user.id).maybeSingle();
+    if(libraryError) return NextResponse.json({error:"Não foi possível carregar a biblioteca."},{status:500});
+    if(!library) return NextResponse.json({error:"Biblioteca não encontrada."},{status:404});
+    libraryIds=[libraryId];
+  }else{
+    if(!profileId) return NextResponse.json({error:"Perfil inválido."},{status:400});
+    const {data:loadedProfile}=await admin.from("influencer_profiles")
+      .select("id,name,fixed_publish_title,fixed_publish_description")
+      .eq("id",profileId).eq("user_id",user.id).maybeSingle();
+    if(!loadedProfile) return NextResponse.json({error:"Perfil não encontrado."},{status:404});
+    profile=loadedProfile;
+    const {data:profileLinks,error:linksError}=await admin.from("influencer_profile_libraries")
+      .select("library_id,priority,enabled")
+      .eq("profile_id",profileId).eq("user_id",user.id).eq("enabled",true)
+      .order("priority",{ascending:true});
+    if(linksError) return NextResponse.json({error:"Não foi possível carregar as bibliotecas do perfil."},{status:500});
+    links=profileLinks||[];
+    libraryIds=links.map((row:any)=>row.library_id).filter(Boolean);
+  }
+
   if(!libraryIds.length) return NextResponse.json({items:[],sharedWith:[],libraries:[]},{headers:{"Cache-Control":"no-store"}});
 
   const {data:items,error:itemError}=await admin.from("influencer_content_items")
@@ -103,6 +117,7 @@ export async function GET(request:Request) {
 
   const itemIds=(items||[]).map((item:any)=>item.id);
 
+  if(profileId){
   // Reconcilia vídeos já processados que tenham ficado fora da fila do perfil.
   // Isso também corrige itens concluídos antes da implantação do sincronizador.
   if(itemIds.length){
@@ -130,6 +145,8 @@ export async function GET(request:Request) {
         }
       }
     }
+  }
+
   }
 
   const {data:states}=itemIds.length
@@ -163,22 +180,25 @@ export async function GET(request:Request) {
 
   const normalized=(items||[]).map((item:any)=>{
     const state=stateByItem.get(item.id);
-    const shared=item.profile_id!==profileId;
+    const shared=Boolean(profileId) && item.profile_id!==profileId;
     return {
       ...item,
-      profile_id:profileId,
+      profile_id:profileId || item.profile_id,
       source_profile_id:item.profile_id,
       source_profile_name:shared ? (sourceNames.get(item.profile_id)||"Outro perfil") : undefined,
       shared,
-      // Na visão da Biblioteca, status é global do vídeo. Na visão do perfil, status é por perfil.\n      status:libraryView ? item.status : ((item.status==="available" && ["processing","queued","scheduled"].includes(state?.status||"")) ? "available" : (state?.status || (item.status==="processing" ? "processing" : item.status))),
+      status:profileId
+        ? ((item.status==="available" && ["processing","queued","scheduled"].includes(state?.status||"")) ? "available" : (state?.status || (item.status==="processing" ? "processing" : item.status)))
+        : item.status,
       scheduled_at:state?.scheduled_at ?? item.scheduled_at,
-      published_at:state?.published_at ?? (shared ? null : item.published_at),
+      published_at:profileId ? (state?.published_at ?? (shared ? null : item.published_at)) : item.published_at,
       error_message:state?.error_message ?? item.error_message,
       retry_count:state?.retry_count ?? item.retry_count,
-      publish_title:profile.fixed_publish_title?.trim() || item.publish_title,
-      publish_description:profile.fixed_publish_description?.trim() || item.publish_description
+      publish_title:profile?.fixed_publish_title?.trim() || item.publish_title,
+      publish_description:profile?.fixed_publish_description?.trim() || item.publish_description
     };
   });
+
   return NextResponse.json({
     items:normalized,
     sharedWith:[],
