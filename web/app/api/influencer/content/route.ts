@@ -77,7 +77,9 @@ async function githubFetch(path:string, init:RequestInit={}) {
 export async function GET(request:Request) {
   const user=await auth();
   if(!user) return NextResponse.json({error:"Entre no Clip Factory."},{status:401});
-  const requestUrl=new URL(request.url);\n  const profileId=requestUrl.searchParams.get("profileId")||"";\n  const libraryView=requestUrl.searchParams.get("libraryView")==="true";
+  const requestUrl=new URL(request.url);
+  const profileId=requestUrl.searchParams.get("profileId")||"";
+  const libraryView=requestUrl.searchParams.get("libraryView")==="true";
   if(!profileId) return NextResponse.json({error:"Perfil inválido."},{status:400});
   const admin=createAdminClient();
   const {data:profile}=await admin.from("influencer_profiles")
