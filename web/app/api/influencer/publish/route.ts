@@ -151,6 +151,17 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
     }
   }
 
+  // "scheduled" é uma reserva ativa feita antes da publicação no Instagram.
+  // Nunca devemos ignorar essa reserva e escolher outro vídeo para o mesmo perfil:
+  // isso faria o scheduler publicar um Reel diferente enquanto o primeiro continua
+  // em processamento. Uma reserva recente tem prioridade absoluta.
+  const reservedCandidates=(libraryItems||[])
+    .map((source:any)=>({source,state:stateByItem.get(source.id)}))
+    .filter((entry:any)=>entry.state && entry.state.status==="scheduled")
+    .sort((a:any,b:any)=>
+      String(a.state.scheduled_at||"").localeCompare(String(b.state.scheduled_at||""))
+    );
+
   const candidates=(libraryItems||[])
     .map((source:any)=>({source,state:stateByItem.get(source.id)}))
     .filter((entry:any)=>entry.state && ["available","published"].includes(entry.state.status))
@@ -161,16 +172,24 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
 
   let chosen:any = null;
   if(itemId){
-    chosen=candidates.find((entry:any)=>entry.source.id===itemId) || null;
+    // Publicação manual de um item específico continua tendo prioridade.
+    chosen=reservedCandidates.find((entry:any)=>entry.source.id===itemId)?.source.id
+      ? reservedCandidates.find((entry:any)=>entry.source.id===itemId)
+      : candidates.find((entry:any)=>entry.source.id===itemId) || null;
   } else {
-    chosen=candidates.find((entry:any)=>entry.state.status==="available") || null;
-    if(!chosen && repeatWhenExhausted) {
-      const publishedCandidates=candidates.filter((entry:any)=>entry.state.status==="published");
-      chosen=publishedCandidates.sort((a:any,b:any)=>
-        String(a.state.published_at||a.source.published_at||a.source.created_at||"").localeCompare(
-          String(b.state.published_at||b.source.published_at||b.source.created_at||"")
-        )
-      )[0] || null;
+    // Se já existe uma reserva para este perfil, retomamos exatamente esse Reel.
+    chosen=reservedCandidates[0] || null;
+
+    if(!chosen){
+      chosen=candidates.find((entry:any)=>entry.state.status==="available") || null;
+      if(!chosen && repeatWhenExhausted) {
+        const publishedCandidates=candidates.filter((entry:any)=>entry.state.status==="published");
+        chosen=publishedCandidates.sort((a:any,b:any)=>
+          String(a.state.published_at||a.source.published_at||a.source.created_at||"").localeCompare(
+            String(b.state.published_at||b.source.published_at||b.source.created_at||"")
+          )
+        )[0] || null;
+      }
     }
   }
 
