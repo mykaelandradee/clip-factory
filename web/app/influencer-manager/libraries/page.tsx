@@ -14,8 +14,13 @@ export default function InfluencerLibrariesPage(){
   const [profiles,setProfiles]=useState<Profile[]>([]);
   const [items,setItems]=useState<Item[]>([]);
   const [loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState("");
+  const [showFeedback,setShowFeedback]=useState(false),[feedbackTitle,setFeedbackTitle]=useState("Algo deu errado"),[feedbackMessage,setFeedbackMessage]=useState("");
   const [orphanCleanupDone,setOrphanCleanupDone]=useState(false);
   const [name,setName]=useState(""),[description,setDescription]=useState("");
+
+  function showError(message:string,title="Não foi possível concluir a ação"){
+    setError(message);setFeedbackTitle(title);setFeedbackMessage(message);setShowFeedback(true);
+  }
   const [url,setUrl]=useState(""),[videoTitle,setVideoTitle]=useState(""),[adding,setAdding]=useState(false);
   const [editing,setEditing]=useState<string|null>(null),[titleDraft,setTitleDraft]=useState("");
   const [showNewLibrary,setShowNewLibrary]=useState(false),[showLibraries,setShowLibraries]=useState(false),[showEditLibrary,setShowEditLibrary]=useState(false),[showDeleteLibrary,setShowDeleteLibrary]=useState(false),[showDeleteVideo,setShowDeleteVideo]=useState<Item|null>(null),[showPublishVideo,setShowPublishVideo]=useState<Item|null>(null),[publishingItem,setPublishingItem]=useState(false),[publishProfileId,setPublishProfileId]=useState(""),[editLibraryName,setEditLibraryName]=useState(""),[editLibraryDescription,setEditLibraryDescription]=useState("");
@@ -35,7 +40,7 @@ export default function InfluencerLibrariesPage(){
       if(!r.ok)throw new Error(d.error||"Não foi possível carregar as bibliotecas.");
       const next=d.libraries||[];setLibraries(next);
       setSelectedId(current=>preferred&&next.some((l:Library)=>l.id===preferred)?preferred:current&&next.some((l:Library)=>l.id===current)?current:next[0]?.id||"");
-    }catch(e){setError(e instanceof Error?e.message:"Erro ao carregar as bibliotecas.");}
+    }catch(e){showError(e instanceof Error?e.message:"Erro ao carregar as bibliotecas.","Não foi possível carregar as bibliotecas");}
     finally{setLoading(false);}
   }
   async function loadProfiles(){
@@ -47,7 +52,7 @@ export default function InfluencerLibrariesPage(){
       const r=await fetch("/api/influencer/content?libraryId="+encodeURIComponent(libraryId),{cache:"no-store"});const d=await r.json().catch(()=>({}));
       if(!r.ok)throw new Error(d.error||"Não foi possível carregar o conteúdo.");
       setItems((d.items||[]).filter((item:Item)=>item.library_id===libraryId));
-    }catch(e){setError(e instanceof Error?e.message:"Erro ao carregar o conteúdo.");}
+    }catch(e){showError(e instanceof Error?e.message:"Erro ao carregar o conteúdo.","Não foi possível carregar o conteúdo");}
   }
   useEffect(()=>{void Promise.all([loadLibraries(),loadProfiles()]);},[]);
   useEffect(()=>{if(selectedId)void loadItems(selectedId);},[selectedId,libraries,profiles]);
@@ -87,7 +92,7 @@ export default function InfluencerLibrariesPage(){
       const r=await fetch("/api/influencer/libraries",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"create",name:name.trim(),description:description.trim()})});
       const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível criar a biblioteca.");
       setName("");setDescription("");setShowNewLibrary(false);setShowLibraries(false);await loadLibraries(d.library?.id);
-    }catch(e){setError(e instanceof Error?e.message:"Erro ao criar a biblioteca.");}finally{setBusy(false);}
+    }catch(e){showError(e instanceof Error?e.message:"Erro ao criar a biblioteca.","Não foi possível criar a biblioteca");}finally{setBusy(false);}
   }
   async function saveLibrary(e:FormEvent){
     e.preventDefault();if(!selected||!editLibraryName.trim())return;setBusy(true);setError("");
@@ -95,14 +100,14 @@ export default function InfluencerLibrariesPage(){
       const r=await fetch("/api/influencer/libraries",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:selected.id,name:editLibraryName.trim(),description:editLibraryDescription.trim()})});
       const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível editar a biblioteca.");
       setShowEditLibrary(false);await loadLibraries(selected.id);
-    }catch(e){setError(e instanceof Error?e.message:"Erro ao editar a biblioteca.");}finally{setBusy(false);}
+    }catch(e){showError(e instanceof Error?e.message:"Erro ao editar a biblioteca.","Não foi possível editar a biblioteca");}finally{setBusy(false);}
   }
   function deleteLibrary(){
     if(!selected)return;
     if(selected.profiles.length){
       const names=selected.profiles.map(p=>p.profile_name).filter(Boolean);
       const profileText=names.length===1?"Perfil vinculado: "+names[0]+".":"Perfis vinculados: "+names.join(", ")+".";
-      setError("Não é possível excluir esta biblioteca enquanto ela estiver vinculada a um perfil. "+profileText+" Desfaça todos os vínculos primeiro.");
+      showError("Não é possível excluir esta biblioteca enquanto ela estiver vinculada a um perfil. "+profileText+" Desfaça todos os vínculos primeiro.","Biblioteca vinculada a um perfil");
       return;
     }
     setShowDeleteLibrary(true);
@@ -114,7 +119,7 @@ export default function InfluencerLibrariesPage(){
       const r=await fetch("/api/influencer/content",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({profileId:linkedProfileId,libraryId:selected.id,sourceUrl:url.trim(),title:videoTitle.trim()})});
       const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível adicionar o vídeo.");
       setUrl("");setVideoTitle("");await loadItems(selected.id);await loadLibraries(selected.id);
-    }catch(e){setError(e instanceof Error?e.message:"Erro ao adicionar o vídeo.");}finally{setAdding(false);}
+    }catch(e){showError(e instanceof Error?e.message:"Erro ao adicionar o vídeo.","Não foi possível adicionar o vídeo");}finally{setAdding(false);}
   }
   async function rename(itemId:string){
     const title=titleDraft.trim();if(!title)return;setBusy(true);setError("");
@@ -122,7 +127,7 @@ export default function InfluencerLibrariesPage(){
       const r=await fetch("/api/influencer/content",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:itemId,title})});
       const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível renomear o vídeo.");
       setItems(all=>all.map(i=>i.id===itemId?{...i,title}:i));setEditing(null);setTitleDraft("");
-    }catch(e){setError(e instanceof Error?e.message:"Erro ao renomear o vídeo.");}finally{setBusy(false);}
+    }catch(e){showError(e instanceof Error?e.message:"Erro ao renomear o vídeo.","Não foi possível renomear o vídeo");}finally{setBusy(false);}
   }
   function remove(item:Item){
     setShowDeleteVideo(item);
@@ -133,7 +138,7 @@ export default function InfluencerLibrariesPage(){
     const publishedIds=new Set((item.profile_publications||[]).filter(p=>p.status==="published").map(p=>p.profile_id));
     const availableProfiles=(selected?.profiles||[]).filter(p=>p.enabled&&!publishedIds.has(p.profile_id));
     if(!availableProfiles.length){
-      setError("Este vídeo já foi publicado por todos os perfis ativos vinculados a esta biblioteca.");
+      showError("Este vídeo já foi publicado por todos os perfis ativos vinculados a esta biblioteca.","Vídeo já publicado");
       return;
     }
     setPublishProfileId(availableProfiles.length===1?availableProfiles[0].profile_id:"");
@@ -152,7 +157,7 @@ export default function InfluencerLibrariesPage(){
       if(!r.ok)throw new Error(d.error||"Não foi possível publicar o Reel.");
       setShowPublishVideo(null);setPublishProfileId("");
       await loadItems(selectedId);await loadLibraries(selectedId);
-    }catch(e){setError(e instanceof Error?e.message:"Erro ao publicar o Reel.");}
+    }catch(e){showError(e instanceof Error?e.message:"Erro ao publicar o Reel.","Não foi possível publicar o Reel");}
     finally{setPublishingItem(false);}
   }
 
@@ -175,8 +180,14 @@ export default function InfluencerLibrariesPage(){
       <a className="im-section-tab active" href="/influencer-manager/libraries"><span>02</span> BIBLIOTECAS</a>
     </nav>
 
-    {error&&<div className="im-inline-error im-page-inline-error">{error}</div>}
 
+    {showFeedback&&<div className="im-modal-backdrop im-feedback-backdrop" role="alertdialog" aria-modal="true" aria-labelledby="feedback-title" onMouseDown={e=>{if(e.target===e.currentTarget)setShowFeedback(false)}}>
+      <div className="im-modal im-feedback-modal">
+        <div className="im-feedback-icon">!</div>
+        <div className="im-feedback-copy"><span className="im-kicker">ATENÇÃO</span><h2 id="feedback-title">{feedbackTitle}</h2><p>{feedbackMessage}</p></div>
+        <button className="im-primary" type="button" onClick={()=>setShowFeedback(false)}>Fechar</button>
+      </div>
+    </div>}
     {showPublishVideo&&selected&&<div className="im-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="publicar-reel-title">
       <div className="im-modal im-standard-modal">
         <div className="im-card-head"><div><span className="im-kicker">PUBLICAR REEL</span><h2 id="publicar-reel-title">Escolha o perfil</h2><p>Este vídeo pertence à biblioteca <strong>{selected.name}</strong>. Selecione qual perfil vinculado fará a publicação.</p></div><button className="im-ghost" type="button" disabled={publishingItem} onClick={()=>setShowPublishVideo(null)}>Fechar</button></div>
@@ -195,12 +206,12 @@ export default function InfluencerLibrariesPage(){
     {showDeleteLibrary&&selected&&<div className="im-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="excluir-biblioteca-title">
       <div className="im-modal im-confirm-modal">
         <div className="im-confirm-icon">!</div><div><span className="im-kicker">EXCLUIR BIBLIOTECA</span><h2 id="excluir-biblioteca-title">Excluir “{selected.name}”?</h2><p>Esta ação excluirá {selected.item_count||0} {(selected.item_count||0)===1?"vídeo":"vídeos"} da biblioteca e não poderá ser desfeita.</p></div>
-        <div className="im-modal-actions"><button className="im-ghost" type="button" onClick={()=>setShowDeleteLibrary(false)}>Cancelar</button><button className="im-primary im-danger-solid" type="button" disabled={busy} onClick={async()=>{setShowDeleteLibrary(false);setBusy(true);setError("");try{const r=await fetch("/api/influencer/libraries?id="+encodeURIComponent(selected.id),{method:"DELETE"});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível excluir a biblioteca.");await loadLibraries();}catch(e){setError(e instanceof Error?e.message:"Erro ao excluir a biblioteca.");}finally{setBusy(false);}}}>{busy?"Excluindo…":"Excluir biblioteca"}</button></div>
+        <div className="im-modal-actions"><button className="im-ghost" type="button" onClick={()=>setShowDeleteLibrary(false)}>Cancelar</button><button className="im-primary im-danger-solid" type="button" disabled={busy} onClick={async()=>{setShowDeleteLibrary(false);setBusy(true);setError("");try{const r=await fetch("/api/influencer/libraries?id="+encodeURIComponent(selected.id),{method:"DELETE"});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível excluir a biblioteca.");await loadLibraries();}catch(e){showError(e instanceof Error?e.message:"Erro ao excluir a biblioteca.","Não foi possível excluir a biblioteca");}finally{setBusy(false);}}}>{busy?"Excluindo…":"Excluir biblioteca"}</button></div>
       </div>
     </div>}
     {showDeleteVideo&&<div className="im-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="excluir-video-title">
       <div className="im-modal im-confirm-modal"><div className="im-confirm-icon">!</div><div><span className="im-kicker">EXCLUIR VÍDEO</span><h2 id="excluir-video-title">Excluir este vídeo?</h2><p>O vídeo será removido da biblioteca e o arquivo armazenado também será excluído. Esta ação não poderá ser desfeita.</p></div>
-        <div className="im-modal-actions"><button className="im-ghost" type="button" onClick={()=>setShowDeleteVideo(null)}>Cancelar</button><button className="im-primary im-danger-solid" type="button" disabled={busy} onClick={async()=>{const item=showDeleteVideo;setShowDeleteVideo(null);setBusy(true);setError("");try{const r=await fetch("/api/influencer/content?id="+encodeURIComponent(item.id)+"&libraryId="+encodeURIComponent(selectedId),{method:"DELETE"});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível excluir o vídeo.");setItems(all=>all.filter(i=>i.id!==item.id));await loadLibraries(selectedId);}catch(e){setError(e instanceof Error?e.message:"Erro ao excluir o vídeo.");}finally{setBusy(false);}}}>{busy?"Excluindo…":"Excluir vídeo"}</button></div>
+        <div className="im-modal-actions"><button className="im-ghost" type="button" onClick={()=>setShowDeleteVideo(null)}>Cancelar</button><button className="im-primary im-danger-solid" type="button" disabled={busy} onClick={async()=>{const item=showDeleteVideo;setShowDeleteVideo(null);setBusy(true);setError("");try{const r=await fetch("/api/influencer/content?id="+encodeURIComponent(item.id)+"&libraryId="+encodeURIComponent(selectedId),{method:"DELETE"});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível excluir o vídeo.");setItems(all=>all.filter(i=>i.id!==item.id));await loadLibraries(selectedId);}catch(e){showError(e instanceof Error?e.message:"Erro ao excluir o vídeo.","Não foi possível excluir o vídeo");}finally{setBusy(false);}}}>{busy?"Excluindo…":"Excluir vídeo"}</button></div>
       </div>
     </div>}
     {showEditLibrary&&selected&&<div className="im-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="editar-biblioteca-title">
