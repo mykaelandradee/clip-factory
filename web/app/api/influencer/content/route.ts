@@ -333,7 +333,7 @@ export async function POST(request:Request) {
   try{
     const response=await githubFetch(`/repos/${OWNER}/${REPO}/dispatches`,{
       method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({event_type:"influencer-manager-job",client_payload:{item_id:itemId,profile_id:processingProfileId,user_id:user.id,url:sourceUrl}})
+      body:JSON.stringify({event_type:"influencer-manager-job",client_payload:{item_id:itemId,profile_id:processingProfileId,library_id:requestedLibraryId,user_id:user.id,url:sourceUrl}})
     });
     if(!response.ok){
       const details=await response.text();
