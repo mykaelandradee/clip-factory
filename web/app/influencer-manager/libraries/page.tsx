@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 
 type Profile = { id:string; name:string; posting_times?:string[]; posts_per_day?:number; publishing_enabled?:boolean };
 type Library = { id:string; name:string; description?:string|null; item_count:number; profiles:{profile_id:string;profile_name:string;priority:number;enabled:boolean}[] };
-type Item = { id:string; source_url:string; title:string|null; status:string; created_at:string; result_url?:string|null; error_message?:string|null; library_id?:string };
+type Item = { id:string; source_url:string; title:string|null; status:string; created_at:string; result_url?:string|null; error_message?:string|null; library_id?:string; profile_publications?:{profile_id:string;profile_name:string;status:string;published_at?:string|null;scheduled_at?:string|null}[] };
 
 const STATUS:Record<string,string>={queued:"Na fila",processing:"Processando",available:"Disponível",scheduled:"Agendado",published:"Publicado",failed:"Erro",archived:"Arquivado"};
 
@@ -125,9 +125,10 @@ export default function InfluencerLibrariesPage(){
   }
 
   function openPublish(item:Item){
-    const availableProfiles=(selected?.profiles||[]).filter(p=>p.enabled);
+    const publishedIds=new Set((item.profile_publications||[]).filter(p=>p.status==="published").map(p=>p.profile_id));
+    const availableProfiles=(selected?.profiles||[]).filter(p=>p.enabled&&!publishedIds.has(p.profile_id));
     if(!availableProfiles.length){
-      setError("Vincule pelo menos um perfil ativo a esta biblioteca antes de publicar.");
+      setError("Este vídeo já foi publicado por todos os perfis ativos vinculados a esta biblioteca.");
       return;
     }
     setPublishProfileId(availableProfiles.length===1?availableProfiles[0].profile_id:"");
@@ -285,8 +286,10 @@ export default function InfluencerLibrariesPage(){
               </div>
               <div className="im-item-actions">
                 <span className={"im-status "+item.status}>{STATUS[item.status]||item.status}</span>
+                {(item.profile_publications||[]).filter(p=>p.status==="published").length>0&&<small className="im-publication-info">Publicado por: {(item.profile_publications||[]).filter(p=>p.status==="published").map(p=>p.profile_name).join(" · ")}</small>}
                 {item.result_url&&<a className="im-ghost" href={item.result_url} target="_blank" rel="noreferrer">Abrir vídeo</a>}
-                {item.status==="available"&&<button className="im-primary" disabled={busy||publishingItem} onClick={()=>openPublish(item)}>Publicar Reel</button>}
+                {item.status==="available"&&<button className="im-primary" disabled={busy||publishingItem} onClick={()=>openPublish(item)}>{(item.profile_publications||[]).filter(p=>p.status==="published").length>0?"Publicar em outro perfil":"Publicar Reel"}</button>}
+                {item.status==="available"&&(item.profile_publications||[]).length>0&&(item.profile_publications||[]).every(p=>p.status==="published")&&<small className="im-publication-info">Publicado por todos os perfis ativos vinculados</small>}
                 {editing===item.id?<><input className="im-form-select" value={titleDraft} onChange={e=>setTitleDraft(e.target.value)} /><button className="im-primary" disabled={busy} onClick={()=>void rename(item.id)}>Salvar</button><button className="im-ghost" onClick={()=>setEditing(null)}>Cancelar</button></>:<button className="im-ghost" onClick={()=>{setEditing(item.id);setTitleDraft(item.title||"")}}>Renomear</button>}
                 <button className="im-ghost im-delete-item" disabled={busy||publishingItem} onClick={()=>void remove(item)}>Excluir vídeo</button>
               </div>
