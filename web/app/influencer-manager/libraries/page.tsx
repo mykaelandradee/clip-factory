@@ -17,7 +17,7 @@ export default function InfluencerLibrariesPage(){
   const [name,setName]=useState(""),[description,setDescription]=useState("");
   const [url,setUrl]=useState(""),[videoTitle,setVideoTitle]=useState(""),[adding,setAdding]=useState(false);
   const [editing,setEditing]=useState<string|null>(null),[titleDraft,setTitleDraft]=useState("");
-  const [showNewLibrary,setShowNewLibrary]=useState(false),[showLibraries,setShowLibraries]=useState(false),[showEditLibrary,setShowEditLibrary]=useState(false),[showDeleteLibrary,setShowDeleteLibrary]=useState(false),[showDeleteVideo,setShowDeleteVideo]=useState<Item|null>(null),[editLibraryName,setEditLibraryName]=useState(""),[editLibraryDescription,setEditLibraryDescription]=useState("");
+  const [showNewLibrary,setShowNewLibrary]=useState(false),[showLibraries,setShowLibraries]=useState(false),[showEditLibrary,setShowEditLibrary]=useState(false),[showDeleteLibrary,setShowDeleteLibrary]=useState(false),[showDeleteVideo,setShowDeleteVideo]=useState<Item|null>(null),[showPublishVideo,setShowPublishVideo]=useState<Item|null>(null),[publishingItem,setPublishingItem]=useState(false),[publishProfileId,setPublishProfileId]=useState(""),[editLibraryName,setEditLibraryName]=useState(""),[editLibraryDescription,setEditLibraryDescription]=useState("");
 
   const selected=useMemo(()=>libraries.find(l=>l.id===selectedId)||null,[libraries,selectedId]);
   const linkedProfileId=selected?.profiles.find(p=>p.enabled)?.profile_id||"";
@@ -124,6 +124,32 @@ export default function InfluencerLibrariesPage(){
     setError("");
   }
 
+  function openPublish(item:Item){
+    const availableProfiles=(selected?.profiles||[]).filter(p=>p.enabled);
+    if(!availableProfiles.length){
+      setError("Vincule pelo menos um perfil ativo a esta biblioteca antes de publicar.");
+      return;
+    }
+    setPublishProfileId(availableProfiles.length===1?availableProfiles[0].profile_id:"");
+    setShowPublishVideo(item);
+    setError("");
+  }
+
+  async function publishVideo(){
+    if(!showPublishVideo||!publishProfileId)return;
+    setPublishingItem(true);setError("");
+    try{
+      const r=await fetch("/api/influencer/publish",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+        action:"publish-item",profileId:publishProfileId,itemId:showPublishVideo.id
+      })});
+      const d=await r.json().catch(()=>({}));
+      if(!r.ok)throw new Error(d.error||"Não foi possível publicar o Reel.");
+      setShowPublishVideo(null);setPublishProfileId("");
+      await loadItems(selectedId);await loadLibraries(selectedId);
+    }catch(e){setError(e instanceof Error?e.message:"Erro ao publicar o Reel.");}
+    finally{setPublishingItem(false);}
+  }
+
   return <main className="im-page">
     <header className="im-header">
       <div className="im-header-copy">
@@ -145,6 +171,21 @@ export default function InfluencerLibrariesPage(){
 
     {error&&<div className="im-inline-error im-page-inline-error">{error}</div>}
 
+    {showPublishVideo&&selected&&<div className="im-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="publicar-reel-title">
+      <div className="im-modal im-standard-modal">
+        <div className="im-card-head"><div><span className="im-kicker">PUBLICAR REEL</span><h2 id="publicar-reel-title">Escolha o perfil</h2><p>Este vídeo pertence à biblioteca <strong>{selected.name}</strong>. Selecione qual perfil vinculado fará a publicação.</p></div><button className="im-ghost" type="button" disabled={publishingItem} onClick={()=>setShowPublishVideo(null)}>Fechar</button></div>
+        <div className="im-form">
+          <label>Perfil para publicação
+            <select className="im-form-select" value={publishProfileId} onChange={e=>setPublishProfileId(e.target.value)} disabled={publishingItem}>
+              <option value="">Selecione um perfil</option>
+              {selected.profiles.filter(p=>p.enabled).map(p=><option key={p.profile_id} value={p.profile_id}>{p.profile_name}</option>)}
+            </select>
+          </label>
+          <div className="im-form-note"><strong>{showPublishVideo.title||"Vídeo sem título"}</strong><span>A publicação usará as configurações do perfil selecionado.</span></div>
+        </div>
+        <div className="im-modal-actions"><button className="im-ghost" type="button" disabled={publishingItem} onClick={()=>setShowPublishVideo(null)}>Cancelar</button><button className="im-primary" type="button" disabled={!publishProfileId||publishingItem} onClick={()=>void publishVideo()}>{publishingItem?"Publicando…":"Publicar Reel"}</button></div>
+      </div>
+    </div>}
     {showDeleteLibrary&&selected&&<div className="im-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="excluir-biblioteca-title">
       <div className="im-modal im-confirm-modal">
         <div className="im-confirm-icon">!</div><div><span className="im-kicker">EXCLUIR BIBLIOTECA</span><h2 id="excluir-biblioteca-title">Excluir “{selected.name}”?</h2><p>Esta ação excluirá {selected.item_count||0} {(selected.item_count||0)===1?"vídeo":"vídeos"} da biblioteca e não poderá ser desfeita.</p></div>
@@ -245,8 +286,9 @@ export default function InfluencerLibrariesPage(){
               <div className="im-item-actions">
                 <span className={"im-status "+item.status}>{STATUS[item.status]||item.status}</span>
                 {item.result_url&&<a className="im-ghost" href={item.result_url} target="_blank" rel="noreferrer">Abrir vídeo</a>}
+                {item.status==="available"&&<button className="im-primary" disabled={busy||publishingItem} onClick={()=>openPublish(item)}>Publicar Reel</button>}
                 {editing===item.id?<><input className="im-form-select" value={titleDraft} onChange={e=>setTitleDraft(e.target.value)} /><button className="im-primary" disabled={busy} onClick={()=>void rename(item.id)}>Salvar</button><button className="im-ghost" onClick={()=>setEditing(null)}>Cancelar</button></>:<button className="im-ghost" onClick={()=>{setEditing(item.id);setTitleDraft(item.title||"")}}>Renomear</button>}
-                <button className="im-ghost im-delete-item" disabled={busy} onClick={()=>void remove(item)}>Excluir vídeo</button>
+                <button className="im-ghost im-delete-item" disabled={busy||publishingItem} onClick={()=>void remove(item)}>Excluir vídeo</button>
               </div>
             </article>)}
           </div>}
