@@ -132,10 +132,26 @@ export async function GET(request:Request) {
 
   const {data:states}=itemIds.length
     ? await admin.from("influencer_profile_content")
-      .select("item_id,status,scheduled_at,published_at,error_message,retry_count")
+      .select("id,item_id,status,scheduled_at,published_at,error_message,retry_count")
       .eq("profile_id",profileId).eq("user_id",user.id).in("item_id",itemIds)
     : {data:[]};
   const stateByItem=new Map((states||[]).map((row:any)=>[row.item_id,row]));
+
+  // Não deixar um vídeo recém-adicionado aparecer como repetição de um antigo
+  // por causa de um estado de publicação impossível (publicado antes de criado).
+  for(const item of items||[]){
+    const state=stateByItem.get(item.id);
+    const publishedAt=state?.published_at ? Date.parse(state.published_at) : NaN;
+    const createdAt=Date.parse(item.created_at||"");
+    if(item.status==="available" && state?.status==="published" &&
+       Number.isFinite(publishedAt) && Number.isFinite(createdAt) && publishedAt<createdAt){
+      const {data:fixed}=await admin.from("influencer_profile_content")
+        .update({status:"available",scheduled_at:null,error_message:null,updated_at:new Date().toISOString()})
+        .eq("id",state.id).eq("user_id",user.id)
+        .select("id,item_id,status,scheduled_at,published_at,error_message,retry_count").single();
+      if(fixed) stateByItem.set(item.id,fixed);
+    }
+  }
 
   const sourceProfileIds=Array.from(new Set((items||[]).map((item:any)=>item.profile_id).filter(Boolean)));
   const {data:sourceProfiles}=sourceProfileIds.length
