@@ -22,9 +22,10 @@ type Reel = {
 
 type Props = {
   currentLibraryId?: string;
+  onImported?: () => Promise<void> | void;
 };
 
-export default function InstagramReelsImporter({ currentLibraryId = "" }: Props) {
+export default function InstagramReelsImporter({ currentLibraryId = "", onImported }: Props) {
   const [open, setOpen] = useState(false);
   const [libraries, setLibraries] = useState<Library[]>([]);
   const [libraryId, setLibraryId] = useState(currentLibraryId);
@@ -124,6 +125,7 @@ export default function InstagramReelsImporter({ currentLibraryId = "" }: Props)
     let imported = 0;
     let duplicates = 0;
     let failed = 0;
+    const importedIds = new Set<string>();
 
     for (const reel of targets) {
       try {
@@ -139,8 +141,10 @@ export default function InstagramReelsImporter({ currentLibraryId = "" }: Props)
         });
         if (response.ok || response.status === 202) {
           imported += 1;
+          importedIds.add(reel.id);
         } else if (response.status === 409) {
           duplicates += 1;
+          importedIds.add(reel.id);
         } else {
           failed += 1;
         }
@@ -150,10 +154,11 @@ export default function InstagramReelsImporter({ currentLibraryId = "" }: Props)
     }
 
     setSelected(new Set());
-    setReels(current => current.map(reel => targets.some(target => target.id === reel.id)
+    setReels(current => current.map(reel => importedIds.has(reel.id)
       ? { ...reel, duplicate: true }
       : reel));
     setImporting(false);
+    if (imported && onImported) await onImported();
 
     const parts = [];
     if (imported) parts.push(`${imported} importado${imported === 1 ? "" : "s"}`);
