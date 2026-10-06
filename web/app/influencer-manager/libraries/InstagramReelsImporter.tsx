@@ -173,7 +173,7 @@ export default function InstagramReelsImporter({ currentLibraryId = "", onImport
     </button>
 
     {open && <div className="im-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="importar-reels-title">
-      <div className="im-modal im-instagram-import-modal">
+      <div className="im-modal im-standard-modal im-instagram-import-modal">
         <div className="im-card-head">
           <div>
             <span className="im-kicker">INSTAGRAM</span>
@@ -224,7 +224,7 @@ export default function InstagramReelsImporter({ currentLibraryId = "", onImport
             </button>
           </div>
 
-          <div className="im-instagram-grid">
+          <div className="im-instagram-grid" style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:12,maxHeight:480,overflowY:"auto"}}>
             {reels.map(reel => (
               <label key={reel.id} className={"im-instagram-reel-card " + (selected.has(reel.id) ? "selected " : "") + (reel.duplicate ? "duplicate" : "")}>
                 <input type="checkbox" checked={selected.has(reel.id)} disabled={reel.duplicate || importing} onChange={() => toggleReel(reel.id)} />
