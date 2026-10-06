@@ -10,81 +10,82 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: "Entre no Clip Factory." }, { status: 401 });
 
   const admin = createAdminClient();
-  const { data: profiles } = await admin
+
+  const { data: profiles, error: profilesError } = await admin
     .from("influencer_profiles")
     .select("id,name,instagram_username")
     .eq("user_id", user.id);
+
+  if (profilesError) {
+    return NextResponse.json({ error: "Não foi possível carregar os perfis do Influencer Manager." }, { status: 500 });
+  }
+
   const profileMap = new Map((profiles || []).map((p: any) => [p.id, p]));
+  const profileIds = (profiles || []).map((p: any) => p.id);
 
-  const { data: own, error } = await admin
-    .from("influencer_content_items")
-    .select("id,profile_id,title,publish_title,publish_description,r2_key,result_url,status,scheduled_at,published_at,error_message,created_at")
-    .eq("user_id", user.id)
-    .in("status", ["scheduled","published","failed"])
-    .not("scheduled_at", "is", null)
-    .order("scheduled_at", { ascending: true });
+  if (!profileIds.length) {
+    return NextResponse.json({ scheduledPosts: [] }, { headers: { "Cache-Control": "no-store" } });
+  }
 
-  if (error) return NextResponse.json({ error: "Não foi possível carregar a grade do Influencer Manager." }, { status: 500 });
-
-  const { data: shares } = await admin
-    .from("influencer_content_shares")
+  // A agenda pertence ao estado de publicação de cada perfil.
+  // Não usamos mais influencer_content_shares nem o status global do item.
+  const { data: states, error: statesError } = await admin
+    .from("influencer_profile_content")
     .select("id,item_id,profile_id,status,scheduled_at,published_at,error_message,created_at")
     .eq("user_id", user.id)
-    .in("status", ["scheduled","published","failed"])
+    .in("profile_id", profileIds)
+    .in("status", ["scheduled", "published", "failed"])
     .not("scheduled_at", "is", null)
     .order("scheduled_at", { ascending: true });
 
-  const ids = (shares || []).map((s: any) => s.item_id);
-  let sourceItems: any[] = [];
-  if (ids.length) {
-    const { data } = await admin.from("influencer_content_items")
-      .select("id,title,publish_title,publish_description,r2_key,result_url")
-      .in("id", ids)
-      .eq("user_id", user.id);
-    sourceItems = data || [];
+  if (statesError) {
+    return NextResponse.json({ error: "Não foi possível carregar a agenda do Influencer Manager." }, { status: 500 });
   }
-  const sourceMap = new Map(sourceItems.map((i: any) => [i.id, i]));
 
-  const rows = [
-    ...(own || []).map((item: any) => {
-      const profile = profileMap.get(item.profile_id);
+  const itemIds = Array.from(new Set((states || []).map((state: any) => state.item_id).filter(Boolean)));
+  if (!itemIds.length) {
+    return NextResponse.json({ scheduledPosts: [] }, { headers: { "Cache-Control": "no-store" } });
+  }
+
+  const { data: items, error: itemsError } = await admin
+    .from("influencer_content_items")
+    .select("id,title,publish_title,publish_description,r2_key,result_url")
+    .eq("user_id", user.id)
+    .in("id", itemIds);
+
+  if (itemsError) {
+    return NextResponse.json({ error: "Não foi possível carregar os conteúdos da agenda." }, { status: 500 });
+  }
+
+  const itemMap = new Map((items || []).map((item: any) => [item.id, item]));
+
+  const rows = (states || [])
+    .map((state: any) => {
+      const item = itemMap.get(state.item_id);
+      const profile = profileMap.get(state.profile_id);
+      if (!item || !profile) return null;
+
       return {
-        id: item.id,
-        profileId: item.profile_id,
-        profileName: profile?.name || "Influencer Manager",
-        username: profile?.instagram_username || null,
+        id: state.id,
+        itemId: state.item_id,
+        profileId: state.profile_id,
+        profileName: profile.name || "Influencer Manager",
+        username: profile.instagram_username || null,
         platform: "instagram",
         title: item.publish_title || item.title || "Reel do Influencer Manager",
         file: item.r2_key ? item.r2_key.split("/").pop() : "reel.mp4",
-        scheduledAt: item.scheduled_at,
-        status: item.status,
-        lastError: item.error_message || null,
+        scheduledAt: state.scheduled_at,
+        publishedAt: state.published_at || null,
+        status: state.status,
+        lastError: state.error_message || null,
         resultUrl: item.result_url || null,
       };
-    }),
-    ...(shares || []).map((share: any) => {
-      const item = sourceMap.get(share.item_id);
-      const profile = profileMap.get(share.profile_id);
-      if (!item) return null;
-      return {
-        id: share.id,
-        profileId: share.profile_id,
-        profileName: profile?.name || "Influencer Manager",
-        username: profile?.instagram_username || null,
-        platform: "instagram",
-        title: item.publish_title || item.title || "Reel do Influencer Manager",
-        file: item.r2_key ? item.r2_key.split("/").pop() : "reel.mp4",
-        scheduledAt: share.scheduled_at,
-        status: share.status,
-        lastError: share.error_message || null,
-        resultUrl: item.result_url || null,
-      };
-    }).filter(Boolean),
-  ].sort((a: any, b: any) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
+    })
+    .filter(Boolean)
+    .sort((a: any, b: any) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
 
   return NextResponse.json({ scheduledPosts: rows }, { headers: { "Cache-Control": "no-store" } });
 }
-
 
 export async function DELETE(request: Request) {
   const supabase = await createClient();
@@ -95,23 +96,66 @@ export async function DELETE(request: Request) {
   if (!id) return NextResponse.json({ error: "Agendamento inválido." }, { status: 400 });
 
   const admin = createAdminClient();
-  const { data: share } = await admin.from("influencer_content_shares")
-    .select("id").eq("id", id).eq("user_id", user.id).maybeSingle();
-  if (share) {
-    const { error } = await admin.from("influencer_content_shares")
-      .update({ status: "canceled", scheduled_at: null, error_message: "Cancelado pelo usuário." })
-      .eq("id", id).eq("user_id", user.id);
+
+  // A UI de agenda normalmente envia o ID de influencer_profile_content.
+  // Mantemos o item_id como fallback para compatibilidade com a agenda antiga.
+  const { data: state } = await admin
+    .from("influencer_profile_content")
+    .select("id,item_id,profile_id,status")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (state) {
+    const { error } = await admin
+      .from("influencer_profile_content")
+      .update({
+        status: "available",
+        scheduled_at: null,
+        error_message: "Agendamento cancelado pelo usuário.",
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", state.id)
+      .eq("user_id", user.id);
+
     if (error) return NextResponse.json({ error: "Não foi possível cancelar o agendamento." }, { status: 500 });
     return NextResponse.json({ ok: true });
   }
 
-  const { data: item } = await admin.from("influencer_content_items")
-    .select("id").eq("id", id).eq("user_id", user.id).maybeSingle();
-  if (!item) return NextResponse.json({ error: "Agendamento não encontrado." }, { status: 404 });
+  const { data: item } = await admin
+    .from("influencer_content_items")
+    .select("id,profile_id")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .maybeSingle();
 
-  const { error } = await admin.from("influencer_content_items")
-    .update({ status: "available", scheduled_at: null, error_message: "Agendamento cancelado pelo usuário." })
-    .eq("id", id).eq("user_id", user.id);
+  if (!item || !item.profile_id) {
+    return NextResponse.json({ error: "Agendamento não encontrado." }, { status: 404 });
+  }
+
+  const { data: itemState } = await admin
+    .from("influencer_profile_content")
+    .select("id")
+    .eq("item_id", item.id)
+    .eq("profile_id", item.profile_id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!itemState) {
+    return NextResponse.json({ error: "Agendamento não encontrado." }, { status: 404 });
+  }
+
+  const { error } = await admin
+    .from("influencer_profile_content")
+    .update({
+      status: "available",
+      scheduled_at: null,
+      error_message: "Agendamento cancelado pelo usuário.",
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", itemState.id)
+    .eq("user_id", user.id);
+
   if (error) return NextResponse.json({ error: "Não foi possível cancelar o agendamento." }, { status: 500 });
   return NextResponse.json({ ok: true });
 }
