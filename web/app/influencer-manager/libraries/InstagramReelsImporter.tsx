@@ -178,7 +178,7 @@ export default function InstagramReelsImporter({ currentLibraryId = "", onImport
           <div>
             <span className="im-kicker">INSTAGRAM</span>
             <h2 id="importar-reels-title">Importar Reels para uma biblioteca</h2>
-            <p>Informe um perfil público, selecione os Reels desejados e escolha onde eles serão processados.</p>
+            <p>Selecione a biblioteca, informe um perfil público e escolha os Reels que deseja importar.</p>
           </div>
           <button className="im-ghost" type="button" disabled={importing} onClick={() => setOpen(false)}>Fechar</button>
         </div>
@@ -194,7 +194,7 @@ export default function InstagramReelsImporter({ currentLibraryId = "", onImport
             </select>
           </label>
 
-          <div className="im-url-form">
+          <label className="im-import-url-field">Perfil do Instagram<div className="im-url-form">
             <input
               value={url}
               onChange={e => setUrl(e.target.value)}
@@ -204,7 +204,7 @@ export default function InstagramReelsImporter({ currentLibraryId = "", onImport
             <button className="im-primary" type="button" disabled={loading || !url.trim()} onClick={() => void discover()}>
               {loading ? "Buscando…" : "Listar Reels"}
             </button>
-          </div>
+          </div></label>
 
           {error && <div className="im-error-text">{error}</div>}
           {message && <div className="im-form-note">{message}</div>}
@@ -218,13 +218,13 @@ export default function InstagramReelsImporter({ currentLibraryId = "", onImport
 
         {reels.length > 0 && <div className="im-instagram-results">
           <div className="im-card-head">
-            <div><span className="im-kicker">SELEÇÃO</span><h3>Escolha os Reels</h3></div>
+            <div><span className="im-kicker">SELEÇÃO</span><h3>Escolha os Reels</h3><p>{selectedCount} selecionado{selectedCount === 1 ? "" : "s"} de {available.length} disponíveis</p></div>
             <button className="im-ghost" type="button" onClick={toggleAll} disabled={available.length === 0}>
               {selected.size === available.length && available.length ? "Desmarcar todos" : "Selecionar todos"}
             </button>
           </div>
 
-          <div className="im-instagram-grid" style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:12,maxHeight:480,overflowY:"auto"}}>
+          <div className="im-instagram-grid">
             {reels.map(reel => (
               <label key={reel.id} className={"im-instagram-reel-card " + (selected.has(reel.id) ? "selected " : "") + (reel.duplicate ? "duplicate" : "")}>
                 <input type="checkbox" checked={selected.has(reel.id)} disabled={reel.duplicate || importing} onChange={() => toggleReel(reel.id)} />
