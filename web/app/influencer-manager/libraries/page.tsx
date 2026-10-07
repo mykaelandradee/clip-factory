@@ -172,7 +172,7 @@ export default function InfluencerLibrariesPage(){
         <a className="im-back" href="/influencer-manager">← Influencer Manager</a>
         <span className="im-header-label">INFLUENCER MANAGER · BIBLIOTECAS</span>
         <h1>Gerencie seu <em>conteúdo.</em></h1>
-        <p>As bibliotecas são independentes dos perfis. Aqui você cria, organiza e processa os vídeos.</p>
+        <p>Crie, organize e processe vídeos em bibliotecas que podem ser usadas por vários perfis.</p>
       </div>
       <div className="im-header-actions">
         <button className="im-ghost im-profiles-trigger" type="button" onClick={()=>setShowLibraries(true)}>SUAS BIBLIOTECAS <b>{libraries.length}</b></button>
@@ -288,7 +288,7 @@ export default function InfluencerLibrariesPage(){
         </div>
 
         {selected&&<div className="im-card im-content-add">
-          <div className="im-card-head"><div><span className="im-kicker">CONTEÚDO</span><h2>Adicionar vídeo</h2><p>O vídeo será salvo diretamente em <strong>{selected.name}</strong>.</p></div></div>
+          <div className="im-card-head"><div><span className="im-kicker">ADICIONAR CONTEÚDO</span><h2>Novo vídeo</h2><p>O vídeo será salvo diretamente em <strong>{selected.name}</strong>.</p></div></div>
           {!linkedProfileId?<div className="im-empty"><strong>Vincule um perfil a esta biblioteca primeiro.</strong><span>O perfil é usado apenas para preparar o processamento; o conteúdo continua pertencendo à biblioteca.</span><a className="im-ghost" href="/influencer-manager">Ir para Perfis</a></div>:
           <form className="im-url-form" onSubmit={addVideo}>
             <input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://youtube.com/... ou https://instagram.com/reel/..." required />
@@ -298,7 +298,7 @@ export default function InfluencerLibrariesPage(){
         </div>}
 
         {selected&&<div className="im-card im-library-content">
-          <div className="im-card-head"><div><span className="im-kicker">CONTEÚDO</span><h2>Vídeos da biblioteca</h2><p>Gerencie títulos, processamento e arquivos desta biblioteca. A publicação é controlada pelo perfil.</p></div><span className="im-count">{items.length}</span></div>
+          <div className="im-card-head"><div><span className="im-kicker">BIBLIOTECA</span><h2>Vídeos</h2><p>Gerencie títulos e processamento. A publicação é definida pelo perfil.</p></div><span className="im-count">{items.length}</span></div>
           {items.length===0?<div className="im-empty">Nenhum vídeo nesta biblioteca.</div>:<div className="im-items">
             {items.map(item=><article className={"im-item "+(item.status==="available"?"im-item-ready":"")} key={item.id}>
               <div className="im-item-main">
