@@ -3245,3 +3245,20 @@ html,body,button,input,select,textarea{
 .im-profile-libraries .im-form-note{margin-top:10px}
 @media(max-width:900px){.im-header{align-items:flex-start}.im-layout{grid-template-columns:1fr}.im-section-tabs{margin-top:2px}.im-agenda-grid{grid-template-columns:1fr}.im-story-settings{grid-template-columns:1fr}.im-publish-controls{grid-template-columns:1fr 1fr}.im-repeat-toggle{grid-column:1/-1}}
 @media(max-width:680px){.im-page{padding:12px 10px 42px}.im-header{display:block;padding:12px 0 14px}.im-header h1{font-size:34px}.im-header p{font-size:10px}.im-header-actions{margin-top:12px}.im-header-actions>*{flex:1}.im-section-tabs{overflow-x:auto}.im-section-tab{white-space:nowrap}.im-card{padding:13px}.im-profile-config>.im-card-head,.im-config-section{padding:14px}.im-overview-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px}.im-overview-actions>*{width:100%}.im-publish-controls{grid-template-columns:1fr}.im-profile-save .im-primary{width:100%}.im-agenda-row{grid-template-columns:64px 44px minmax(0,1fr)}}
+
+
+/* Influencer Manager — importer UX */
+.im-import-url-field{display:grid;gap:6px;color:#737680;font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.08em}
+.im-instagram-import-modal{max-width:760px}
+.im-instagram-results{margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.055)}
+.im-instagram-results .im-card-head{align-items:center}
+.im-instagram-results .im-card-head p{margin-top:4px;font-size:8px;color:#686b75}
+.im-instagram-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;max-height:480px;overflow-y:auto;margin-top:10px;padding-right:2px}
+.im-instagram-reel-card{display:grid;grid-template-columns:1fr;gap:7px;padding:8px;border:1px solid rgba(255,255,255,.055);border-radius:10px;background:#0b0d10;cursor:pointer}
+.im-instagram-reel-card.selected{border-color:rgba(156,153,255,.45);background:rgba(156,153,255,.07)}
+.im-instagram-reel-card.duplicate{opacity:.55;cursor:default}
+.im-instagram-reel-card input{position:absolute;opacity:0;pointer-events:none}
+.im-instagram-reel-card img,.im-instagram-thumb-placeholder{width:100%;aspect-ratio:9/12;object-fit:cover;border-radius:7px;background:#11131a}
+.im-instagram-thumb-placeholder{display:grid;place-items:center;color:#555963;font-size:8px;font-weight:850;letter-spacing:.12em}
+.im-instagram-reel-copy{display:grid;gap:3px;min-width:0}.im-instagram-reel-copy strong{font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.im-instagram-reel-copy span{font-size:7px;color:#666a74;line-height:1.35}
+@media(max-width:680px){.im-instagram-import-modal{max-height:88vh}.im-instagram-grid{grid-template-columns:repeat(2,minmax(0,1fr));max-height:48vh}.im-import-url-field .im-url-form{grid-template-columns:1fr}.im-import-url-field .im-url-form button{width:100%}}
