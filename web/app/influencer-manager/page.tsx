@@ -93,7 +93,7 @@ export default function InfluencerManagerPage(){
       const count=Number(posts)||3;
       const r=await fetch("/api/influencer/profiles",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
         name,description:"",instagramUsername:"",postsPerDay:count,postingTimes:DEFAULT_TIMES.slice(0,count),
-        captionMode:"zh_ja_random",fixedPublishTitle:name,fixedPublishDescription:"",shareToFeed:true
+        captionMode:"zh_ja_random",fixedPublishTitle:name,fixedPublishDescription:"",shareToFeed:true,autoStory:false,storyDelayMinutes:30
       })});
       const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível criar o perfil.");
       setProfiles(all=>[...all,d.profile]);setSelected(d.profile);setName("");setPosts("3");setShowNew(false);
