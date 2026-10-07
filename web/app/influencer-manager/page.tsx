@@ -82,7 +82,7 @@ export default function InfluencerManagerPage(){
       posts_per_day:selected.posts_per_day||3,caption_mode:selected.caption_mode||"zh_ja_random",
       repeat_when_exhausted:Boolean(selected.repeat_when_exhausted),posting_times:[...(selected.posting_times||[])],
       fixed_publish_title:selected.fixed_publish_title||"",fixed_publish_description:selected.fixed_publish_description||"",
-      share_to_feed:selected.share_to_feed!==false
+      share_to_feed:selected.share_to_feed!==false,auto_story:Boolean(selected.auto_story),story_delay_minutes:Number(selected.story_delay_minutes)||30
     });
     setCoverFile(null);setCoverPreview("");void loadInstagram(selected.id);void loadLibraries();void loadItems(selected.id);
   },[selected?.id,selected?.cover_r2_key]);
