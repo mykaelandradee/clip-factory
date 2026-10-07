@@ -71,6 +71,33 @@ export async function POST(request: Request) {
     }
   }
 
+  // The same Supabase cron that publishes scheduled Instagram posts also
+  // drives the Influencer Manager Story queue. The Story worker is claimed
+  // atomically, so this remains safe if another scheduler invocation runs too.
+  try {
+    const influencerResponse = await fetch(origin + "/api/influencer/publish", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-clip-factory-scheduler-token": secret
+      },
+      body: JSON.stringify({ action: "process-stories" }),
+      cache: "no-store"
+    });
+    const influencerData = await influencerResponse.json().catch(() => ({}));
+    if (!influencerResponse.ok) {
+      console.error("Influencer Story scheduler failed:", influencerData?.error || influencerResponse.status);
+    } else if (Array.isArray(influencerData?.results)) {
+      results.push(...influencerData.results.map((item: any) => ({
+        id: String(item.storyId || ""),
+        status: String(item.status || "unknown"),
+        error: item.error ? String(item.error) : undefined
+      })));
+    }
+  } catch (error) {
+    console.error("Influencer Story scheduler request failed:", error);
+  }
+
   return NextResponse.json(
     { ok: true, processed: results.length, results },
     { status: 200, headers: noStore }
