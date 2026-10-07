@@ -126,7 +126,7 @@ export default function InfluencerManagerPage(){
       const r=await fetch("/api/influencer/profiles",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({
         id:selected.id,posts_per_day:draft.posts_per_day,caption_mode:draft.caption_mode,
         repeat_when_exhausted:draft.repeat_when_exhausted,posting_times:draft.posting_times.slice(0,draft.posts_per_day),
-        fixed_publish_title:draft.fixed_publish_title,fixed_publish_description:draft.fixed_publish_description,share_to_feed:draft.share_to_feed
+        fixed_publish_title:draft.fixed_publish_title,fixed_publish_description:draft.fixed_publish_description,share_to_feed:draft.share_to_feed,auto_story:draft.auto_story,story_delay_minutes:draft.story_delay_minutes
       })});
       const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível salvar o perfil.");
       setSelected(d.profile);setProfiles(all=>all.map(p=>p.id===d.profile.id?d.profile:p));
