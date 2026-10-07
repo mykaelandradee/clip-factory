@@ -82,9 +82,106 @@ function nextSlot(times:string[], from=new Date(), postsPerDay=3) {
   return localToUtc(y,mo,d,first[0],first[1]);
 }
 
+
+async function publishStoryOne(admin: ReturnType<typeof createAdminClient>, storyId: string) {
+  const { data: story } = await admin.from("influencer_story_posts")
+    .select("id,profile_id,user_id,item_id,reel_media_id,attempts,status")
+    .eq("id",storyId).maybeSingle();
+  if (!story || story.status !== "processing") return {status:"skipped"};
+
+  const { data: profile } = await admin.from("influencer_profiles")
+    .select("id,user_id,publishing_enabled")
+    .eq("id",story.profile_id).eq("user_id",story.user_id).maybeSingle();
+  if (!profile) {
+    await admin.from("influencer_story_posts").update({status:"failed",error_message:"Perfil não encontrado.",updated_at:new Date().toISOString()}).eq("id",storyId);
+    return {status:"error",error:"Perfil não encontrado."};
+  }
+
+  const { data: connection } = await admin.from("influencer_instagram_connections")
+    .select("access_token_encrypted,expires_at,requires_reconnect").eq("profile_id",story.profile_id).eq("user_id",story.user_id).maybeSingle();
+  if (!connection || connection.requires_reconnect) {
+    const message="A conexão do Instagram precisa ser reconectada para publicar o Story.";
+    await admin.from("influencer_story_posts").update({status:"failed",error_message:message,updated_at:new Date().toISOString()}).eq("id",storyId);
+    return {status:"error",error:message};
+  }
+
+  let accessToken=decryptInstagramAccessToken(connection.access_token_encrypted);
+  if (!accessToken) {
+    await admin.from("influencer_instagram_connections").update({requires_reconnect:true,last_refresh_error:"Não foi possível descriptografar o token.",updated_at:new Date().toISOString()}).eq("profile_id",story.profile_id).eq("user_id",story.user_id);
+    await admin.from("influencer_story_posts").update({status:"failed",error_message:"Não foi possível ler a conexão do Instagram.",updated_at:new Date().toISOString()}).eq("id",storyId);
+    return {status:"error",error:"Não foi possível ler a conexão do Instagram."};
+  }
+
+  if (connection.expires_at && Date.parse(connection.expires_at) < Date.now()+7*24*60*60*1000) {
+    try {
+      const refreshed=await refreshInstagramLongLivedToken(accessToken);
+      accessToken=refreshed.accessToken;
+      await admin.from("influencer_instagram_connections").update({
+        access_token_encrypted:encryptInstagramAccessToken(accessToken),
+        expires_at:refreshed.expiresIn>0?new Date(Date.now()+refreshed.expiresIn*1000).toISOString():connection.expires_at,
+        requires_reconnect:false,last_refresh_error:null,updated_at:new Date().toISOString()
+      }).eq("profile_id",story.profile_id).eq("user_id",story.user_id);
+    } catch(error) {
+      const message=error instanceof Error?error.message:"Não foi possível renovar o token do Instagram.";
+      await admin.from("influencer_instagram_connections").update({requires_reconnect:true,last_refresh_error:message.slice(0,1000),updated_at:new Date().toISOString()}).eq("profile_id",story.profile_id).eq("user_id",story.user_id);
+      await admin.from("influencer_story_posts").update({status:"failed",error_message:"A conexão do Instagram expirou ou não pode mais ser renovada.",updated_at:new Date().toISOString()}).eq("id",storyId);
+      return {status:"error",error:message};
+    }
+  }
+
+  const { data:item }=await admin.from("influencer_content_items").select("r2_key").eq("id",story.item_id).eq("user_id",story.user_id).maybeSingle();
+  const publicUrl=(process.env.R2_PUBLIC_URL||"").replace(/\/$/,"");
+  const videoUrl=item?.r2_key&&publicUrl?publicUrl+"/"+item.r2_key:"";
+  if(!videoUrl) {
+    const message="O vídeo processado não possui uma URL pública no R2.";
+    await admin.from("influencer_story_posts").update({status:"failed",error_message:message,updated_at:new Date().toISOString()}).eq("id",storyId);
+    return {status:"error",error:message};
+  }
+
+  try {
+    const mediaParams=new URLSearchParams({media_type:"STORIES",video_url:videoUrl,access_token:accessToken});
+    const containerResponse=await fetch(`${GRAPH}/me/media`,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:mediaParams,cache:"no-store"});
+    const containerData=await containerResponse.json().catch(()=>({}));
+    if(!containerResponse.ok||!containerData.id) throw new Error(containerData?.error?.message||"O Instagram não conseguiu criar o Story.");
+
+    const creationId=String(containerData.id);
+    let statusCode="";
+    for(let attempt=0;attempt<45;attempt++){
+      await new Promise(r=>setTimeout(r,4000));
+      const statusResponse=await fetch(`${GRAPH}/${encodeURIComponent(creationId)}?fields=status_code,status&access_token=${encodeURIComponent(accessToken)}`,{cache:"no-store"});
+      const statusData=await statusResponse.json().catch(()=>({}));
+      if(!statusResponse.ok) throw new Error(statusData?.error?.message||"Não foi possível consultar o processamento do Story.");
+      statusCode=String(statusData.status_code||"");
+      if(statusCode==="FINISHED") break;
+      if(statusCode==="ERROR"||statusCode==="EXPIRED") throw new Error(String(statusData.status||"O Instagram rejeitou o Story."));
+    }
+    if(statusCode!=="FINISHED") throw new Error("O Instagram demorou demais para processar o Story.");
+
+    const publishResponse=await fetch(`${GRAPH}/me/media_publish`,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:new URLSearchParams({creation_id:creationId,access_token:accessToken}),cache:"no-store"});
+    const publishData=await publishResponse.json().catch(()=>({}));
+    if(!publishResponse.ok||!publishData.id) throw new Error(publishData?.error?.message||"O Instagram não conseguiu publicar o Story.");
+
+    await admin.from("influencer_story_posts").update({
+      status:"published",story_media_id:String(publishData.id),published_at:new Date().toISOString(),error_message:null,updated_at:new Date().toISOString()
+    }).eq("id",storyId).eq("status","processing");
+    return {status:"published",storyId,mediaId:String(publishData.id)};
+  } catch(error) {
+    const message=error instanceof Error?error.message:"Falha na publicação do Story.";
+    const tokenInvalid=/(invalid.*access token|access token.*invalid|oauth|token.*expired|session.*expired|(#190)|error code.*190)/i.test(message);
+    if(tokenInvalid){
+      await admin.from("influencer_instagram_connections").update({requires_reconnect:true,last_refresh_error:message.slice(0,1000),updated_at:new Date().toISOString()}).eq("profile_id",story.profile_id).eq("user_id",story.user_id);
+      await admin.from("influencer_profiles").update({publishing_enabled:false,updated_at:new Date().toISOString()}).eq("id",story.profile_id).eq("user_id",story.user_id);
+    }
+    await admin.from("influencer_story_posts").update({
+      status:"failed",error_message:message.slice(0,1000),updated_at:new Date().toISOString()
+    }).eq("id",storyId).eq("status","processing");
+    return {status:"error",error:message};
+  }
+}
+
 async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId: string, userId: string, itemId?: string) {
   const { data: profile } = await admin.from("influencer_profiles")
-    .select("id,user_id,posting_times,posts_per_day,next_publish_at,publishing_enabled,repeat_when_exhausted,cover_r2_key,share_to_feed,fixed_publish_title,fixed_publish_description,caption_mode")
+    .select("id,user_id,posting_times,posts_per_day,next_publish_at,publishing_enabled,repeat_when_exhausted,cover_r2_key,share_to_feed,fixed_publish_title,fixed_publish_description,caption_mode,auto_story,story_delay_minutes")
     .eq("id",profileId).eq("user_id",userId).maybeSingle();
   if (!profile || (!itemId && !profile.publishing_enabled)) return { status:"stopped" };
 
@@ -409,6 +506,22 @@ export async function POST(request:Request) {
         }).eq("id",p.id).eq("user_id",p.user_id);
       }
       results.push({profileId:p.id,userId:p.user_id,...result});
+    }
+
+    const {data:dueStories}=await admin.from("influencer_story_posts")
+      .select("id")
+      .eq("status","scheduled")
+      .lte("scheduled_at",now.toISOString())
+      .order("scheduled_at",{ascending:true})
+      .limit(20);
+    for(const story of dueStories||[]){
+      const {data:claimedStory}=await admin.from("influencer_story_posts")
+        .update({status:"processing",attempts:1,updated_at:new Date().toISOString()})
+        .eq("id",story.id).eq("status","scheduled")
+        .select("id").maybeSingle();
+      if(!claimedStory) continue;
+      const storyResult=await publishStoryOne(admin,story.id);
+      results.push({storyId:story.id,status:storyResult.status,...storyResult});
     }
 
     return NextResponse.json({ok:true,results},{headers:{"Cache-Control":"no-store"}});
