@@ -521,7 +521,7 @@ export async function POST(request:Request) {
         .select("id").maybeSingle();
       if(!claimedStory) continue;
       const storyResult=await publishStoryOne(admin,story.id);
-      results.push({storyId:story.id,status:storyResult.status,...storyResult});
+      results.push({storyId:story.id,...storyResult});
     }
 
     return NextResponse.json({ok:true,results},{headers:{"Cache-Control":"no-store"}});
