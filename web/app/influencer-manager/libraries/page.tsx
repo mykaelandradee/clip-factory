@@ -75,7 +75,13 @@ export default function InfluencerLibrariesPage(){
             const response=await fetch("/api/influencer/content/status?id="+encodeURIComponent(id),{cache:"no-store"});
             const data=await response.json().catch(()=>({}));
             if(response.ok&&data.item&&active){
-              setItems(current=>current.map(item=>item.id===id?{...item,...data.item}:item));
+              if(data.removed){
+                const failedMessage=String(data.item.error_message||"O Influencer Manager Worker terminou com erro.");
+                setItems(current=>current.filter(item=>item.id!==id));
+                showError(failedMessage,"Processamento falhou");
+              }else{
+                setItems(current=>current.map(item=>item.id===id?{...item,...data.item}:item));
+              }
             }
           }catch{}
         }
