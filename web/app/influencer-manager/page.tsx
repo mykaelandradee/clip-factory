@@ -218,7 +218,7 @@ export default function InfluencerManagerPage(){
         <a className="im-back" href="/">← Clip Factory</a>
         <span className="im-header-label">INFLUENCER MANAGER · PERFIS</span>
         <h1>Gerencie seus <em>perfis.</em></h1>
-        <p>Perfil e biblioteca são áreas separadas. Aqui você configura identidade, publicação e apenas os vínculos com as bibliotecas.</p>
+        <p>Configure a identidade, a publicação e as bibliotecas vinculadas deste perfil.</p>
       </div>
       <div className="im-header-actions">
         <button className="im-ghost im-profiles-trigger" onClick={()=>setShowProfiles(true)}>SEUS PERFIS <b>{profiles.length}</b></button>
@@ -263,7 +263,7 @@ export default function InfluencerManagerPage(){
           </div>
 
           <div className="im-card im-profile-config">
-            <div className="im-card-head"><div><span className="im-kicker">CONFIGURAÇÃO DO PERFIL</span><h2>Identidade e publicação</h2><p>Essas regras pertencem ao perfil, não à biblioteca.</p></div></div>
+            <div className="im-card-head"><div><span className="im-kicker">CONFIGURAÇÃO DO PERFIL</span><h2>Identidade e publicação</h2><p>Configurações exclusivas deste perfil.</p></div></div>
 
             <div className="im-config-section">
               <div className="im-config-section-head"><div><span className="im-kicker">IDENTIDADE</span><h3>Capa do perfil</h3><p>Capa usada nos Reels publicados por este perfil.</p></div></div>
@@ -278,20 +278,20 @@ export default function InfluencerManagerPage(){
             </div>
 
             <div className="im-config-section">
-              <div className="im-config-section-head"><div><span className="im-kicker">IDENTIDADE DO REEL</span><h3>Nome e descrição</h3><p>Defina o texto fixo que este perfil usará nas publicações.</p></div></div>
+              <div className="im-config-section-head"><div><span className="im-kicker">IDENTIDADE DO REEL</span><h3>Nome e descrição</h3><p>Texto usado nas publicações deste perfil.</p></div></div>
               <div className="im-fixed-copy">
                 <label>Nome do Reel<input value={draft.fixed_publish_title} onChange={e=>setDraft(v=>({...v,fixed_publish_title:e.target.value}))} placeholder="Automático" /></label>
                 <label>Descrição<textarea rows={5} value={draft.fixed_publish_description} onChange={e=>setDraft(v=>({...v,fixed_publish_description:e.target.value}))} placeholder="Automática em chinês/japonês" /></label>
               </div>
-              <label className="im-check"><input type="checkbox" checked={draft.share_to_feed} onChange={e=>setDraft(v=>({...v,share_to_feed:e.target.checked}))}/><span>Publicar também na Grade Principal do Instagram</span></label>
-              <div className="im-story-settings"><label className="im-check"><input type="checkbox" checked={draft.auto_story} onChange={e=>setDraft(v=>({...v,auto_story:e.target.checked}))}/><span>Compartilhar o Reel no Story automaticamente</span></label>{draft.auto_story&&<label>Publicar Story após (minutos)<input type="number" min="0" max="1440" step="1" value={draft.story_delay_minutes} onChange={e=>setDraft(v=>({...v,story_delay_minutes:Math.min(1440,Math.max(0,Number(e.target.value)||0))}))}/><small className="im-field-help">Ex.: 30 = Reel agora e Story daqui a 30 minutos.</small></label>}</div>
+              <label className="im-check"><input type="checkbox" checked={draft.share_to_feed} onChange={e=>setDraft(v=>({...v,share_to_feed:e.target.checked}))}/><span>Mostrar também na Grade do Instagram</span></label>
+              <div className="im-story-settings"><label className="im-check"><input type="checkbox" checked={draft.auto_story} onChange={e=>setDraft(v=>({...v,auto_story:e.target.checked}))}/><span>Compartilhar o Reel no Story automaticamente</span></label>{draft.auto_story&&<label>Publicar Story após (minutos)<input type="number" min="0" max="1440" step="1" value={draft.story_delay_minutes} onChange={e=>setDraft(v=>({...v,story_delay_minutes:Math.min(1440,Math.max(0,Number(e.target.value)||0))}))}/><small className="im-field-help">Ex.: 30 = Reel agora e Story 30 minutos depois.</small></label>}</div>
             </div>
 
             <div className="im-config-section">
-              <div className="im-config-section-head"><div><span className="im-kicker">PUBLICAÇÃO</span><h3>Regras e horários</h3><p>Frequência, horários e comportamento da fila deste perfil.</p></div><span className={"im-status "+(selected.publishing_enabled?"available":"archived")}>{selected.publishing_enabled?"EXECUTANDO":"PARADA"}</span></div>
+              <div className="im-config-section-head"><div><span className="im-kicker">PUBLICAÇÃO</span><h3>Regras e horários</h3><p>Frequência, horários e comportamento da fila.</p></div><span className={"im-status "+(selected.publishing_enabled?"available":"archived")}>{selected.publishing_enabled?"EXECUTANDO":"PARADA"}</span></div>
               <div className="im-settings-grid">
                 <label>Reels por dia<select className="im-form-select" value={draft.posts_per_day} onChange={e=>setDraft(v=>({...v,posts_per_day:Number(e.target.value)}))}>{[1,2,3,4,5,6,7,8,9].map(n=><option key={n}>{n}</option>)}</select></label>
-                <label>Descrição<select className="im-form-select" value={draft.caption_mode} onChange={e=>setDraft(v=>({...v,caption_mode:e.target.value}))}><option value="zh_ja_random">Chinês + Japonês aleatório</option><option value="zh_random">Chinês</option><option value="ja_random">Japonês</option><option value="custom">Banco personalizado</option></select></label>
+                <label>Legenda<select className="im-form-select" value={draft.caption_mode} onChange={e=>setDraft(v=>({...v,caption_mode:e.target.value}))}><option value="zh_ja_random">Chinês + Japonês aleatório</option><option value="zh_random">Chinês</option><option value="ja_random">Japonês</option><option value="custom">Banco personalizado</option></select></label>
               </div>
               <div className="im-times"><span className="im-kicker">HORÁRIOS DIÁRIOS</span><div className="im-time-grid">{Array.from({length:draft.posts_per_day},(_,i)=><label key={i}>Post {i+1}<input type="time" value={draft.posting_times[i]||DEFAULT_TIMES[i]} onChange={e=>setDraft(v=>{const times=[...v.posting_times];while(times.length<v.posts_per_day)times.push("");times[i]=e.target.value;return {...v,posting_times:times};})}/></label>)}</div></div>
               <div className="im-publish-controls">
@@ -323,7 +323,7 @@ export default function InfluencerManagerPage(){
           </div>
 
           <div className="im-card im-profile-libraries">
-            <div className="im-card-head"><div><span className="im-kicker">ACESSO AO CONTEÚDO</span><h2>Bibliotecas vinculadas</h2><p>O perfil apenas escolhe quais bibliotecas poderá publicar. Para adicionar ou organizar vídeos, use a aba Bibliotecas.</p></div><a className="im-ghost" href="/influencer-manager/libraries">Abrir Bibliotecas</a></div>
+            <div className="im-card-head"><div><span className="im-kicker">ACESSO AO CONTEÚDO</span><h2>Bibliotecas vinculadas</h2><p>Escolha quais bibliotecas este perfil pode publicar. A organização dos vídeos fica em Bibliotecas.</p></div><a className="im-ghost" href="/influencer-manager/libraries">Abrir Bibliotecas</a></div>
             {libraries.length===0?<div className="im-empty">Nenhuma biblioteca criada. Crie uma na aba Bibliotecas.</div>:<div className="im-profile-modal-list">
               {libraries.map(l=>{const isLinked=l.profiles.some(p=>p.profile_id===selected.id&&p.enabled);return <div className="im-profile" key={l.id}>
                 <span className="im-avatar">{l.name.slice(0,1).toUpperCase()}</span>
