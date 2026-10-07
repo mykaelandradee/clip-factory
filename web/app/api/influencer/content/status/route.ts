@@ -97,9 +97,45 @@ export async function GET(request:Request){
 
     return NextResponse.json({item:done||{...item,...updated}},{headers:{"Cache-Control":"no-store"}});
    }
-   const updated={status:"failed",progress,stage:"error",error_message:run.conclusion==="cancelled"?"Processamento cancelado.":"O Influencer Manager Worker terminou com erro.",updated_at:new Date().toISOString()};
-   const {data:failed}=await admin.from("influencer_content_items").update(updated).eq("id",id).eq("user_id",user.id).select("*").single();
-   return NextResponse.json({item:failed||{...item,...updated}},{headers:{"Cache-Control":"no-store"}});
+   const failureMessage=run.conclusion==="cancelled"?"Processamento cancelado.":"O Influencer Manager Worker terminou com erro.";
+   const failedItem={...item,status:"failed",progress,stage:"error",error_message:failureMessage,updated_at:new Date().toISOString()};
+
+   // Falhas não devem permanecer na biblioteca como se fossem vídeos utilizáveis.
+   // Remove também qualquer estado de fila do perfil e, se houver upload parcial,
+   // limpa o arquivo do R2. O erro é devolvido à interface para ela informar o usuário
+   // antes de retirar o item da lista visualmente.
+   try{
+     if(item.r2_key){
+       const {S3Client,DeleteObjectCommand}=await import("@aws-sdk/client-s3");
+       const accountId=process.env.R2_ACCOUNT_ID;
+       const bucket=process.env.R2_BUCKET_NAME;
+       const accessKeyId=process.env.R2_ACCESS_KEY_ID;
+       const secretAccessKey=process.env.R2_SECRET_ACCESS_KEY;
+       if(accountId&&bucket&&accessKeyId&&secretAccessKey){
+         const client=new S3Client({
+           region:"auto",
+           endpoint:`https://${accountId}.r2.cloudflarestorage.com`,
+           credentials:{accessKeyId,secretAccessKey}
+         });
+         await client.send(new DeleteObjectCommand({Bucket:bucket,Key:item.r2_key}));
+       }
+     }
+   }catch(cleanupError){
+     console.warn("Influencer failed-item R2 cleanup failed:",cleanupError);
+   }
+
+   const {error:stateCleanupError}=await admin.from("influencer_profile_content")
+     .delete().eq("item_id",id).eq("user_id",user.id);
+   if(stateCleanupError) console.warn("Influencer failed-item queue cleanup failed:",stateCleanupError);
+
+   const {error:itemCleanupError}=await admin.from("influencer_content_items")
+     .delete().eq("id",id).eq("user_id",user.id);
+   if(itemCleanupError){
+     console.warn("Influencer failed-item cleanup failed:",itemCleanupError);
+     return NextResponse.json({item:failedItem,removed:false},{headers:{"Cache-Control":"no-store"}});
+   }
+
+   return NextResponse.json({item:failedItem,removed:true},{headers:{"Cache-Control":"no-store"}});
   }
   if(!item.worker_run_id){await admin.from("influencer_content_items").update({worker_run_id:run.id,progress,stage,updated_at:new Date().toISOString()}).eq("id",id).eq("user_id",user.id);}
   else await admin.from("influencer_content_items").update({progress,stage,updated_at:new Date().toISOString()}).eq("id",id).eq("user_id",user.id);
