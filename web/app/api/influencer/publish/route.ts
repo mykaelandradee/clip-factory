@@ -428,7 +428,39 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
       status:"published",published_at:new Date().toISOString(),scheduled_at:null,error_message:null,retry_count:0,updated_at:new Date().toISOString()
     }).eq("id",profileContent.id).eq("user_id",userId);
     await admin.from("influencer_profiles").update({next_publish_at:next.toISOString(),updated_at:new Date().toISOString()}).eq("id",profileId).eq("user_id",userId);
-    return {status:"published",itemId:item.id,mediaId:String(publishData.id),nextPublishAt:next.toISOString()};
+
+    let storyScheduled = false;
+    let storyScheduledAt: string | null = null;
+    if ((profile as any).auto_story === true) {
+      const delayMinutes = Math.max(0, Math.min(1440, Number((profile as any).story_delay_minutes) || 0));
+      storyScheduledAt = new Date(Date.now() + delayMinutes * 60 * 1000).toISOString();
+      const { error: storyError } = await admin.from("influencer_story_posts").insert({
+        profile_id: profileId,
+        user_id: userId,
+        item_id: item.id,
+        profile_content_id: profileContent.id,
+        reel_media_id: String(publishData.id),
+        status: "scheduled",
+        scheduled_at: storyScheduledAt,
+        published_at: null,
+        error_message: null,
+        attempts: 0
+      });
+      if (storyError) {
+        console.error("Failed to schedule Influencer Story:", storyError.message);
+      } else {
+        storyScheduled = true;
+      }
+    }
+
+    return {
+      status:"published",
+      itemId:item.id,
+      mediaId:String(publishData.id),
+      nextPublishAt:next.toISOString(),
+      storyScheduled,
+      storyScheduledAt
+    };
   } catch(error) {
     const message=error instanceof Error?error.message:"Falha na publicação.";
     const tokenInvalid=/(invalid.*access token|access token.*invalid|oauth|token.*expired|session.*expired|(#190)|error code.*190)/i.test(message);
