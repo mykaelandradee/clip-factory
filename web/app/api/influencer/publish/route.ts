@@ -179,6 +179,35 @@ async function publishStoryOne(admin: ReturnType<typeof createAdminClient>, stor
   }
 }
 
+
+async function processDueStories(admin: ReturnType<typeof createAdminClient>) {
+  const results: Array<{ storyId: string; status: string; error?: string }> = [];
+  const now = new Date();
+
+  const { data: dueStories } = await admin.from("influencer_story_posts")
+    .select("id")
+    .eq("status", "scheduled")
+    .lte("scheduled_at", now.toISOString())
+    .order("scheduled_at", { ascending: true })
+    .limit(20);
+
+  for (const story of dueStories || []) {
+    const { data: claimedStory } = await admin.from("influencer_story_posts")
+      .update({ status: "processing", attempts: 1, updated_at: new Date().toISOString() })
+      .eq("id", story.id)
+      .eq("status", "scheduled")
+      .select("id")
+      .maybeSingle();
+
+    if (!claimedStory) continue;
+
+    const storyResult = await publishStoryOne(admin, story.id);
+    results.push({ storyId: story.id, ...storyResult });
+  }
+
+  return results;
+}
+
 async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId: string, userId: string, itemId?: string) {
   const { data: profile } = await admin.from("influencer_profiles")
     .select("id,user_id,posting_times,posts_per_day,next_publish_at,publishing_enabled,repeat_when_exhausted,cover_r2_key,share_to_feed,fixed_publish_title,fixed_publish_description,caption_mode,auto_story,story_delay_minutes")
@@ -508,23 +537,16 @@ export async function POST(request:Request) {
       results.push({profileId:p.id,userId:p.user_id,...result});
     }
 
-    const {data:dueStories}=await admin.from("influencer_story_posts")
-      .select("id")
-      .eq("status","scheduled")
-      .lte("scheduled_at",now.toISOString())
-      .order("scheduled_at",{ascending:true})
-      .limit(20);
-    for(const story of dueStories||[]){
-      const {data:claimedStory}=await admin.from("influencer_story_posts")
-        .update({status:"processing",attempts:1,updated_at:new Date().toISOString()})
-        .eq("id",story.id).eq("status","scheduled")
-        .select("id").maybeSingle();
-      if(!claimedStory) continue;
-      const storyResult=await publishStoryOne(admin,story.id);
-      results.push({storyId:story.id,...storyResult});
-    }
+    const storyResults = await processDueStories(admin);
+    results.push(...storyResults);
 
     return NextResponse.json({ok:true,results},{headers:{"Cache-Control":"no-store"}});
+  }
+
+  if(action==="process-stories"){
+    if(!isScheduler) return NextResponse.json({error:"Não autorizado."},{status:401});
+    const results = await processDueStories(admin);
+    return NextResponse.json({ok:true,processed:results.length,results},{headers:{"Cache-Control":"no-store"}});
   }
 
   if(!profileId) return NextResponse.json({error:"Perfil inválido."},{status:400});
