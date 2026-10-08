@@ -5,7 +5,7 @@ import { decryptInstagramAccessToken, encryptInstagramAccessToken, refreshInstag
 
 export const runtime = "nodejs";
 
-const API_VERSION = "v25.0";
+const API_VERSION = "v26.0";
 const GRAPH = `https://graph.instagram.com/${API_VERSION}`;
 const BASE_METRICS = "views,reach,likes,comments,saved,shares,total_interactions";
 const OPTIONAL_METRICS = "follows,profile_visits";
@@ -132,9 +132,10 @@ export async function GET(request:Request) {
       );
       const payload=await response.json().catch(()=>({}));
       if(!response.ok || !Array.isArray(payload?.data)){
+        const code=payload?.error?.code!=null?` código ${payload.error.code}`:"";
         const message=String(payload?.error?.message||("Instagram Insights retornou HTTP "+response.status+"."));
-        console.warn("Instagram media insights unavailable:",mediaId,message);
-        syncDiagnostics.push(message);
+        console.warn("Instagram media insights unavailable:",mediaId,{status:response.status,code:payload?.error?.code,message});
+        syncDiagnostics.push(`Mídia ${mediaId}: ${message}${code}`);
         insightErrors++;
         continue;
       }
