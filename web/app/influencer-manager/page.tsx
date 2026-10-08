@@ -16,6 +16,7 @@ type Item={
   id:string; source_url:string; title:string|null; status:string; created_at:string;
   published_at?:string|null; result_url?:string|null; error_message?:string|null;
 };
+type AnalyticsMetric={id:string;item_id:string;instagram_media_id:string;title:string;category:string;fetched_at:string;views:number|null;reach:number|null;likes:number|null;comments:number|null;shares:number|null;saves:number|null;follows:number|null;profile_visits:number|null};
 
 const DEFAULT_TIMES=["09:00","11:30","14:00","16:30","19:00","21:30","23:00","08:00","12:00"];
 
@@ -32,6 +33,9 @@ export default function InfluencerManagerPage(){
   const [librarySaving,setLibrarySaving]=useState(false),[coverFile,setCoverFile]=useState<File|null>(null),[coverPreview,setCoverPreview]=useState("");
   const [instagramConnected,setInstagramConnected]=useState(false),[instagramAccount,setInstagramAccount]=useState(""),[instagramReconnect,setInstagramReconnect]=useState(false),[instagramExpiresAt,setInstagramExpiresAt]=useState<string|null>(null);
   const [draft,setDraft]=useState({posts_per_day:3,caption_mode:"zh_ja_random",repeat_when_exhausted:false,posting_times:["09:00","11:30","14:00"],fixed_publish_title:"",fixed_publish_description:"",share_to_feed:true,auto_story:false,story_delay_minutes:30});
+  const [analytics,setAnalytics]=useState<{totals:any;categoryTotals:any[];metrics:AnalyticsMetric[]}>({totals:{},categoryTotals:[],metrics:[]});
+  const [analyticsLoading,setAnalyticsLoading]=useState(false);
+  const [analyticsMessage,setAnalyticsMessage]=useState("");
 
   function showError(message:string,title="Não foi possível concluir a ação"){
     setError(message);setFeedbackTitle(title);setFeedbackMessage(message);setShowFeedback(true);
@@ -64,6 +68,17 @@ export default function InfluencerManagerPage(){
       setInstagramAccount(typeof d.username==="string"&&d.username?"@"+d.username.replace(/^@/,""):"");
     }catch{setInstagramConnected(false);setInstagramReconnect(false);setInstagramExpiresAt(null);setInstagramAccount("");}
   }
+  async function loadAnalytics(profileId:string,sync=false){
+    setAnalyticsLoading(true);setAnalyticsMessage("");
+    try{
+      const r=await fetch("/api/influencer/analytics?profileId="+encodeURIComponent(profileId)+(sync?"&sync=true":""),{cache:"no-store"});
+      const d=await r.json().catch(()=>({}));
+      if(!r.ok)throw new Error(d.error||"Não foi possível carregar as métricas.");
+      setAnalytics({totals:d.totals||{},categoryTotals:d.categoryTotals||[],metrics:d.metrics||[]});
+      if(d.message)setAnalyticsMessage(String(d.message));
+    }catch(e){setAnalyticsMessage(e instanceof Error?e.message:"Não foi possível carregar as métricas.");}
+    finally{setAnalyticsLoading(false);}
+  }
   useEffect(()=>{void loadProfiles();void loadLibraries();},[]);
   // Mantém a agenda sincronizada durante o processamento e a publicação automática.
   const processingItemsKey=items.filter(item=>item.status==="processing").map(item=>item.id).join(",");
@@ -84,7 +99,7 @@ export default function InfluencerManagerPage(){
       fixed_publish_title:selected.fixed_publish_title||"",fixed_publish_description:selected.fixed_publish_description||"",
       share_to_feed:selected.share_to_feed!==false,auto_story:Boolean(selected.auto_story),story_delay_minutes:Number(selected.story_delay_minutes)||30
     });
-    setCoverFile(null);setCoverPreview("");void loadInstagram(selected.id);void loadLibraries();void loadItems(selected.id);
+    setCoverFile(null);setCoverPreview("");void loadInstagram(selected.id);void loadAnalytics(selected.id);void loadLibraries();void loadItems(selected.id);
   },[selected?.id,selected?.cover_r2_key]);
 
   async function createProfile(e:FormEvent){
@@ -251,6 +266,26 @@ export default function InfluencerManagerPage(){
           <div className="im-card im-overview">
             <div><span className="im-kicker">PERFIL ATIVO</span><h2>{selected.name}</h2><p>{selected.instagram_username?"@"+selected.instagram_username:"Conecte um Instagram para publicar automaticamente."}</p></div>
             <div className="im-overview-actions"><button className="im-ghost" disabled={saving} onClick={()=>{setEditProfileName(selected.name);setShowEditProfile(true)}}>Editar perfil</button><button className="im-ghost im-danger" disabled={saving} onClick={()=>void deleteProfile()}>Excluir perfil</button></div>
+          </div>
+
+          <div className="im-card im-analytics-card">
+            <div className="im-card-head">
+              <div><span className="im-kicker">ANALYTICS</span><h2>Desempenho dos Reels</h2><p>As métricas são coletadas diretamente do Instagram e ficam associadas a cada publicação.</p></div>
+              <button className="im-ghost" type="button" disabled={!selected||analyticsLoading||!instagramConnected} onClick={()=>selected&&void loadAnalytics(selected.id,true)}>{analyticsLoading?"Atualizando…":"Atualizar métricas"}</button>
+            </div>
+            {analyticsMessage&&<div className="im-form-note">{analyticsMessage}</div>}
+            {!analytics.metrics.length?<div className="im-empty"><strong>Nenhuma métrica coletada ainda.</strong><span>Publique um Reel, conceda a permissão de Insights ao Instagram e use “Atualizar métricas”.</span></div>:
+            <>
+              <div className="im-stats">
+                <div><strong>{Number(analytics.totals.views||0).toLocaleString("pt-BR")}</strong><span>VISUALIZAÇÕES</span></div>
+                <div><strong>{Number(analytics.totals.shares||0).toLocaleString("pt-BR")}</strong><span>COMPARTILHAMENTOS</span></div>
+                <div><strong>{Number(analytics.totals.likes||0).toLocaleString("pt-BR")}</strong><span>CURTIDAS</span></div>
+                <div><strong>{Number(analytics.totals.follows||0).toLocaleString("pt-BR")}</strong><span>SEGUIDORES</span></div>
+              </div>
+              <div className="im-analytics-list">
+                {analytics.categoryTotals.slice(0,5).map((row:any)=><div className="im-analytics-row" key={row.category}><strong>{row.category}</strong><span>{row.videos} vídeos · {Number(row.views||0).toLocaleString("pt-BR")} views · {Number(row.shares||0).toLocaleString("pt-BR")} compartilhamentos</span></div>)}
+              </div>
+            </>}
           </div>
 
           <div className="im-card im-account">
