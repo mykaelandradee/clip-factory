@@ -34,7 +34,7 @@ export async function GET(request: Request) {
   const redirectUri = `${publicOrigin.replace(/\/$/,"")}/api/instagram/callback`;
   const params = new URLSearchParams({
     client_id: clientId, redirect_uri: redirectUri, response_type: "code",
-    scope: "instagram_business_basic,instagram_business_content_publish",
+    scope: "instagram_business_basic,instagram_business_content_publish,instagram_business_manage_insights",
     enable_fb_login: "0", force_reauth: "true", state,
   });
   return NextResponse.redirect("https://www.instagram.com/oauth/authorize?" + params.toString());
