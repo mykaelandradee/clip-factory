@@ -301,7 +301,8 @@ export default function InfluencerLibrariesPage(){
           {!linkedProfileId?<div className="im-empty"><strong>Vincule um perfil a esta biblioteca primeiro.</strong><span>O perfil é usado apenas para preparar o processamento; o conteúdo continua pertencendo à biblioteca.</span><a className="im-ghost" href="/influencer-manager">Ir para Perfis</a></div>:
           <form className="im-url-form" onSubmit={addVideo}>
             <input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://youtube.com/... ou https://instagram.com/reel/..." required />
-            <input value={videoTitle} onChange={e=>setVideoTitle(e.target.value)} placeholder="Título do vídeo (opcional)" maxLength={500} />\n            <select className="im-form-select" value={category} onChange={e=>setCategory(e.target.value)}>{CATEGORIES.map(value=><option key={value}>{value}</option>)}</select>
+            <input value={videoTitle} onChange={e=>setVideoTitle(e.target.value)} placeholder="Título do vídeo (opcional)" maxLength={500} />
+            <select className="im-form-select" value={category} onChange={e=>setCategory(e.target.value)}>{CATEGORIES.map(value=><option key={value}>{value}</option>)}</select>
             <button className="im-primary" disabled={adding}>{adding?"Processando…":"Adicionar vídeo"}</button>
           </form>}
         </div>}
