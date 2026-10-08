@@ -68,7 +68,6 @@ export async function GET(request:Request) {
   const {data:published,error:publishedError}=await admin.from("influencer_profile_content")
     .select("id,item_id,published_at,instagram_media_id")
     .eq("profile_id",profileId).eq("user_id",user.id).eq("status","published")
-    .not("instagram_media_id","is",null)
     .order("published_at",{ascending:false}).limit(30);
   if(publishedError) return NextResponse.json({error:"Não foi possível carregar os vídeos publicados."},{status:500});
 
