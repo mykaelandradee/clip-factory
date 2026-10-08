@@ -75,7 +75,9 @@ export default function InfluencerManagerPage(){
       const d=await r.json().catch(()=>({}));
       if(!r.ok)throw new Error(d.error||"Não foi possível carregar as métricas.");
       setAnalytics({totals:d.totals||{},categoryTotals:d.categoryTotals||[],metrics:d.metrics||[]});
-      if(d.message)setAnalyticsMessage(String(d.message));
+      const diagnostics=Array.isArray(d.diagnostics)?d.diagnostics.filter((value:any)=>typeof value==="string"&&value.trim()):[];
+      if(diagnostics.length)setAnalyticsMessage(diagnostics.join(" · "));
+      else if(d.message)setAnalyticsMessage(String(d.message));
     }catch(e){setAnalyticsMessage(e instanceof Error?e.message:"Não foi possível carregar as métricas.");}
     finally{setAnalyticsLoading(false);}
   }
