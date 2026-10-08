@@ -9,6 +9,8 @@ const API_VERSION = "v25.0";
 const GRAPH = `https://graph.instagram.com/${API_VERSION}`;
 const BASE_METRICS = "views,reach,likes,comments,saved,shares,total_interactions,follows,profile_visits";
 const REEL_WATCH_METRICS = "ig_reels_avg_watch_time,ig_reels_video_view_total_time";
+const MEDIA_LOOKUP_LIMIT = 100;
+const MEDIA_MATCH_WINDOW_MS = 10 * 60 * 1000;
 
 function metricValue(data:any[], name:string) {
   const row=(data||[]).find((entry:any)=>entry?.name===name);
@@ -76,6 +78,45 @@ export async function GET(request:Request) {
     : {data:[]};
   const itemById=new Map((items||[]).map((item:any)=>[item.id,item]));
 
+  const syncDiagnostics: string[] = [];
+
+  // Publicações feitas antes da implementação de analytics não possuem o ID da mídia.
+  // Recuperamos o Reel mais próximo pelo horário salvo após o media_publish.
+  if(sync && published?.some((row:any)=>!row.instagram_media_id)){
+    try {
+      const mediaUrl = GRAPH + "/me/media?fields=id,media_type,media_product_type,timestamp&limit=" + MEDIA_LOOKUP_LIMIT + "&access_token=" + encodeURIComponent(accessToken);
+      const mediaResponse = await fetch(mediaUrl,{cache:"no-store"});
+      const mediaPayload = await mediaResponse.json().catch(()=>({}));
+      if(mediaResponse.ok && Array.isArray(mediaPayload?.data)){
+        const candidates = mediaPayload.data.filter((media:any)=>
+          String(media?.media_type||"").toUpperCase()==="VIDEO" || String(media?.media_product_type||"").toUpperCase()==="REELS"
+        );
+        for(const row of published.filter((value:any)=>!value.instagram_media_id)){
+          const publishedAt=Date.parse(row.published_at||"");
+          if(!Number.isFinite(publishedAt)) continue;
+          let best:any=null;
+          let bestDelta=Infinity;
+          for(const media of candidates){
+            const timestamp=Date.parse(media?.timestamp||"");
+            if(!Number.isFinite(timestamp)) continue;
+            const delta=Math.abs(timestamp-publishedAt);
+            if(delta<bestDelta){best=media;bestDelta=delta;}
+          }
+          if(best?.id && bestDelta<=MEDIA_MATCH_WINDOW_MS){
+            const {error:backfillError}=await admin.from("influencer_profile_content")
+              .update({instagram_media_id:String(best.id),updated_at:new Date().toISOString()})
+              .eq("id",row.id).eq("profile_id",profileId).eq("user_id",user.id);
+            if(!backfillError) row.instagram_media_id=String(best.id);
+          }
+        }
+      } else {
+        syncDiagnostics.push(String(mediaPayload?.error?.message||"Não foi possível consultar as publicações do Instagram."));
+      }
+    } catch(error) {
+      syncDiagnostics.push(error instanceof Error?error.message:"Falha ao localizar os Reels publicados no Instagram.");
+    }
+  }
+
   if(sync && published?.length){
     for(const row of published.slice(0,20)){
       const mediaId=String(row.instagram_media_id||"");
@@ -87,7 +128,9 @@ export async function GET(request:Request) {
       );
       const payload=await response.json().catch(()=>({}));
       if(!response.ok || !Array.isArray(payload?.data)){
-        console.warn("Instagram media insights unavailable:",mediaId,payload?.error?.message||response.status);
+        const message=String(payload?.error?.message||("Instagram Insights retornou HTTP "+response.status+"."));
+        console.warn("Instagram media insights unavailable:",mediaId,message);
+        syncDiagnostics.push(message);
         continue;
       }
 
@@ -152,6 +195,7 @@ export async function GET(request:Request) {
   return NextResponse.json({
     configured:true,
     synced:sync,
+    diagnostics:syncDiagnostics.slice(0,5),
     totals,
     categoryTotals,
     metrics
