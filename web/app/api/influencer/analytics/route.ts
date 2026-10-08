@@ -7,7 +7,8 @@ export const runtime = "nodejs";
 
 const API_VERSION = "v25.0";
 const GRAPH = `https://graph.instagram.com/${API_VERSION}`;
-const BASE_METRICS = "views,reach,likes,comments,saved,shares,total_interactions,follows,profile_visits";
+const BASE_METRICS = "views,reach,likes,comments,saved,shares,total_interactions";
+const OPTIONAL_METRICS = "follows,profile_visits";
 const REEL_WATCH_METRICS = "ig_reels_avg_watch_time,ig_reels_video_view_total_time";
 const MEDIA_LOOKUP_LIMIT = 100;
 const MEDIA_MATCH_WINDOW_MS = 10 * 60 * 1000;
@@ -78,10 +79,11 @@ export async function GET(request:Request) {
   const itemById=new Map((items||[]).map((item:any)=>[item.id,item]));
 
   const syncDiagnostics: string[] = [];
+  const publishedRows=published||[];
 
   // Publicações feitas antes da implementação de analytics não possuem o ID da mídia.
   // Recuperamos o Reel mais próximo pelo horário salvo após o media_publish.
-  if(sync && published?.some((row:any)=>!row.instagram_media_id)){
+  if(sync && publishedRows.some((row:any)=>!row.instagram_media_id)){
     try {
       const mediaUrl = GRAPH + "/me/media?fields=id,media_type,media_product_type,timestamp&limit=" + MEDIA_LOOKUP_LIMIT + "&access_token=" + encodeURIComponent(accessToken);
       const mediaResponse = await fetch(mediaUrl,{cache:"no-store"});
@@ -90,7 +92,7 @@ export async function GET(request:Request) {
         const candidates = mediaPayload.data.filter((media:any)=>
           String(media?.media_type||"").toUpperCase()==="VIDEO" || String(media?.media_product_type||"").toUpperCase()==="REELS"
         );
-        for(const row of published.filter((value:any)=>!value.instagram_media_id)){
+        for(const row of publishedRows.filter((value:any)=>!value.instagram_media_id)){
           const publishedAt=Date.parse(row.published_at||"");
           if(!Number.isFinite(publishedAt)) continue;
           let best:any=null;
@@ -116,8 +118,11 @@ export async function GET(request:Request) {
     }
   }
 
-  if(sync && published?.length){
-    for(const row of published.slice(0,20)){
+  let insightSuccess=0;
+  let insightErrors=0;
+
+  if(sync && publishedRows.length){
+    for(const row of publishedRows.slice(0,20)){
       const mediaId=String(row.instagram_media_id||"");
       if(!mediaId) continue;
 
@@ -130,8 +135,19 @@ export async function GET(request:Request) {
         const message=String(payload?.error?.message||("Instagram Insights retornou HTTP "+response.status+"."));
         console.warn("Instagram media insights unavailable:",mediaId,message);
         syncDiagnostics.push(message);
+        insightErrors++;
         continue;
       }
+
+      let optionalData:any[]=[];
+      try{
+        const optionalResponse=await fetch(
+          `${GRAPH}/${encodeURIComponent(mediaId)}/insights?metric=${encodeURIComponent(OPTIONAL_METRICS)}&access_token=${encodeURIComponent(accessToken)}`,
+          {cache:"no-store"}
+        );
+        const optionalPayload=await optionalResponse.json().catch(()=>({}));
+        if(optionalResponse.ok && Array.isArray(optionalPayload?.data)) optionalData=optionalPayload.data;
+      }catch{}
 
       let watchData:any[]=[];
       try{
@@ -143,7 +159,7 @@ export async function GET(request:Request) {
         if(watchResponse.ok && Array.isArray(watchPayload?.data)) watchData=watchPayload.data;
       }catch{}
 
-      await admin.from("influencer_media_insights").insert({
+      const {error:insertError}=await admin.from("influencer_media_insights").insert({
         user_id:user.id,profile_id:profileId,item_id:row.item_id,profile_content_id:row.id,
         instagram_media_id:mediaId,fetched_at:new Date().toISOString(),
         views:metricValue(payload.data,"views"),
@@ -153,13 +169,24 @@ export async function GET(request:Request) {
         shares:metricValue(payload.data,"shares"),
         saves:metricValue(payload.data,"saved"),
         total_interactions:metricValue(payload.data,"total_interactions"),
-        follows:metricValue(payload.data,"follows"),
-        profile_visits:metricValue(payload.data,"profile_visits"),
+        follows:metricValue(optionalData,"follows"),
+        profile_visits:metricValue(optionalData,"profile_visits"),
         avg_watch_time_seconds:metricValue(watchData,"ig_reels_avg_watch_time"),
         total_watch_time_seconds:metricValue(watchData,"ig_reels_video_view_total_time"),
-        raw_metrics:{base:payload.data,watch:watchData}
+        raw_metrics:{base:payload.data,optional:optionalData,watch:watchData}
       });
+      if(insertError){
+        syncDiagnostics.push("Métrica encontrada, mas não foi salva no banco: "+insertError.message);
+        insightErrors++;
+      }else insightSuccess++;
     }
+  }
+
+  if(sync){
+    const withIds=publishedRows.filter((row:any)=>row.instagram_media_id).length;
+    syncDiagnostics.unshift(`Banco: ${publishedRows.length} publicações publicadas; ${withIds} com ID do Instagram.`);
+    if(insightSuccess||insightErrors) syncDiagnostics.push(`Insights: ${insightSuccess} publicações sincronizadas; ${insightErrors} com erro.`);
+    else if(publishedRows.length>0 && withIds===0) syncDiagnostics.push("Nenhuma publicação possui ID do Instagram para consultar Insights.");
   }
 
   const {data:snapshots,error:snapshotError}=await admin.from("influencer_media_insights")
@@ -194,7 +221,7 @@ export async function GET(request:Request) {
   return NextResponse.json({
     configured:true,
     synced:sync,
-    diagnostics:syncDiagnostics.slice(0,5),
+    diagnostics:syncDiagnostics.slice(0,8),
     totals,
     categoryTotals,
     metrics
