@@ -5,6 +5,7 @@ import { getClientKey, rateLimit } from "../../../../lib/rate-limit";
 
 export const runtime = "nodejs";
 const MAX_BODY_BYTES = 32 * 1024;
+const CONTENT_CATEGORIES = ["MEME","FUTEBOL","FAIL","ANIMAL","RELACIONAMENTO","REAÇÃO","VIRAL","ABSURDO","COTIDIANO","OUTROS"] as const;
 
 const GITHUB_API = "https://api.github.com";
 const OWNER = "mykaelandradee";
@@ -241,6 +242,8 @@ export async function POST(request:Request) {
   const requestedLibraryId=typeof body?.libraryId==="string"?body.libraryId:"";
   const sourceUrl=typeof body?.sourceUrl==="string"?body.sourceUrl.trim():"";
   let title=typeof body?.title==="string"?body.title.trim().slice(0,500):"";
+  const requestedCategory=typeof body?.category==="string"?body.category.trim().toUpperCase():"OUTROS";
+  const category=(CONTENT_CATEGORIES as readonly string[]).includes(requestedCategory)?requestedCategory:"OUTROS";
 
   if(!requestedLibraryId||!sourceUrl||sourceUrl.length>2048) return NextResponse.json({error:"Informe a biblioteca e a URL do vídeo."},{status:400});
   let parsed:URL;
@@ -305,7 +308,7 @@ export async function POST(request:Request) {
 
   const itemId=crypto.randomUUID();
   const {data:item,error}=await admin.from("influencer_content_items").insert({
-    id:itemId,library_id:requestedLibraryId,user_id:user.id,source_url:sourceUrl,title:title||null,source_type:"url",status:"processing",progress:5,stage:"queued",worker_job_id:itemId,publish_title:copy.title,publish_description:copy.description,source_description:null
+    id:itemId,library_id:requestedLibraryId,user_id:user.id,source_url:sourceUrl,title:title||null,source_type:"url",status:"processing",progress:5,stage:"queued",worker_job_id:itemId,publish_title:copy.title,publish_description:copy.description,source_description:null,category
   }).select("*").single();
   if(error){console.error("Influencer item creation failed:",error);return NextResponse.json({error:"Não foi possível adicionar o vídeo à biblioteca."},{status:500});}
 
@@ -367,6 +370,11 @@ export async function PATCH(request:Request) {
   if(typeof body?.title==="string") allowed.title=body.title.trim().slice(0,500)||null;
   if(typeof body?.publishTitle==="string") allowed.publish_title=body.publishTitle.trim().slice(0,500)||null;
   if(typeof body?.publishDescription==="string") allowed.publish_description=body.publishDescription.trim().slice(0,5000)||null;
+  if(typeof body?.category==="string"){
+    const nextCategory=body.category.trim().toUpperCase();
+    if(!(CONTENT_CATEGORIES as readonly string[]).includes(nextCategory)) return NextResponse.json({error:"Categoria inválida."},{status:400});
+    allowed.category=nextCategory;
+  }
   if(!Object.keys(allowed).length)return NextResponse.json({error:"Nenhuma alteração informada."},{status:400});
   const {data,error}=await admin.from("influencer_content_items").update({...allowed,updated_at:new Date().toISOString()}).eq("id",id).eq("user_id",user.id).select("*").single();
   if(error)return NextResponse.json({error:"Não foi possível salvar os dados do Reel."},{status:500});
