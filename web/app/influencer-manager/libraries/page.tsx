@@ -4,9 +4,10 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 
 type Profile = { id:string; name:string; posting_times?:string[]; posts_per_day?:number; publishing_enabled?:boolean };
 type Library = { id:string; name:string; description?:string|null; item_count:number; profiles:{profile_id:string;profile_name:string;priority:number;enabled:boolean}[] };
-type Item = { id:string; source_url:string; title:string|null; status:string; created_at:string; result_url?:string|null; error_message?:string|null; library_id?:string; profile_publications?:{profile_id:string;profile_name:string;status:string;published_at?:string|null;scheduled_at?:string|null}[] };
+type Item = { id:string; source_url:string; title:string|null; status:string; created_at:string; result_url?:string|null; error_message?:string|null; library_id?:string; category?:string; profile_publications?:{profile_id:string;profile_name:string;status:string;published_at?:string|null;scheduled_at?:string|null}[] };
 
 const STATUS:Record<string,string>={queued:"Na fila",processing:"Processando",available:"Disponível",scheduled:"Agendado",published:"Publicado",failed:"Erro",archived:"Arquivado"};
+const CATEGORIES=["MEME","FUTEBOL","FAIL","ANIMAL","RELACIONAMENTO","REAÇÃO","VIRAL","ABSURDO","COTIDIANO","OUTROS"];
 
 export default function InfluencerLibrariesPage(){
   const [libraries,setLibraries]=useState<Library[]>([]);
@@ -21,7 +22,7 @@ export default function InfluencerLibrariesPage(){
   function showError(message:string,title="Não foi possível concluir a ação"){
     setError(message);setFeedbackTitle(title);setFeedbackMessage(message);setShowFeedback(true);
   }
-  const [url,setUrl]=useState(""),[videoTitle,setVideoTitle]=useState(""),[adding,setAdding]=useState(false);
+  const [url,setUrl]=useState(""),[videoTitle,setVideoTitle]=useState(""),[category,setCategory]=useState("OUTROS"),[adding,setAdding]=useState(false);
   const [editing,setEditing]=useState<string|null>(null),[titleDraft,setTitleDraft]=useState("");
   const [showNewLibrary,setShowNewLibrary]=useState(false),[showLibraries,setShowLibraries]=useState(false),[showEditLibrary,setShowEditLibrary]=useState(false),[showDeleteLibrary,setShowDeleteLibrary]=useState(false),[showDeleteVideo,setShowDeleteVideo]=useState<Item|null>(null),[showPublishVideo,setShowPublishVideo]=useState<Item|null>(null),[publishingItem,setPublishingItem]=useState(false),[publishProfileId,setPublishProfileId]=useState(""),[editLibraryName,setEditLibraryName]=useState(""),[editLibraryDescription,setEditLibraryDescription]=useState("");
 
@@ -122,10 +123,18 @@ export default function InfluencerLibrariesPage(){
   async function addVideo(e:FormEvent){
     e.preventDefault();if(!selected||!linkedProfileId||!url.trim())return;setAdding(true);setError("");
     try{
-      const r=await fetch("/api/influencer/content",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({profileId:linkedProfileId,libraryId:selected.id,sourceUrl:url.trim(),title:videoTitle.trim()})});
+      const r=await fetch("/api/influencer/content",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({profileId:linkedProfileId,libraryId:selected.id,sourceUrl:url.trim(),title:videoTitle.trim(),category})});
       const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível adicionar o vídeo.");
-      setUrl("");setVideoTitle("");await loadItems(selected.id);await loadLibraries(selected.id);
+      setUrl("");setVideoTitle("");setCategory("OUTROS");await loadItems(selected.id);await loadLibraries(selected.id);
     }catch(e){showError(e instanceof Error?e.message:"Erro ao adicionar o vídeo.","Não foi possível adicionar o vídeo");}finally{setAdding(false);}
+  }
+  async function updateCategory(id:string,nextCategory:string){
+    try{
+      const r=await fetch("/api/influencer/content",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id,category:nextCategory})});
+      const d=await r.json().catch(()=>({}));
+      if(!r.ok)throw new Error(d.error||"Não foi possível salvar a categoria.");
+      setItems(current=>current.map(item=>item.id===id?{...item,category:nextCategory}:item));
+    }catch(e){showError(e instanceof Error?e.message:"Erro ao salvar a categoria.","Não foi possível salvar a categoria");}
   }
   async function rename(itemId:string){
     const title=titleDraft.trim();if(!title)return;setBusy(true);setError("");
@@ -292,7 +301,7 @@ export default function InfluencerLibrariesPage(){
           {!linkedProfileId?<div className="im-empty"><strong>Vincule um perfil a esta biblioteca primeiro.</strong><span>O perfil é usado apenas para preparar o processamento; o conteúdo continua pertencendo à biblioteca.</span><a className="im-ghost" href="/influencer-manager">Ir para Perfis</a></div>:
           <form className="im-url-form" onSubmit={addVideo}>
             <input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://youtube.com/... ou https://instagram.com/reel/..." required />
-            <input value={videoTitle} onChange={e=>setVideoTitle(e.target.value)} placeholder="Título do vídeo (opcional)" maxLength={500} />
+            <input value={videoTitle} onChange={e=>setVideoTitle(e.target.value)} placeholder="Título do vídeo (opcional)" maxLength={500} />\n            <select className="im-form-select" value={category} onChange={e=>setCategory(e.target.value)}>{CATEGORIES.map(value=><option key={value}>{value}</option>)}</select>
             <button className="im-primary" disabled={adding}>{adding?"Processando…":"Adicionar vídeo"}</button>
           </form>}
         </div>}
