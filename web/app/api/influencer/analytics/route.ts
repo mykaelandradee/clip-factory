@@ -1,0 +1,159 @@
+import { NextResponse } from "next/server";
+import { createClient } from "../../../../lib/supabase/server";
+import { createAdminClient } from "../../../../lib/supabase/admin";
+import { decryptInstagramAccessToken, encryptInstagramAccessToken, refreshInstagramLongLivedToken } from "../../../../lib/instagram-auth";
+
+export const runtime = "nodejs";
+
+const API_VERSION = "v25.0";
+const GRAPH = `https://graph.instagram.com/${API_VERSION}`;
+const BASE_METRICS = "views,reach,likes,comments,saved,shares,total_interactions,follows,profile_visits";
+const REEL_WATCH_METRICS = "ig_reels_avg_watch_time,ig_reels_video_view_total_time";
+
+function metricValue(data:any[], name:string) {
+  const row=(data||[]).find((entry:any)=>entry?.name===name);
+  const value=row?.values?.[0]?.value ?? row?.total_value?.value ?? row?.value;
+  const number=Number(value);
+  return Number.isFinite(number)?number:null;
+}
+
+async function auth() {
+  const supabase=await createClient();
+  const {data:{user}}=await supabase.auth.getUser();
+  return user;
+}
+
+export async function GET(request:Request) {
+  const user=await auth();
+  if(!user) return NextResponse.json({error:"Entre no Clip Factory."},{status:401});
+
+  const url=new URL(request.url);
+  const profileId=url.searchParams.get("profileId")||"";
+  const sync=url.searchParams.get("sync")==="true";
+  if(!profileId) return NextResponse.json({error:"Perfil inválido."},{status:400});
+
+  const admin=createAdminClient();
+  const {data:profile}=await admin.from("influencer_profiles")
+    .select("id,name").eq("id",profileId).eq("user_id",user.id).maybeSingle();
+  if(!profile) return NextResponse.json({error:"Perfil não encontrado."},{status:404});
+
+  const {data:connection}=await admin.from("influencer_instagram_connections")
+    .select("access_token_encrypted,expires_at,requires_reconnect")
+    .eq("profile_id",profileId).eq("user_id",user.id).maybeSingle();
+
+  if(!connection) return NextResponse.json({configured:false,metrics:[],message:"Conecte o Instagram deste perfil para coletar métricas."});
+  if(connection.requires_reconnect) return NextResponse.json({configured:false,requiresReconnect:true,metrics:[],message:"Reconecte o Instagram deste perfil para coletar métricas."});
+
+  let accessToken=decryptInstagramAccessToken(connection.access_token_encrypted);
+  if(!accessToken) return NextResponse.json({configured:false,requiresReconnect:true,metrics:[],message:"Não foi possível ler a conexão do Instagram."});
+
+  if(connection.expires_at && Date.parse(connection.expires_at)<Date.now()+7*24*60*60*1000){
+    try{
+      const refreshed=await refreshInstagramLongLivedToken(accessToken);
+      accessToken=refreshed.accessToken;
+      await admin.from("influencer_instagram_connections").update({
+        access_token_encrypted:encryptInstagramAccessToken(accessToken),
+        expires_at:refreshed.expiresIn>0?new Date(Date.now()+refreshed.expiresIn*1000).toISOString():connection.expires_at,
+        requires_reconnect:false,last_refresh_error:null,updated_at:new Date().toISOString()
+      }).eq("profile_id",profileId).eq("user_id",user.id);
+    }catch(error){
+      const message=error instanceof Error?error.message:"Não foi possível renovar o token do Instagram.";
+      await admin.from("influencer_instagram_connections").update({requires_reconnect:true,last_refresh_error:message.slice(0,1000),updated_at:new Date().toISOString()}).eq("profile_id",profileId).eq("user_id",user.id);
+      return NextResponse.json({configured:false,requiresReconnect:true,metrics:[],message:"A conexão do Instagram precisa ser reconectada."});
+    }
+  }
+
+  const {data:published,error:publishedError}=await admin.from("influencer_profile_content")
+    .select("id,item_id,published_at,instagram_media_id")
+    .eq("profile_id",profileId).eq("user_id",user.id).eq("status","published")
+    .not("instagram_media_id","is",null)
+    .order("published_at",{ascending:false}).limit(30);
+  if(publishedError) return NextResponse.json({error:"Não foi possível carregar os vídeos publicados."},{status:500});
+
+  const itemIds=(published||[]).map((row:any)=>row.item_id);
+  const {data:items}=itemIds.length
+    ? await admin.from("influencer_content_items").select("id,title,category").in("id",itemIds).eq("user_id",user.id)
+    : {data:[]};
+  const itemById=new Map((items||[]).map((item:any)=>[item.id,item]));
+
+  if(sync && published?.length){
+    for(const row of published.slice(0,20)){
+      const mediaId=String(row.instagram_media_id||"");
+      if(!mediaId) continue;
+
+      const response=await fetch(
+        `${GRAPH}/${encodeURIComponent(mediaId)}/insights?metric=${encodeURIComponent(BASE_METRICS)}&access_token=${encodeURIComponent(accessToken)}`,
+        {cache:"no-store"}
+      );
+      const payload=await response.json().catch(()=>({}));
+      if(!response.ok || !Array.isArray(payload?.data)){
+        console.warn("Instagram media insights unavailable:",mediaId,payload?.error?.message||response.status);
+        continue;
+      }
+
+      let watchData:any[]=[];
+      try{
+        const watchResponse=await fetch(
+          `${GRAPH}/${encodeURIComponent(mediaId)}/insights?metric=${encodeURIComponent(REEL_WATCH_METRICS)}&access_token=${encodeURIComponent(accessToken)}`,
+          {cache:"no-store"}
+        );
+        const watchPayload=await watchResponse.json().catch(()=>({}));
+        if(watchResponse.ok && Array.isArray(watchPayload?.data)) watchData=watchPayload.data;
+      }catch{}
+
+      await admin.from("influencer_media_insights").insert({
+        user_id:user.id,profile_id:profileId,item_id:row.item_id,profile_content_id:row.id,
+        instagram_media_id:mediaId,fetched_at:new Date().toISOString(),
+        views:metricValue(payload.data,"views"),
+        reach:metricValue(payload.data,"reach"),
+        likes:metricValue(payload.data,"likes"),
+        comments:metricValue(payload.data,"comments"),
+        shares:metricValue(payload.data,"shares"),
+        saves:metricValue(payload.data,"saved"),
+        total_interactions:metricValue(payload.data,"total_interactions"),
+        follows:metricValue(payload.data,"follows"),
+        profile_visits:metricValue(payload.data,"profile_visits"),
+        avg_watch_time_seconds:metricValue(watchData,"ig_reels_avg_watch_time"),
+        total_watch_time_seconds:metricValue(watchData,"ig_reels_video_view_total_time"),
+        raw_metrics:{base:payload.data,watch:watchData}
+      });
+    }
+  }
+
+  const {data:snapshots,error:snapshotError}=await admin.from("influencer_media_insights")
+    .select("*").eq("profile_id",profileId).eq("user_id",user.id)
+    .order("fetched_at",{ascending:false}).limit(500);
+  if(snapshotError) return NextResponse.json({error:"Não foi possível carregar as métricas salvas."},{status:500});
+
+  const latestByMedia=new Map<string,any>();
+  for(const row of snapshots||[]) if(!latestByMedia.has(row.instagram_media_id)) latestByMedia.set(row.instagram_media_id,row);
+
+  const metrics=Array.from(latestByMedia.values()).map((row:any)=>({
+    ...row,
+    title:itemById.get(row.item_id)?.title||"Vídeo sem título",
+    category:itemById.get(row.item_id)?.category||"OUTROS"
+  }));
+
+  const totals=metrics.reduce((acc:any,row:any)=>{
+    for(const key of ["views","reach","likes","comments","shares","saves","total_interactions","follows","profile_visits"]){
+      acc[key]=(acc[key]||0)+Number(row[key]||0);
+    }
+    return acc;
+  },{views:0,reach:0,likes:0,comments:0,shares:0,saves:0,total_interactions:0,follows:0,profile_visits:0});
+
+  const categoryTotals=Object.values(metrics.reduce((acc:any,row:any)=>{
+    const key=String(row.category||"OUTROS");
+    if(!acc[key])acc[key]={category:key,videos:0,views:0,shares:0,likes:0,comments:0,follows:0};
+    acc[key].videos++;
+    for(const metric of ["views","shares","likes","comments","follows"])acc[key][metric]+=Number(row[metric]||0);
+    return acc;
+  },{})).sort((a:any,b:any)=>Number(b.views)-Number(a.views));
+
+  return NextResponse.json({
+    configured:true,
+    synced:sync,
+    totals,
+    categoryTotals,
+    metrics
+  },{headers:{"Cache-Control":"no-store"}});
+}
