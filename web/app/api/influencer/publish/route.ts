@@ -425,7 +425,7 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
 
     const next=nextSlot((profile.posting_times||[]) as string[],new Date(),Number(profile.posts_per_day)||3);
     await admin.from("influencer_profile_content").update({
-      status:"published",published_at:new Date().toISOString(),scheduled_at:null,error_message:null,retry_count:0,updated_at:new Date().toISOString()
+      status:"published",published_at:new Date().toISOString(),scheduled_at:null,error_message:null,retry_count:0,instagram_media_id:String(publishData.id),updated_at:new Date().toISOString()
     }).eq("id",profileContent.id).eq("user_id",userId);
     await admin.from("influencer_profiles").update({next_publish_at:next.toISOString(),updated_at:new Date().toISOString()}).eq("id",profileId).eq("user_id",userId);
 
