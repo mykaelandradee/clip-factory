@@ -29,7 +29,7 @@ export default function InfluencerLibrariesPage(){
   const selected=useMemo(()=>libraries.find(l=>l.id===selectedId)||null,[libraries,selectedId]);
   const linkedProfileId=selected?.profiles.find(p=>p.enabled)?.profile_id||"";
   const linkedProfiles=selected?.profiles||[];
-  const availableVideos=useMemo(()=>items.filter(item=>item.status==="available").length,[items]);
+  const availableVideos=useMemo(()=>{const activeProfileIds=new Set(linkedProfiles.filter(profile=>profile.enabled).map(profile=>profile.profile_id));return items.filter(item=>(item.profile_publications||[]).some(publication=>activeProfileIds.has(publication.profile_id)&&publication.status==="available")).length;},[items,linkedProfiles]);
 
   async function loadLibraries(preferred?:string){
     setLoading(true);setError("");
