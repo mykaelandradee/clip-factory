@@ -3280,7 +3280,7 @@ html,body,button,input,select,textarea{
 .im-analytics-coverage>div{display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0;padding:11px;border:1px solid rgba(255,255,255,.07);border-radius:11px;background:rgba(255,255,255,.025)}
 .im-analytics-coverage span{min-width:0;color:#777787;font-size:8px;font-weight:800;letter-spacing:.07em;line-height:1.45;overflow-wrap:anywhere}
 .im-analytics-coverage strong{flex:0 0 auto;font-size:16px;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
-.im-analytics-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));align-items:stretch;gap:8px;width:100%;min-width:0;margin:0}
+.im-analytics-kpis{position:static!important;inset:auto!important;grid-column:1/-1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));align-items:stretch;align-self:stretch;gap:8px;width:100%;min-width:0;margin:0}
 .im-analytics-kpis>div{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:0;min-width:0;overflow:hidden;padding:13px;border:1px solid rgba(255,255,255,.07);border-radius:12px;background:linear-gradient(145deg,rgba(255,255,255,.045),rgba(255,255,255,.012))}
 .im-analytics-kpis>div:first-child{border-color:rgba(150,126,255,.24);background:linear-gradient(145deg,rgba(130,103,255,.13),rgba(255,255,255,.015))}
 .im-analytics-kpis>div span{display:block;width:100%;margin:0 0 9px;color:#8a8999;font-size:8px;font-weight:800;letter-spacing:.06em;line-height:1.45;white-space:normal;overflow-wrap:anywhere}
