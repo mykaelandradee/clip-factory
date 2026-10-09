@@ -263,6 +263,11 @@ export async function GET(request:Request) {
     totals,
     categoryTotals,
     metricCoverage,
+    publishedSummary:{
+      total:publishedRows.length,
+      withInstagramId:publishedRows.filter((row:any)=>Boolean(row.instagram_media_id)).length,
+      withMetrics:metrics.length
+    },
     metrics
   },{headers:{"Cache-Control":"no-store"}});
 }
