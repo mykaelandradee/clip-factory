@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 type Profile={
   id:string; name:string; instagram_username:string|null; posts_per_day:number;
@@ -37,6 +37,7 @@ export default function InfluencerManagerPage(){
   const [draft,setDraft]=useState({posts_per_day:3,caption_mode:"zh_ja_random",repeat_when_exhausted:false,posting_times:["09:00","11:30","14:00"],fixed_publish_title:"",fixed_publish_description:"",share_to_feed:true,auto_story:false,story_delay_minutes:30});
   const [analytics,setAnalytics]=useState<AnalyticsData>({totals:{},categoryTotals:[],metrics:[],publishedReels:[],metricCoverage:{follows:0,reach:0,views:0},publishedSummary:{total:0,withInstagramId:0,withMetrics:0}});
   const [analyticsLoading,setAnalyticsLoading]=useState(false);
+  const analyticsRequestRef=useRef(0);
   const [analyticsMessage,setAnalyticsMessage]=useState("");
 
   function showError(message:string,title="Não foi possível concluir a ação"){
@@ -71,17 +72,19 @@ export default function InfluencerManagerPage(){
     }catch{setInstagramConnected(false);setInstagramReconnect(false);setInstagramExpiresAt(null);setInstagramAccount("");}
   }
   async function loadAnalytics(profileId:string,sync=false){
+    const requestId=++analyticsRequestRef.current;
     setAnalyticsLoading(true);setAnalyticsMessage("");
     try{
       const r=await fetch("/api/influencer/analytics?profileId="+encodeURIComponent(profileId)+(sync?"&sync=true":""),{cache:"no-store"});
       const d=await r.json().catch(()=>({}));
+      if(requestId!==analyticsRequestRef.current)return;
       if(!r.ok)throw new Error(d.error||"Não foi possível carregar as métricas.");
       setAnalytics({totals:d.totals||{},categoryTotals:d.categoryTotals||[],metrics:d.metrics||[],publishedReels:d.publishedReels||[],metricCoverage:d.metricCoverage||{follows:0,reach:0,views:0},publishedSummary:d.publishedSummary||{total:0,withInstagramId:0,withMetrics:0}});
       const diagnostics=Array.isArray(d.diagnostics)?d.diagnostics.filter((value:any)=>typeof value==="string"&&value.trim()):[];
       if(diagnostics.length)setAnalyticsMessage(diagnostics.join(" · "));
       else if(d.message)setAnalyticsMessage(String(d.message));
-    }catch(e){setAnalyticsMessage(e instanceof Error?e.message:"Não foi possível carregar as métricas.");}
-    finally{setAnalyticsLoading(false);}
+    }catch(e){if(requestId===analyticsRequestRef.current)setAnalyticsMessage(e instanceof Error?e.message:"Não foi possível carregar as métricas.");}
+    finally{if(requestId===analyticsRequestRef.current)setAnalyticsLoading(false);}
   }
   useEffect(()=>{void loadProfiles();void loadLibraries();},[]);
   // Mantém a agenda sincronizada durante o processamento e a publicação automática.
@@ -97,6 +100,11 @@ export default function InfluencerManagerPage(){
 
   useEffect(()=>{
     if(!selected)return;
+    // Limpa imediatamente os dados do perfil anterior e invalida respostas atrasadas.
+    analyticsRequestRef.current++;
+    setAnalytics({totals:{},categoryTotals:[],metrics:[],publishedReels:[],metricCoverage:{follows:0,reach:0,views:0},publishedSummary:{total:0,withInstagramId:0,withMetrics:0}});
+    setAnalyticsMessage("");
+    setAnalyticsLoading(false);
     setDraft({
       posts_per_day:selected.posts_per_day||3,caption_mode:selected.caption_mode||"zh_ja_random",
       repeat_when_exhausted:Boolean(selected.repeat_when_exhausted),posting_times:[...(selected.posting_times||[])],
