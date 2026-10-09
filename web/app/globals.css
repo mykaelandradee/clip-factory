@@ -3326,3 +3326,33 @@ html,body,button,input,select,textarea{
  .im-analytics-kpis strong{font-size:22px}
  .im-analytics-reel{grid-template-columns:16px minmax(0,1fr) 43px 43px;gap:6px}
 }
+
+/* Compact collapsible analytics groups */
+.im-analytics-coverage{gap:6px;margin:12px 0 8px}
+.im-analytics-coverage>div{padding:8px 11px;border-radius:10px}
+.im-analytics-coverage strong{font-size:16px}
+.im-analytics-kpis{gap:7px}
+.im-analytics-kpis>div{padding:12px;border-radius:12px}
+.im-analytics-kpis strong{font-size:clamp(20px,2.5vw,26px);margin-top:7px}
+.im-analytics-kpis small{margin-top:6px}
+.im-analytics-section-title{margin:18px 0 9px}
+.im-analytics-group{border-radius:11px}
+.im-analytics-group-head{display:grid;grid-template-columns:30px minmax(0,1fr) minmax(62px,.35fr) minmax(62px,.35fr) 15px;gap:9px;padding:9px 11px;min-height:54px;list-style:none;cursor:pointer;user-select:none}
+.im-analytics-group-head::-webkit-details-marker{display:none}
+.im-analytics-group-head:hover{background-color:rgba(255,255,255,.025)}
+.im-analytics-category-mark{width:29px;height:29px;border-radius:9px;font-size:12px}
+.im-analytics-group-name strong{display:block;color:#efedf9;font-size:11px;font-weight:850;letter-spacing:.035em}
+.im-analytics-group-name small,.im-analytics-group-stat small{display:block;margin-top:3px;color:#777687;font-size:8px;font-weight:500}
+.im-analytics-group-stat strong{font-size:12px}
+.im-analytics-chevron{color:#8f88ae;font-size:17px;transition:transform .18s ease;text-align:center}
+.im-analytics-group[open] .im-analytics-chevron{transform:rotate(180deg)}
+.im-analytics-reels{padding:0 10px}
+.im-analytics-reel{grid-template-columns:20px minmax(0,1fr) 52px 52px 52px;gap:8px;min-height:48px}
+.im-analytics-reel-copy span{font-size:8px}
+.im-analytics-footnote{margin-top:9px}
+@media(max-width:760px){
+ .im-analytics-group-head{grid-template-columns:28px minmax(0,1fr) auto 15px;gap:8px;padding:9px}
+ .im-analytics-group-head .im-analytics-group-stat:nth-of-type(4){display:none}
+ .im-analytics-group-head .im-analytics-group-stat:nth-of-type(3){min-width:55px}
+ .im-analytics-reel{grid-template-columns:16px minmax(0,1fr) 43px 43px;gap:6px;min-height:46px}
+}
