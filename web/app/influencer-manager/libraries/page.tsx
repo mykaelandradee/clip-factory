@@ -283,7 +283,7 @@ export default function InfluencerLibrariesPage(){
           </div>
           <div className="im-stats im-library-stats">
             <div><strong>{selected?.item_count||0}</strong><span>VÍDEOS</span></div>
-            <div><strong>{availableVideos}</strong><span>DISPONÍVEIS PARA PUBLICAÇÃO</span></div>
+            <div><strong>{availableVideos}</strong><span>DISPONÍVEIS</span></div>
             <div><strong>{linkedProfiles.length}</strong><span>PERFIS VINCULADOS</span></div>
           </div>
           <div className="im-linked-profiles">
