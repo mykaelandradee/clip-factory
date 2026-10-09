@@ -272,52 +272,7 @@ export default function InfluencerManagerPage(){
             <div className="im-overview-actions"><button className="im-ghost" disabled={saving} onClick={()=>{setEditProfileName(selected.name);setShowEditProfile(true)}}>Editar perfil</button><button className="im-ghost im-danger" disabled={saving} onClick={()=>void deleteProfile()}>Excluir perfil</button></div>
           </div>
 
-          <div className="im-card im-analytics-card im-analytics-modern">
-            <div className="im-card-head im-analytics-heading">
-              <div><span className="im-kicker">ANALYTICS / INSTAGRAM</span><h2>Desempenho dos Reels</h2><p>Métricas reais das publicações, organizadas por tipo de conteúdo.</p></div>
-              <button className="im-primary im-analytics-refresh" type="button" disabled={!selected||analyticsLoading||!instagramConnected} onClick={()=>selected&&void loadAnalytics(selected.id,true)}>{analyticsLoading?"Sincronizando…":"↻ Atualizar métricas"}</button>
-            </div>
-            {analyticsMessage&&<div className="im-analytics-diagnostics"><span className="im-analytics-pulse"/><span>{analyticsMessage}</span></div>}
-            {!analytics.metrics.length?<div className="im-empty"><strong>Nenhuma métrica coletada ainda.</strong><span>Conecte o Instagram e sincronize os Insights das publicações.</span></div>:
-            <>
-              <div className="im-analytics-coverage">
-                <div><span>REELS PUBLICADOS</span><strong>{analytics.publishedSummary.total.toLocaleString("pt-BR")}</strong></div>
-                <div><span>COM ID DO INSTAGRAM</span><strong>{analytics.publishedSummary.withInstagramId.toLocaleString("pt-BR")}</strong></div>
-                <div><span>COM MÉTRICAS</span><strong>{analytics.publishedSummary.withMetrics.toLocaleString("pt-BR")}</strong></div>
-              </div>
-              <div className="im-stats im-analytics-kpis">
-                <div><span>VISUALIZAÇÕES</span><strong>{Number(analytics.totals.views||0).toLocaleString("pt-BR")}</strong><small>Somatório dos Reels sincronizados</small></div>
-                <div><span>COMPARTILHAMENTOS</span><strong>{Number(analytics.totals.shares||0).toLocaleString("pt-BR")}</strong><small>Compartilhamentos registrados</small></div>
-                <div><span>CURTIDAS</span><strong>{Number(analytics.totals.likes||0).toLocaleString("pt-BR")}</strong><small>Curtidas registradas</small></div>
-                <div><span>SEGUIDORES ATRIBUÍDOS</span><strong>{analytics.metricCoverage.follows===0?"—":Number(analytics.totals.follows||0).toLocaleString("pt-BR")}</strong><small>{analytics.metricCoverage.follows===0?"Métrica não retornada pelo Instagram":"Em "+analytics.metricCoverage.follows+" Reels com dado"}</small></div>
-              </div>
-              <div className="im-analytics-section-title"><div><span className="im-kicker">BIBLIOTECA DE DESEMPENHO</span><h3>Reels por tipo de conteúdo</h3></div><span>{analytics.publishedSummary.total} publicados</span></div>
-              <div className="im-analytics-groups">
-                {analytics.categoryTotals.map((group:any)=>{
-                  const reels=analytics.publishedReels.filter((reel:any)=>String(reel.category||"OUTROS")===String(group.category||"OUTROS")).sort((a:any,b:any)=>Number(b.hasMetrics)-Number(a.hasMetrics)||Number(b.views||0)-Number(a.views||0));
-                  return <details className="im-analytics-group" key={group.category}>
-                    <summary className="im-analytics-group-head">
-                      <span className="im-analytics-category-mark">{String(group.category||"OUTROS").slice(0,1)}</span>
-                      <span className="im-analytics-group-name"><strong>{group.category||"OUTROS"}</strong><small>{group.videos} {group.videos===1?"Reel":"Reels"} · {group.withMetrics} com métricas</small></span>
-                      <span className="im-analytics-group-stat"><strong>{Number(group.views||0).toLocaleString("pt-BR")}</strong><small>views</small></span>
-                      <span className="im-analytics-group-stat"><strong>{Number(group.shares||0).toLocaleString("pt-BR")}</strong><small>shares</small></span>
-                      <span className="im-analytics-chevron" aria-hidden="true">⌄</span>
-                    </summary>
-                    <div className="im-analytics-reels">
-                      {reels.map((reel:any,index:number)=><div className="im-analytics-reel" key={reel.id}>
-                        <span className="im-analytics-reel-rank">{String(index+1).padStart(2,"0")}</span>
-                        <div className="im-analytics-reel-copy"><strong>{reel.title||"Vídeo sem título"}</strong><span>{reel.hasMetrics?"Atualizado "+(reel.fetched_at?new Intl.DateTimeFormat("pt-BR",{dateStyle:"short",timeStyle:"short",timeZone:"America/Cuiaba"}).format(new Date(reel.fetched_at)):"—"):"Aguardando ID ou Insights do Instagram"}</span></div>
-                        <div className="im-analytics-reel-metric"><strong>{reel.views===null?"—":Number(reel.views||0).toLocaleString("pt-BR")}</strong><small>views</small></div>
-                        <div className="im-analytics-reel-metric"><strong>{reel.likes===null?"—":Number(reel.likes||0).toLocaleString("pt-BR")}</strong><small>curtidas</small></div>
-                        <div className="im-analytics-reel-metric"><strong>{reel.shares===null?"—":Number(reel.shares||0).toLocaleString("pt-BR")}</strong><small>shares</small></div>
-                      </div>)}
-                    </div>
-                  </details>;
-                })}
-              </div>
-              <div className="im-analytics-footnote">Todos os Reels publicados são listados por tipo de conteúdo. Traços indicam publicações sem métricas disponíveis; os totais somam somente os Insights coletados.</div>
-            </>}
-          </div>
+
 
           <div className="im-card im-account">
             <div className="im-card-head"><div><span className="im-kicker">CONTA VINCULADA</span><h2>Instagram</h2><p>Conta vinculada somente a este perfil.</p></div><span className={"im-status "+(instagramConnected?"available":"archived")}>{instagramReconnect?"RECONEXÃO NECESSÁRIA":instagramConnected?"CONECTADO":"NÃO CONECTADO"}</span></div>
@@ -398,6 +353,53 @@ export default function InfluencerManagerPage(){
               </div>})}
             </div>}
             <div className="im-form-note">Vincular uma biblioteca não move, duplica ou compartilha vídeos.</div>
+          </div>
+
+          <div className="im-card im-analytics-card im-analytics-modern">
+            <div className="im-card-head im-analytics-heading">
+              <div><span className="im-kicker">ANALYTICS / INSTAGRAM</span><h2>Desempenho dos Reels</h2><p>Métricas reais das publicações, organizadas por tipo de conteúdo.</p></div>
+              <button className="im-primary im-analytics-refresh" type="button" disabled={!selected||analyticsLoading||!instagramConnected} onClick={()=>selected&&void loadAnalytics(selected.id,true)}>{analyticsLoading?"Sincronizando…":"↻ Atualizar métricas"}</button>
+            </div>
+            {analyticsMessage&&<div className="im-analytics-diagnostics"><span className="im-analytics-pulse"/><span>{analyticsMessage}</span></div>}
+            {!analytics.metrics.length?<div className="im-empty"><strong>Nenhuma métrica coletada ainda.</strong><span>Conecte o Instagram e sincronize os Insights das publicações.</span></div>:
+            <>
+              <div className="im-analytics-coverage">
+                <div><span>REELS PUBLICADOS</span><strong>{analytics.publishedSummary.total.toLocaleString("pt-BR")}</strong></div>
+                <div><span>COM ID DO INSTAGRAM</span><strong>{analytics.publishedSummary.withInstagramId.toLocaleString("pt-BR")}</strong></div>
+                <div><span>COM MÉTRICAS</span><strong>{analytics.publishedSummary.withMetrics.toLocaleString("pt-BR")}</strong></div>
+              </div>
+              <div className="im-stats im-analytics-kpis">
+                <div><span>VISUALIZAÇÕES</span><strong>{Number(analytics.totals.views||0).toLocaleString("pt-BR")}</strong><small>Somatório dos Reels sincronizados</small></div>
+                <div><span>COMPARTILHAMENTOS</span><strong>{Number(analytics.totals.shares||0).toLocaleString("pt-BR")}</strong><small>Compartilhamentos registrados</small></div>
+                <div><span>CURTIDAS</span><strong>{Number(analytics.totals.likes||0).toLocaleString("pt-BR")}</strong><small>Curtidas registradas</small></div>
+                <div><span>SEGUIDORES ATRIBUÍDOS</span><strong>{analytics.metricCoverage.follows===0?"—":Number(analytics.totals.follows||0).toLocaleString("pt-BR")}</strong><small>{analytics.metricCoverage.follows===0?"Métrica não retornada pelo Instagram":"Em "+analytics.metricCoverage.follows+" Reels com dado"}</small></div>
+              </div>
+              <div className="im-analytics-section-title"><div><span className="im-kicker">BIBLIOTECA DE DESEMPENHO</span><h3>Reels por tipo de conteúdo</h3></div><span>{analytics.publishedSummary.total} publicados</span></div>
+              <div className="im-analytics-groups">
+                {analytics.categoryTotals.map((group:any)=>{
+                  const reels=analytics.publishedReels.filter((reel:any)=>String(reel.category||"OUTROS")===String(group.category||"OUTROS")).sort((a:any,b:any)=>Number(b.hasMetrics)-Number(a.hasMetrics)||Number(b.views||0)-Number(a.views||0));
+                  return <details className="im-analytics-group" key={group.category}>
+                    <summary className="im-analytics-group-head">
+                      <span className="im-analytics-category-mark">{String(group.category||"OUTROS").slice(0,1)}</span>
+                      <span className="im-analytics-group-name"><strong>{group.category||"OUTROS"}</strong><small>{group.videos} {group.videos===1?"Reel":"Reels"} · {group.withMetrics} com métricas</small></span>
+                      <span className="im-analytics-group-stat"><strong>{Number(group.views||0).toLocaleString("pt-BR")}</strong><small>views</small></span>
+                      <span className="im-analytics-group-stat"><strong>{Number(group.shares||0).toLocaleString("pt-BR")}</strong><small>shares</small></span>
+                      <span className="im-analytics-chevron" aria-hidden="true">⌄</span>
+                    </summary>
+                    <div className="im-analytics-reels">
+                      {reels.map((reel:any,index:number)=><div className="im-analytics-reel" key={reel.id}>
+                        <span className="im-analytics-reel-rank">{String(index+1).padStart(2,"0")}</span>
+                        <div className="im-analytics-reel-copy"><strong>{reel.title||"Vídeo sem título"}</strong><span>{reel.hasMetrics?"Atualizado "+(reel.fetched_at?new Intl.DateTimeFormat("pt-BR",{dateStyle:"short",timeStyle:"short",timeZone:"America/Cuiaba"}).format(new Date(reel.fetched_at)):"—"):"Aguardando ID ou Insights do Instagram"}</span></div>
+                        <div className="im-analytics-reel-metric"><strong>{reel.views===null?"—":Number(reel.views||0).toLocaleString("pt-BR")}</strong><small>views</small></div>
+                        <div className="im-analytics-reel-metric"><strong>{reel.likes===null?"—":Number(reel.likes||0).toLocaleString("pt-BR")}</strong><small>curtidas</small></div>
+                        <div className="im-analytics-reel-metric"><strong>{reel.shares===null?"—":Number(reel.shares||0).toLocaleString("pt-BR")}</strong><small>shares</small></div>
+                      </div>)}
+                    </div>
+                  </details>;
+                })}
+              </div>
+              <div className="im-analytics-footnote">Todos os Reels publicados são listados por tipo de conteúdo. Traços indicam publicações sem métricas disponíveis; os totais somam somente os Insights coletados.</div>
+            </>}
           </div>
         </>}
       </section>
