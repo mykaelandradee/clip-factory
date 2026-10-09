@@ -29,6 +29,7 @@ export default function InfluencerLibrariesPage(){
   const selected=useMemo(()=>libraries.find(l=>l.id===selectedId)||null,[libraries,selectedId]);
   const linkedProfileId=selected?.profiles.find(p=>p.enabled)?.profile_id||"";
   const linkedProfiles=selected?.profiles||[];
+  const availableVideos=useMemo(()=>items.filter(item=>item.status==="available").length,[items]);
 
   async function loadLibraries(preferred?:string){
     setLoading(true);setError("");
@@ -280,8 +281,9 @@ export default function InfluencerLibrariesPage(){
             <h2>{selected?.name||"Selecione uma biblioteca"}</h2>
             <p>{selected?.description||"Selecione uma biblioteca para gerenciar seus vídeos."}</p>
           </div>
-          <div className="im-stats">
+          <div className="im-stats im-library-stats">
             <div><strong>{selected?.item_count||0}</strong><span>VÍDEOS</span></div>
+            <div><strong>{availableVideos}</strong><span>DISPONÍVEIS PARA PUBLICAÇÃO</span></div>
             <div><strong>{linkedProfiles.length}</strong><span>PERFIS VINCULADOS</span></div>
           </div>
           <div className="im-linked-profiles">
