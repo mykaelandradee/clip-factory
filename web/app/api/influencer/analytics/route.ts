@@ -69,7 +69,7 @@ export async function GET(request:Request) {
   const {data:published,error:publishedError}=await admin.from("influencer_profile_content")
     .select("id,item_id,published_at,instagram_media_id")
     .eq("profile_id",profileId).eq("user_id",user.id).eq("status","published")
-    .order("published_at",{ascending:false}).limit(30);
+    .order("published_at",{ascending:false,nullsFirst:false}).limit(100);
   if(publishedError) return NextResponse.json({error:"Não foi possível carregar os vídeos publicados."},{status:500});
 
   const itemIds=(published||[]).map((row:any)=>row.item_id);
@@ -122,7 +122,8 @@ export async function GET(request:Request) {
   let insightErrors=0;
 
   if(sync && publishedRows.length){
-    for(const row of publishedRows.slice(0,20)){
+    const rowsForInsights=[...publishedRows.filter((row:any)=>Boolean(row.instagram_media_id)),...publishedRows.filter((row:any)=>!row.instagram_media_id)].slice(0,20);
+    for(const row of rowsForInsights){
       const mediaId=String(row.instagram_media_id||"");
       if(!mediaId) continue;
 
