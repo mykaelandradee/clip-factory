@@ -137,7 +137,7 @@ export async function GET(request:Request) {
       // A Meta pode rejeitar uma lista inteira de métricas mesmo quando algumas
       // delas estão disponíveis para a publicação. Tenta cada métrica isoladamente
       // para não perder todos os Insights por causa de uma única métrica incompatível.
-      if(!response.ok || !Array.isArray(payload?.data)){
+      if(!response.ok || !Array.isArray(payload?.data) || payload.data.length===0){
         baseData=[];
         for(const metric of BASE_METRICS.split(",")){
           try{
