@@ -295,23 +295,24 @@ export default function InfluencerManagerPage(){
               <div className="im-analytics-groups">
                 {analytics.categoryTotals.map((group:any)=>{
                   const reels=analytics.publishedReels.filter((reel:any)=>String(reel.category||"OUTROS")===String(group.category||"OUTROS")).sort((a:any,b:any)=>Number(b.hasMetrics)-Number(a.hasMetrics)||Number(b.views||0)-Number(a.views||0));
-                  return <section className="im-analytics-group" key={group.category}>
-                    <div className="im-analytics-group-head">
-                      <div className="im-analytics-category-mark">{String(group.category||"OUTROS").slice(0,1)}</div>
-                      <div className="im-analytics-group-name"><h4>{group.category||"OUTROS"}</h4><span>{group.videos} {group.videos===1?"Reel publicado":"Reels publicados"} · {group.withMetrics} com métricas</span></div>
-                      <div className="im-analytics-group-stat"><strong>{Number(group.views||0).toLocaleString("pt-BR")}</strong><span>visualizações</span></div>
-                      <div className="im-analytics-group-stat"><strong>{Number(group.shares||0).toLocaleString("pt-BR")}</strong><span>compartilhamentos</span></div>
-                    </div>
+                  return <details className="im-analytics-group" key={group.category}>
+                    <summary className="im-analytics-group-head">
+                      <span className="im-analytics-category-mark">{String(group.category||"OUTROS").slice(0,1)}</span>
+                      <span className="im-analytics-group-name"><strong>{group.category||"OUTROS"}</strong><small>{group.videos} {group.videos===1?"Reel":"Reels"} · {group.withMetrics} com métricas</small></span>
+                      <span className="im-analytics-group-stat"><strong>{Number(group.views||0).toLocaleString("pt-BR")}</strong><small>views</small></span>
+                      <span className="im-analytics-group-stat"><strong>{Number(group.shares||0).toLocaleString("pt-BR")}</strong><small>shares</small></span>
+                      <span className="im-analytics-chevron" aria-hidden="true">⌄</span>
+                    </summary>
                     <div className="im-analytics-reels">
                       {reels.map((reel:any,index:number)=><div className="im-analytics-reel" key={reel.id}>
                         <span className="im-analytics-reel-rank">{String(index+1).padStart(2,"0")}</span>
                         <div className="im-analytics-reel-copy"><strong>{reel.title||"Vídeo sem título"}</strong><span>{reel.hasMetrics?"Atualizado "+(reel.fetched_at?new Intl.DateTimeFormat("pt-BR",{dateStyle:"short",timeStyle:"short",timeZone:"America/Cuiaba"}).format(new Date(reel.fetched_at)):"—"):"Aguardando ID ou Insights do Instagram"}</span></div>
-                        <div className="im-analytics-reel-metric"><strong>{reel.views===null?"—":Number(reel.views||0).toLocaleString("pt-BR")}</strong><span>views</span></div>
-                        <div className="im-analytics-reel-metric"><strong>{reel.likes===null?"—":Number(reel.likes||0).toLocaleString("pt-BR")}</strong><span>curtidas</span></div>
-                        <div className="im-analytics-reel-metric"><strong>{reel.shares===null?"—":Number(reel.shares||0).toLocaleString("pt-BR")}</strong><span>shares</span></div>
+                        <div className="im-analytics-reel-metric"><strong>{reel.views===null?"—":Number(reel.views||0).toLocaleString("pt-BR")}</strong><small>views</small></div>
+                        <div className="im-analytics-reel-metric"><strong>{reel.likes===null?"—":Number(reel.likes||0).toLocaleString("pt-BR")}</strong><small>curtidas</small></div>
+                        <div className="im-analytics-reel-metric"><strong>{reel.shares===null?"—":Number(reel.shares||0).toLocaleString("pt-BR")}</strong><small>shares</small></div>
                       </div>)}
                     </div>
-                  </section>;
+                  </details>;
                 })}
               </div>
               <div className="im-analytics-footnote">Todos os Reels publicados são listados por tipo de conteúdo. Traços indicam publicações sem métricas disponíveis; os totais somam somente os Insights coletados.</div>
