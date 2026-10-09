@@ -242,10 +242,24 @@ export async function GET(request:Request) {
     return acc;
   },{views:0,reach:0,likes:0,comments:0,shares:0,saves:0,total_interactions:0,follows:0,profile_visits:0});
 
-  const categoryTotals=Object.values(metrics.reduce((acc:any,row:any)=>{
+  const publishedReels=publishedRows.map((publishedRow:any)=>{
+    const item:any=itemById.get(publishedRow.item_id);
+    const insight=metrics.find((metric:any)=>metric.profile_content_id===publishedRow.id)||null;
+    return {
+      id:publishedRow.id,item_id:publishedRow.item_id,instagram_media_id:publishedRow.instagram_media_id,
+      title:item?.title||"Vídeo sem título",category:item?.category||"OUTROS",published_at:publishedRow.published_at,
+      hasMetrics:Boolean(insight),fetched_at:insight?.fetched_at||null,
+      views:insight?.views??null,reach:insight?.reach??null,likes:insight?.likes??null,
+      comments:insight?.comments??null,shares:insight?.shares??null,saves:insight?.saves??null,
+      follows:insight?.follows??null
+    };
+  });
+
+  const categoryTotals=Object.values(publishedReels.reduce((acc:any,row:any)=>{
     const key=String(row.category||"OUTROS");
-    if(!acc[key])acc[key]={category:key,videos:0,views:0,shares:0,likes:0,comments:0,follows:0};
+    if(!acc[key])acc[key]={category:key,videos:0,withMetrics:0,views:0,shares:0,likes:0,comments:0,follows:0};
     acc[key].videos++;
+    if(row.hasMetrics)acc[key].withMetrics++;
     for(const metric of ["views","shares","likes","comments","follows"])acc[key][metric]+=Number(row[metric]||0);
     return acc;
   },{})).sort((a:any,b:any)=>Number(b.views)-Number(a.views));
@@ -262,6 +276,7 @@ export async function GET(request:Request) {
     diagnostics:syncDiagnostics.slice(0,8),
     totals,
     categoryTotals,
+    publishedReels,
     metricCoverage,
     publishedSummary:{
       total:publishedRows.length,
