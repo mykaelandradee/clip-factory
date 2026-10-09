@@ -122,7 +122,7 @@ export async function GET(request:Request) {
   let insightErrors=0;
 
   if(sync && publishedRows.length){
-    const rowsForInsights=[...publishedRows.filter((row:any)=>Boolean(row.instagram_media_id)),...publishedRows.filter((row:any)=>!row.instagram_media_id)].slice(0,20);
+    const rowsForInsights=[...publishedRows.filter((row:any)=>Boolean(row.instagram_media_id)),...publishedRows.filter((row:any)=>!row.instagram_media_id)].slice(0,50);
     for(const row of rowsForInsights){
       const mediaId=String(row.instagram_media_id||"");
       if(!mediaId) continue;
@@ -250,12 +250,19 @@ export async function GET(request:Request) {
     return acc;
   },{})).sort((a:any,b:any)=>Number(b.views)-Number(a.views));
 
+  const metricCoverage={
+    follows:metrics.filter((row:any)=>row.follows!==null&&row.follows!==undefined).length,
+    reach:metrics.filter((row:any)=>row.reach!==null&&row.reach!==undefined).length,
+    views:metrics.filter((row:any)=>row.views!==null&&row.views!==undefined).length
+  };
+
   return NextResponse.json({
     configured:true,
     synced:sync,
     diagnostics:syncDiagnostics.slice(0,8),
     totals,
     categoryTotals,
+    metricCoverage,
     metrics
   },{headers:{"Cache-Control":"no-store"}});
 }
