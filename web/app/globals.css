@@ -3314,6 +3314,10 @@ html,body,button,input,select,textarea{
 .im-analytics-reel-metric strong{display:block;font-size:10px;line-height:1.35;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 .im-analytics-reel-metric small{display:block;margin-top:3px;color:#777687;font-size:8px;line-height:1.35;overflow-wrap:anywhere}
 .im-analytics-footnote{margin-top:10px;color:#777687;font-size:9px;line-height:1.6;overflow-wrap:anywhere}
+.im-library-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;min-width:0}
+.im-library-stats>div{min-width:0}
+.im-library-stats strong{display:block;font-variant-numeric:tabular-nums}
+.im-library-stats span{display:block;line-height:1.45;overflow-wrap:anywhere}
 .im-account-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;min-width:0}
 .im-account-row>div{flex:1 1 220px;min-width:0}
 .im-account-row>div>strong{display:block;overflow-wrap:anywhere}
