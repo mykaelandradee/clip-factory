@@ -3356,3 +3356,13 @@ html,body,button,input,select,textarea{
  .im-analytics-group-head .im-analytics-group-stat:nth-of-type(3){min-width:55px}
  .im-analytics-reel{grid-template-columns:16px minmax(0,1fr) 43px 43px;gap:6px;min-height:46px}
 }
+
+
+/* Fix overlapping analytics KPI title, value and description. */
+.im-analytics-kpis{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr));align-items:stretch;gap:12px;width:100%}
+.im-analytics-kpis>div{display:flex!important;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:0;min-width:0;overflow:hidden;padding:16px!important}
+.im-analytics-kpis>div span{display:block;width:100%;margin:0 0 10px;line-height:1.4;white-space:normal;overflow-wrap:anywhere;font-size:8px}
+.im-analytics-kpis>div strong{display:block;width:100%;margin:0;line-height:1.15;font-size:clamp(20px,2vw,27px);white-space:nowrap}
+.im-analytics-kpis>div small{display:block;width:100%;margin:8px 0 0;line-height:1.45;white-space:normal;overflow-wrap:anywhere;font-size:9px}
+@media(max-width:760px){.im-analytics-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.im-analytics-kpis>div{padding:12px!important}.im-analytics-kpis>div strong{font-size:22px}}
+@media(max-width:360px){.im-analytics-kpis{grid-template-columns:1fr}}
