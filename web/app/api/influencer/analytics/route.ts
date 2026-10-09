@@ -130,14 +130,43 @@ export async function GET(request:Request) {
         `${GRAPH}/${encodeURIComponent(mediaId)}/insights?metric=${encodeURIComponent(BASE_METRICS)}&access_token=${encodeURIComponent(accessToken)}`,
         {cache:"no-store"}
       );
-      const payload=await response.json().catch(()=>({}));
+      let payload=await response.json().catch(()=>({}));
+      let baseData:any[]=Array.isArray(payload?.data)?payload.data:[];
+      const metricFailures:string[]=[];
+
+      // A Meta pode rejeitar uma lista inteira de métricas mesmo quando algumas
+      // delas estão disponíveis para a publicação. Tenta cada métrica isoladamente
+      // para não perder todos os Insights por causa de uma única métrica incompatível.
       if(!response.ok || !Array.isArray(payload?.data)){
-        const code=payload?.error?.code!=null?` código ${payload.error.code}`:"";
-        const message=String(payload?.error?.message||("Instagram Insights retornou HTTP "+response.status+"."));
-        console.warn("Instagram media insights unavailable:",mediaId,{status:response.status,code:payload?.error?.code,message});
-        syncDiagnostics.push(`Mídia ${mediaId}: ${message}${code}`);
-        insightErrors++;
-        continue;
+        baseData=[];
+        for(const metric of BASE_METRICS.split(",")){
+          try{
+            const singleResponse=await fetch(
+              `${GRAPH}/${encodeURIComponent(mediaId)}/insights?metric=${encodeURIComponent(metric)}&access_token=${encodeURIComponent(accessToken)}`,
+              {cache:"no-store"}
+            );
+            const singlePayload=await singleResponse.json().catch(()=>({}));
+            if(singleResponse.ok && Array.isArray(singlePayload?.data)){
+              baseData.push(...singlePayload.data);
+            }else{
+              const errorMessage=String(singlePayload?.error?.message||("HTTP "+singleResponse.status));
+              metricFailures.push(metric+": "+errorMessage);
+            }
+          }catch(error){
+            metricFailures.push(metric+": "+(error instanceof Error?error.message:"falha na consulta"));
+          }
+        }
+        if(!baseData.length){
+          const code=payload?.error?.code!=null?` código ${payload.error.code}`:"";
+          const message=String(payload?.error?.message||("Instagram Insights retornou HTTP "+response.status+"."));
+          console.warn("Instagram media insights unavailable:",mediaId,{status:response.status,code:payload?.error?.code,message,metricFailures});
+          syncDiagnostics.push(`Mídia ${mediaId}: ${message}${code}`);
+          insightErrors++;
+          continue;
+        }
+        if(metricFailures.length){
+          syncDiagnostics.push(`Mídia ${mediaId}: métricas parciais; ${metricFailures.length} métrica(s) indisponível(is).`);
+        }
       }
 
       let optionalData:any[]=[];
@@ -163,18 +192,18 @@ export async function GET(request:Request) {
       const {error:insertError}=await admin.from("influencer_media_insights").insert({
         user_id:user.id,profile_id:profileId,item_id:row.item_id,profile_content_id:row.id,
         instagram_media_id:mediaId,fetched_at:new Date().toISOString(),
-        views:metricValue(payload.data,"views"),
-        reach:metricValue(payload.data,"reach"),
-        likes:metricValue(payload.data,"likes"),
-        comments:metricValue(payload.data,"comments"),
-        shares:metricValue(payload.data,"shares"),
-        saves:metricValue(payload.data,"saved"),
-        total_interactions:metricValue(payload.data,"total_interactions"),
+        views:metricValue(baseData,"views"),
+        reach:metricValue(baseData,"reach"),
+        likes:metricValue(baseData,"likes"),
+        comments:metricValue(baseData,"comments"),
+        shares:metricValue(baseData,"shares"),
+        saves:metricValue(baseData,"saved"),
+        total_interactions:metricValue(baseData,"total_interactions"),
         follows:metricValue(optionalData,"follows"),
         profile_visits:metricValue(optionalData,"profile_visits"),
         avg_watch_time_seconds:metricValue(watchData,"ig_reels_avg_watch_time"),
         total_watch_time_seconds:metricValue(watchData,"ig_reels_video_view_total_time"),
-        raw_metrics:{base:payload.data,optional:optionalData,watch:watchData}
+        raw_metrics:{base:baseData,optional:optionalData,watch:watchData}
       });
       if(insertError){
         syncDiagnostics.push("Métrica encontrada, mas não foi salva no banco: "+insertError.message);
@@ -186,8 +215,9 @@ export async function GET(request:Request) {
   if(sync){
     const withIds=publishedRows.filter((row:any)=>row.instagram_media_id).length;
     syncDiagnostics.unshift(`Banco: ${publishedRows.length} publicações publicadas; ${withIds} com ID do Instagram.`);
-    if(insightSuccess||insightErrors) syncDiagnostics.push(`Insights: ${insightSuccess} publicações sincronizadas; ${insightErrors} com erro.`);
-    else if(publishedRows.length>0 && withIds===0) syncDiagnostics.push("Nenhuma publicação possui ID do Instagram para consultar Insights.");
+    if(publishedRows.length===0) syncDiagnostics.push("Nenhuma publicação com status publicado foi encontrada para este perfil no banco.");
+    else if(insightSuccess||insightErrors) syncDiagnostics.push(`Insights: ${insightSuccess} publicações sincronizadas; ${insightErrors} com erro.`);
+    else if(withIds===0) syncDiagnostics.push("Nenhuma publicação possui ID do Instagram para consultar Insights.");
   }
 
   const {data:snapshots,error:snapshotError}=await admin.from("influencer_media_insights")
