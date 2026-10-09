@@ -3439,3 +3439,48 @@ html,body,button,input,select,textarea{
  .im-analytics-group-head{grid-template-columns:24px minmax(0,1fr) auto 12px;gap:6px}
  .im-analytics-reel{grid-template-columns:14px minmax(0,1fr) repeat(3,minmax(0,1fr));gap:4px}
 }
+
+
+/* Final layout guard: prevent Analytics / Instagram content from overlapping. */
+.im-analytics-modern,
+.im-analytics-modern *{box-sizing:border-box}
+.im-analytics-modern{min-width:0;overflow:hidden}
+.im-analytics-modern .im-card-head{min-width:0}
+.im-analytics-modern .im-analytics-coverage,
+.im-analytics-modern .im-analytics-kpis,
+.im-analytics-modern .im-analytics-groups{width:100%;min-width:0}
+.im-analytics-modern .im-analytics-coverage>div,
+.im-analytics-modern .im-analytics-kpis>div{min-width:0}
+.im-analytics-modern .im-analytics-group{min-width:0}
+.im-analytics-modern .im-analytics-group-head{display:grid;align-items:center;min-width:0}
+.im-analytics-modern .im-analytics-group-name{overflow:hidden}
+.im-analytics-modern .im-analytics-group-stat{text-align:right;overflow:hidden}
+.im-analytics-modern .im-analytics-group-stat strong{display:block;overflow-wrap:anywhere}
+.im-analytics-modern .im-analytics-reel{min-width:0}
+.im-analytics-modern .im-analytics-reel-copy{overflow:hidden}
+.im-analytics-modern .im-analytics-reel-copy strong{display:block;overflow-wrap:anywhere}
+.im-analytics-modern .im-analytics-reel-copy span{display:block;overflow-wrap:anywhere}
+.im-analytics-modern .im-analytics-reel-metric{overflow:hidden}
+.im-analytics-modern .im-analytics-reel-metric strong{display:block;overflow-wrap:anywhere}
+.im-analytics-modern .im-analytics-footnote{line-height:1.6;overflow-wrap:anywhere}
+@media(max-width:520px){
+ .im-analytics-modern{padding:14px!important}
+ .im-analytics-modern .im-analytics-group-head{grid-template-columns:24px minmax(0,1fr) minmax(45px,auto) 12px;gap:6px}
+ .im-analytics-modern .im-analytics-group-name strong{font-size:11px;line-height:1.35}
+ .im-analytics-modern .im-analytics-group-name small{font-size:9px;line-height:1.4;white-space:normal}
+ .im-analytics-modern .im-analytics-group-stat strong{font-size:10px;line-height:1.3}
+ .im-analytics-modern .im-analytics-group-stat small{font-size:8px}
+ .im-analytics-modern .im-analytics-category-mark{width:24px;height:24px}
+ .im-analytics-modern .im-analytics-reel{grid-template-columns:14px minmax(0,1fr) repeat(3,minmax(0,1fr));column-gap:5px}
+ .im-analytics-modern .im-analytics-reel-metric{white-space:normal}
+ .im-analytics-modern .im-analytics-reel-metric strong{font-size:10px;line-height:1.3}
+ .im-analytics-modern .im-analytics-reel-metric small{font-size:8px;line-height:1.3;white-space:normal}
+}
+@media(max-width:360px){
+ .im-analytics-modern{padding:10px!important}
+ .im-analytics-modern .im-analytics-kpis{grid-template-columns:1fr}
+ .im-analytics-modern .im-analytics-group-head{grid-template-columns:22px minmax(0,1fr) minmax(40px,auto) 10px;gap:4px}
+ .im-analytics-modern .im-analytics-group-name strong{font-size:10px}
+ .im-analytics-modern .im-analytics-group-stat strong{font-size:9px}
+ .im-analytics-modern .im-analytics-reel{grid-template-columns:12px minmax(0,1fr) repeat(3,minmax(0,1fr));gap:4px}
+}
