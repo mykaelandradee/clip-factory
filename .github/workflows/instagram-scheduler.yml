@@ -6,6 +6,9 @@ on:
       timezone: "America/Cuiaba"
   workflow_dispatch:
 
+# Apenas chama a API web; não precisa de acesso ao repositório.
+permissions: {}
+
 concurrency:
   group: instagram-scheduler
   cancel-in-progress: false
