@@ -4,6 +4,7 @@ import { createClient } from "../../../lib/supabase/server";
 import { createAdminClient } from "../../../lib/supabase/admin";
 import { listR2ClipUrls } from "../../../lib/r2";
 import { getClientKey, rateLimit } from "../../../lib/rate-limit";
+import { getAnonymousJobSecret } from "../../../lib/security";
 
 export const runtime = "nodejs";
 
@@ -15,9 +16,6 @@ const GENERATION_ONLY_MODE = process.env.CLIP_FACTORY_GENERATION_ONLY === "true"
 const JOB_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_BODY_BYTES = 16 * 1024;
 
-function getAnonymousJobSecret() {
-  return process.env.CLIP_FACTORY_TOKEN_ENCRYPTION_KEY || process.env.CLIP_FACTORY_WORKER_TOKEN || process.env.CLIP_FACTORY_GITHUB_TOKEN || "";
-}
 
 function createAnonymousAccessToken(jobId: string) {
   const secret = getAnonymousJobSecret();
@@ -177,7 +175,7 @@ export async function POST(request: Request) {
       console.error("GitHub dispatch failed:", {
         status: response.status,
         statusText: response.statusText,
-        body: githubBody,
+        body: githubBody.slice(0, 1000),
       });
       const cleanupQuery = admin.from("clip_jobs").delete().eq("id", jobId);
       if (user) {
@@ -213,7 +211,7 @@ export async function POST(request: Request) {
     }
     console.error("GitHub dispatch error:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Erro ao iniciar processamento." },
+      { error: "Erro ao iniciar processamento." },
       { status: 502 },
     );
   }
@@ -386,7 +384,7 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error("GitHub status error:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Erro ao consultar processamento." },
+      { error: "Erro ao consultar processamento." },
       { status: 502 },
     );
   }
