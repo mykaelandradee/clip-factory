@@ -8,3 +8,14 @@
 .im-platform-option.active{border-color:#a99bff;background:rgba(169,155,255,.08)}
 .im-platform-option:focus-within{outline:2px solid #a99bff;outline-offset:2px}
 @media(max-width:560px){.im-platform-choice{grid-template-columns:1fr}}
+
+/* Situação da publicação automática */
+.im-publish-status{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr) auto;gap:12px;align-items:center;margin-top:12px;padding:12px 14px;border:1px solid rgba(255,255,255,.07);border-radius:10px;background:rgba(255,255,255,.025)}
+.im-publish-status div{display:grid;gap:3px;min-width:0}
+.im-publish-status span{color:#777982;font-size:10px}
+.im-publish-status strong{color:#f2f2f5;font-size:12px;font-weight:600;overflow-wrap:anywhere}
+.im-publish-status small{color:#656873;font-size:10px}
+.im-publish-status .im-publish-status-error{color:#e0a3a3}
+.im-publish-status .im-publish-status-retry,.im-publish-status .im-publish-status-empty{color:#e2c98f}
+.im-publish-status .im-publish-status-published{color:#9ecfa8}
+@media(max-width:720px){.im-publish-status{grid-template-columns:1fr}.im-publish-status .im-ghost{width:100%}}
