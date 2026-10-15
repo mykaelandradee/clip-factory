@@ -42,7 +42,6 @@ const YOUTUBE_ERRORS:Record<string,string>={
 const INSTAGRAM_ERRORS:Record<string,string>={
   wrong_platform:"Este é um perfil do YouTube. Crie um perfil do Instagram para conectar uma conta.",
 };
-const YOUTUBE_POST_STATUS:Record<string,string>={scheduled:"Na fila",processing:"Enviando",published:"Publicado",failed:"Falhou",canceled:"Cancelado"};
 type AnalyticsData={totals:any;categoryTotals:any[];metrics:AnalyticsMetric[];publishedReels:PublishedReel[];metricCoverage:{follows:number;reach:number;views:number};publishedSummary:{total:number;withInstagramId:number;withMetrics:number}};
 
 const formatDateTime=(value:string)=>new Intl.DateTimeFormat("pt-BR",{dateStyle:"short",timeStyle:"short",timeZone:"America/Cuiaba"}).format(new Date(value));
@@ -294,33 +293,34 @@ export default function InfluencerManagerPage(){
   const published=useMemo(()=>items.filter(i=>i.status==="published").length,[items]);
   const queuePreview=useMemo(()=>{
     if(!selected||!selected.publishing_enabled)return [];
-    const times=(draft.posting_times||[]).filter(v=>/^([01]\d|2[0-3]):[0-5]\d$/.test(v)).sort();
+    const times=(draft.posting_times||[]).slice(0,draft.posts_per_day).filter(v=>/^([01]\d|2[0-3]):[0-5]\d$/.test(v)).sort();
     if(!times.length)return [];
     const available=items.filter(i=>i.status==="available")
       .sort((a,b)=>String(a.created_at||"").localeCompare(String(b.created_at||"")));
-    // A fila real publica primeiro todos os disponíveis e, quando acabam,
-    // reutiliza os já publicados se a repetição estiver habilitada.
+    // A fila real publica primeiro os disponíveis e, quando acabam, reutiliza os
+    // já publicados (do mais antigo para o mais recente) se a repetição estiver ativa.
     const publishedForRepeat=draft.repeat_when_exhausted
       ? items.filter(i=>i.status==="published")
           .sort((a,b)=>String(a.published_at||a.created_at||"").localeCompare(String(b.published_at||b.created_at||"")))
       : [];
-    const queueItems=[...available,...publishedForRepeat];
-    if(!queueItems.length)return [];
+    const cycle=[...available,...publishedForRepeat];
+    if(!cycle.length)return [];
+    // Com repetição a fila não acaba: mostra os próximos 6 horários em ciclo.
+    const limit=draft.repeat_when_exhausted?6:Math.min(6,available.length);
     const anchor=selected.next_publish_at?new Date(selected.next_publish_at):new Date();
-    const out:{time:string;item:Item}[]=[];
-    for(let day=0;day<7&&out.length<queueItems.length;day++){
+    const out:{at:Date;item:Item}[]=[];
+    for(let day=0;day<14&&out.length<limit;day++){
       for(const time of times){
+        if(out.length>=limit)break;
         const [h,m]=time.split(":").map(Number);
-        const d=new Date(anchor);
-        d.setDate(d.getDate()+day); d.setHours(h,m,0,0);
-        if(d.getTime()<anchor.getTime())continue;
-        const item=queueItems[out.length];
-        if(!item)break;
-        out.push({time,item});
+        const at=new Date(anchor);
+        at.setDate(at.getDate()+day); at.setHours(h,m,0,0);
+        if(at.getTime()<anchor.getTime())continue;
+        out.push({at,item:cycle[out.length%cycle.length]});
       }
     }
     return out;
-  },[items,selected?.id,selected?.publishing_enabled,selected?.next_publish_at,draft.posting_times,draft.repeat_when_exhausted]);
+  },[items,selected?.id,selected?.publishing_enabled,selected?.next_publish_at,draft.posting_times,draft.posts_per_day,draft.repeat_when_exhausted]);
 
   return <main className="im-page">
     <header className="im-header">
@@ -392,13 +392,6 @@ export default function InfluencerManagerPage(){
               {(!youtube.connected||youtube.requiresReconnect)&&<a className="im-ghost" href={"/api/influencer/youtube/oauth?profileId="+encodeURIComponent(selected.id)}>{youtube.requiresReconnect?"Reconectar YouTube":"Conectar YouTube"}</a>}
               {(youtube.connected||youtube.requiresReconnect)&&<button className="im-ghost im-danger" disabled={saving} onClick={()=>setShowYouTubeDisconnect(true)}>Desvincular YouTube</button>}
             </div>
-            {youtube.recentPosts.length>0&&<div className="im-items">
-              {youtube.recentPosts.map(post=><div key={post.id} className="im-item">
-                <div><strong>{post.title||"Short"}</strong><span>{post.error_message||(post.published_at?"Enviado em "+new Intl.DateTimeFormat("pt-BR",{dateStyle:"short",timeStyle:"short",timeZone:"America/Cuiaba"}).format(new Date(post.published_at)):post.scheduled_at?"Previsto para "+new Intl.DateTimeFormat("pt-BR",{dateStyle:"short",timeStyle:"short",timeZone:"America/Cuiaba"}).format(new Date(post.scheduled_at)):"")}</span></div>
-                {post.youtube_video_id?<a className="im-ghost" href={"https://youtube.com/shorts/"+encodeURIComponent(post.youtube_video_id)} target="_blank" rel="noreferrer">Abrir</a>:<span/>}
-                <span className={"im-status "+(post.status==="published"?(post.privacy_status&&post.privacy_status!=="public"?"failed":"available"):post.status==="failed"?"failed":post.status==="canceled"?"archived":"queued")}>{post.status==="published"&&post.privacy_status&&post.privacy_status!=="public"?"Privado":YOUTUBE_POST_STATUS[post.status]||post.status}</span>
-              </div>)}
-            </div>}
           </div>}
 
           <div className="im-card im-profile-config">
@@ -454,10 +447,10 @@ export default function InfluencerManagerPage(){
             </div>
             <div className="im-agenda-grid">
               <div className="im-agenda-column">
-                <div className="im-agenda-title"><strong>Próximos horários</strong><span>{queuePreview.length} na fila</span></div>
+                <div className="im-agenda-title"><strong>Próximos horários</strong><span>{draft.repeat_when_exhausted&&queuePreview.length?"repetição ativa":queuePreview.length+" na fila"}</span></div>
                 {!selected.publishing_enabled ? <div className="im-agenda-empty"><strong>Publicação automática desativada</strong><span>Ative a publicação automática para visualizar a próxima sequência.</span></div>
                 : queuePreview.length===0 ? <div className="im-agenda-empty"><strong>Nenhum vídeo disponível para a fila</strong><span>{items.length===0 ? (linked.length===0 ? "Vincule uma biblioteca a este perfil e adicione vídeos a ela." : "As bibliotecas vinculadas ainda não têm vídeos prontos.") : draft.repeat_when_exhausted ? "A biblioteca será repetida quando houver conteúdo publicado." : "Todos os vídeos já foram publicados neste perfil. Ative \"Repetir biblioteca quando acabar\" para reutilizá-los."}</span></div>
-                : <div className="im-agenda-list">{queuePreview.slice(0,6).map((slot,index)=>{const postNumber=published+index+1;return <div className={"im-agenda-row "+(index===0?"is-next":"")} key={slot.time+"-"+(slot.item?.id||index)}><span>{index===0?"PRÓXIMO #"+postNumber:"#"+postNumber}</span><strong>{slot.time}</strong><small>{slot.item?.title||"Próximo vídeo"}</small></div>})}</div>}
+                : <div className="im-agenda-list">{queuePreview.map((slot,index)=>{const postNumber=published+index+1;const repeated=slot.item.status==="published"||index>=items.filter(i=>i.status==="available").length;return <div className={"im-agenda-row "+(index===0?"is-next":"")} key={slot.at.toISOString()+"-"+index}><span>{index===0?"PRÓXIMO #"+postNumber:"#"+postNumber}</span><strong>{new Intl.DateTimeFormat("pt-BR",{weekday:"short",day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}).format(slot.at)}</strong><small>{(slot.item.title||"Próximo vídeo")+(repeated?" · repetição":"")}</small></div>})}</div>}
               </div>
               <div className="im-agenda-column">
                 <div className="im-agenda-title"><strong>Últimas publicações</strong><span>{published} publicadas</span></div>
