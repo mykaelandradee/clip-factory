@@ -48,6 +48,11 @@ const formatDateTime=(value:string)=>new Intl.DateTimeFormat("pt-BR",{dateStyle:
 const PUBLISH_STATUS_LABEL:Record<string,string>={published:"Última publicação concluída",empty:"Fila vazia",error:"Publicação falhou",retry:"Nova tentativa agendada"};
 
 const DEFAULT_TIMES=["09:00","11:30","14:00","16:30","19:00","21:30","23:00","08:00","12:00"];
+const TIME_PATTERN=/^([01]\d|2[0-3]):[0-5]\d$/;
+// Os campos de horário exibem os padrões quando o perfil não tem horário salvo.
+// Esta função devolve exatamente o que está na tela, para a prévia e o salvamento.
+const effectiveTimes=(times:string[]|null|undefined,postsPerDay:number)=>
+  Array.from({length:Math.max(1,Math.min(9,postsPerDay||1))},(_,i)=>{const value=(times||[])[i];return value&&TIME_PATTERN.test(value)?value:DEFAULT_TIMES[i];});
 
 export default function InfluencerManagerPage(){
   const [profiles,setProfiles]=useState<Profile[]>([]);
@@ -169,7 +174,7 @@ export default function InfluencerManagerPage(){
     setAnalyticsLoading(false);
     setDraft({
       posts_per_day:selected.posts_per_day||3,caption_mode:selected.caption_mode||"zh_ja_random",
-      repeat_when_exhausted:Boolean(selected.repeat_when_exhausted),posting_times:[...(selected.posting_times||[])],
+      repeat_when_exhausted:Boolean(selected.repeat_when_exhausted),posting_times:effectiveTimes(selected.posting_times,selected.posts_per_day||3),
       fixed_publish_title:selected.fixed_publish_title||"",fixed_publish_description:selected.fixed_publish_description||"",
       share_to_feed:selected.share_to_feed!==false,auto_story:Boolean(selected.auto_story),story_delay_minutes:Number(selected.story_delay_minutes)||30
     });
@@ -218,7 +223,7 @@ export default function InfluencerManagerPage(){
     try{
       const r=await fetch("/api/influencer/profiles",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({
         id:selected.id,posts_per_day:draft.posts_per_day,caption_mode:draft.caption_mode,
-        repeat_when_exhausted:draft.repeat_when_exhausted,posting_times:draft.posting_times.slice(0,draft.posts_per_day),
+        repeat_when_exhausted:draft.repeat_when_exhausted,posting_times:effectiveTimes(draft.posting_times,draft.posts_per_day),
         fixed_publish_title:draft.fixed_publish_title,fixed_publish_description:draft.fixed_publish_description,share_to_feed:draft.share_to_feed,auto_story:draft.auto_story,story_delay_minutes:draft.story_delay_minutes
       })});
       const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível salvar o perfil.");
@@ -293,7 +298,7 @@ export default function InfluencerManagerPage(){
   const published=useMemo(()=>items.filter(i=>i.status==="published").length,[items]);
   const queuePreview=useMemo(()=>{
     if(!selected||!selected.publishing_enabled)return [];
-    const times=(draft.posting_times||[]).slice(0,draft.posts_per_day).filter(v=>/^([01]\d|2[0-3]):[0-5]\d$/.test(v)).sort();
+    const times=[...new Set(effectiveTimes(draft.posting_times,draft.posts_per_day))].sort();
     if(!times.length)return [];
     const available=items.filter(i=>i.status==="available")
       .sort((a,b)=>String(a.created_at||"").localeCompare(String(b.created_at||"")));
