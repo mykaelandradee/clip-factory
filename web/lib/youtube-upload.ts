@@ -1,3 +1,8 @@
+import http from "node:http";
+import https from "node:https";
+import { Readable } from "node:stream";
+import type { ReadableStream as NodeReadableStream } from "node:stream/web";
+
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const API = "https://www.googleapis.com/youtube/v3";
 const UPLOAD_URL = "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status";
@@ -107,20 +112,42 @@ export function buildShortDescription(raw: string) {
   return clean.length > 4500 ? clean.slice(0, 4500) : clean;
 }
 
-export async function uploadShort(params: { accessToken: string; videoUrl: string; title: string; description: string }) {
-  const media = await fetch(params.videoUrl, { cache: "no-store" });
-  if (!media.ok) throw new YouTubeError("O vídeo não está acessível no R2.", "retryable");
-  const declared = Number(media.headers.get("content-length") || 0);
-  if (declared > MAX_VIDEO_BYTES) throw new YouTubeError("O vídeo é grande demais para envio automático.", "fatal");
-  const bytes = new Uint8Array(await media.arrayBuffer());
-  if (!bytes.byteLength) throw new YouTubeError("O arquivo de vídeo está vazio.", "fatal");
+/**
+ * Envia um corpo em streaming com Content-Length explícito (exigido pelo upload
+ * resumable do Google) sem carregar o vídeo inteiro na memória.
+ */
+function putStream(target: string, headers: Record<string, string>, body: Readable): Promise<{ status: number; text: string }> {
+  const url = new URL(target);
+  const client = url.protocol === "http:" ? http : https;
+  return new Promise((resolve, reject) => {
+    const request = client.request(url, { method: "PUT", headers }, (response) => {
+      const chunks: Buffer[] = [];
+      response.on("data", (chunk: Buffer) => chunks.push(chunk));
+      response.on("end", () => resolve({ status: response.statusCode || 0, text: Buffer.concat(chunks).toString("utf8") }));
+      response.on("error", reject);
+    });
+    request.setTimeout(240_000, () => request.destroy(new Error("O envio ao YouTube excedeu o tempo limite.")));
+    request.on("error", reject);
+    body.on("error", (error) => request.destroy(error));
+    body.pipe(request);
+  });
+}
 
-  const session = await fetch(UPLOAD_URL, {
+export async function uploadShort(params: { accessToken: string; videoUrl: string; title: string; description: string; uploadUrl?: string }) {
+  // 1. Tamanho do vídeo, sem baixá-lo.
+  const head = await fetch(params.videoUrl, { method: "HEAD", cache: "no-store" });
+  if (!head.ok) throw new YouTubeError("O vídeo não está acessível no R2.", "retryable");
+  const size = Number(head.headers.get("content-length") || 0);
+  if (!size) throw new YouTubeError("O R2 não informou o tamanho do vídeo.", "retryable");
+  if (size > MAX_VIDEO_BYTES) throw new YouTubeError("O vídeo é grande demais para envio automático.", "fatal");
+
+  // 2. Abre a sessão de upload no YouTube.
+  const session = await fetch(params.uploadUrl || UPLOAD_URL, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${params.accessToken}`,
       "Content-Type": "application/json; charset=UTF-8",
-      "X-Upload-Content-Length": String(bytes.byteLength),
+      "X-Upload-Content-Length": String(size),
       "X-Upload-Content-Type": "video/mp4",
     },
     body: JSON.stringify({
@@ -133,14 +160,21 @@ export async function uploadShort(params: { accessToken: string; videoUrl: strin
   const location = session.headers.get("location");
   if (!location) throw new YouTubeError("O YouTube não iniciou a sessão de upload.", "retryable");
 
-  const upload = await fetch(location, {
-    method: "PUT",
-    headers: { Authorization: `Bearer ${params.accessToken}`, "Content-Type": "video/mp4" },
-    body: bytes,
-    cache: "no-store",
-  });
-  if (!upload.ok) throw await readError(upload);
-  const data = await upload.json().catch(() => ({} as any));
+  // 3. Transmite o vídeo do R2 direto para o YouTube, em pedaços.
+  const media = await fetch(params.videoUrl, { cache: "no-store" });
+  if (!media.ok || !media.body) throw new YouTubeError("O vídeo não está acessível no R2.", "retryable");
+  const result = await putStream(location, {
+    Authorization: `Bearer ${params.accessToken}`,
+    "Content-Type": "video/mp4",
+    "Content-Length": String(size),
+  }, Readable.fromWeb(media.body as unknown as NodeReadableStream));
+
+  let data: any = {};
+  try { data = JSON.parse(result.text); } catch { /* resposta não JSON */ }
+  if (result.status < 200 || result.status >= 300) {
+    const reason = String(data?.error?.errors?.[0]?.reason || data?.error || "");
+    throw classify(result.status, reason, String(data?.error?.message || ""));
+  }
   if (!data?.id) throw new YouTubeError("O YouTube não confirmou o envio do vídeo.", "retryable");
   return { videoId: String(data.id), privacyStatus: String(data?.status?.privacyStatus || "") };
 }
