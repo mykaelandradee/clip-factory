@@ -90,8 +90,9 @@ async function connectInfluencerYouTube(
   if (!clientId || !clientSecret || !process.env.CLIP_FACTORY_TOKEN_ENCRYPTION_KEY) return back("youtube_profile_error=not_configured");
 
   const admin = createAdminClient();
-  const { data: profile } = await admin.from("influencer_profiles").select("id").eq("id", profileId).eq("user_id", user.id).maybeSingle();
+  const { data: profile } = await admin.from("influencer_profiles").select("id,platform").eq("id", profileId).eq("user_id", user.id).maybeSingle();
   if (!profile) return back("youtube_profile_error=invalid_profile");
+  if (profile.platform !== "youtube") return back("youtube_profile_error=wrong_platform");
 
   try {
     const response = await fetch("https://oauth2.googleapis.com/token", {
@@ -130,6 +131,9 @@ async function connectInfluencerYouTube(
       console.error("Influencer YouTube connection save failed:", saveError.message);
       return back("youtube_profile_error=save_failed");
     }
+    await admin.from("influencer_profiles")
+      .update({ youtube_channel_title: channel.title || channel.handle, updated_at: new Date().toISOString() })
+      .eq("id", profileId).eq("user_id", user.id);
     return back("youtube_profile_connected=1");
   } catch (err) {
     console.error("Influencer YouTube callback failed:", err instanceof Error ? err.message : err);

@@ -14,8 +14,9 @@ export async function GET(request: Request) {
   if (!profileId) return NextResponse.redirect(new URL("/influencer-manager?instagram_profile_error=missing_profile", request.url));
 
   const admin = (await import("../../../../../lib/supabase/admin")).createAdminClient();
-  const { data: profile } = await admin.from("influencer_profiles").select("id").eq("id", profileId).eq("user_id", user.id).maybeSingle();
+  const { data: profile } = await admin.from("influencer_profiles").select("id,platform").eq("id", profileId).eq("user_id", user.id).maybeSingle();
   if (!profile) return NextResponse.redirect(new URL("/influencer-manager?instagram_profile_error=invalid_profile", request.url));
+  if (profile.platform === "youtube") return NextResponse.redirect(new URL("/influencer-manager?profileId=" + encodeURIComponent(profileId) + "&instagram_profile_error=wrong_platform", request.url));
 
   const clientId = process.env.INSTAGRAM_CLIENT_ID || process.env.INSTAGRAM_APP_ID;
   if (!clientId) return NextResponse.redirect(new URL("/influencer-manager?instagram_profile_error=not_configured", request.url));

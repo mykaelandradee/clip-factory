@@ -66,5 +66,18 @@ export async function DELETE(request: Request) {
   const refreshToken = decryptYouTubeRefreshToken(connection.refresh_token_encrypted);
   if (refreshToken) await revokeGoogleToken(refreshToken);
 
-  return NextResponse.json({ ok: true });
+  // Sem canal, o perfil do YouTube não tem onde publicar.
+  const { data: profile } = await admin.from("influencer_profiles")
+    .update({
+      youtube_channel_title: null,
+      publishing_enabled: false,
+      auto_publish: false,
+      next_publish_at: null,
+      publish_retry_count: 0,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", profileId).eq("user_id", user.id)
+    .select("*").maybeSingle();
+
+  return NextResponse.json({ ok: true, profile });
 }
