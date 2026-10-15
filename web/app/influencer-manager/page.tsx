@@ -18,6 +18,21 @@ type Item={
 };
 type AnalyticsMetric={id:string;item_id:string;instagram_media_id:string;title:string;category:string;fetched_at:string;views:number|null;reach:number|null;likes:number|null;comments:number|null;shares:number|null;saves:number|null;follows:number|null;profile_visits:number|null};
 type PublishedReel={id:string;item_id:string;instagram_media_id:string|null;title:string;category:string;published_at:string|null;hasMetrics:boolean;fetched_at:string|null;views:number|null;reach:number|null;likes:number|null;comments:number|null;shares:number|null;saves:number|null;follows:number|null};
+type YouTubePost={id:string;title:string|null;status:string;youtube_video_id:string|null;privacy_status:string|null;error_message:string|null;scheduled_at:string|null;published_at:string|null;created_at:string};
+type YouTubeState={connected:boolean;requiresReconnect:boolean;channelTitle:string;channelHandle:string;lastError:string;recentPosts:YouTubePost[]};
+const EMPTY_YOUTUBE:YouTubeState={connected:false,requiresReconnect:false,channelTitle:"",channelHandle:"",lastError:"",recentPosts:[]};
+const YOUTUBE_ERRORS:Record<string,string>={
+  canceled:"A autorização do YouTube foi cancelada.",
+  invalid_callback:"A autorização do YouTube expirou. Tente conectar de novo.",
+  not_configured:"A integração do YouTube não está configurada no servidor.",
+  invalid_profile:"Perfil não encontrado para vincular o YouTube.",
+  missing_profile:"Escolha um perfil antes de conectar o YouTube.",
+  token_exchange:"O Google não devolveu uma autorização válida. Tente conectar de novo.",
+  channel_in_use:"Este canal do YouTube já está vinculado a outro perfil. Desvincule-o lá primeiro.",
+  no_channel:"A conta Google escolhida não tem um canal do YouTube. Escolha a conta ou o canal de marca correto.",
+  save_failed:"Não foi possível salvar o canal do YouTube. Tente de novo.",
+};
+const YOUTUBE_POST_STATUS:Record<string,string>={scheduled:"Na fila",processing:"Enviando",published:"Publicado",failed:"Falhou",canceled:"Cancelado"};
 type AnalyticsData={totals:any;categoryTotals:any[];metrics:AnalyticsMetric[];publishedReels:PublishedReel[];metricCoverage:{follows:number;reach:number;views:number};publishedSummary:{total:number;withInstagramId:number;withMetrics:number}};
 
 const DEFAULT_TIMES=["09:00","11:30","14:00","16:30","19:00","21:30","23:00","08:00","12:00"];
@@ -34,6 +49,7 @@ export default function InfluencerManagerPage(){
   const [name,setName]=useState(""),[posts,setPosts]=useState("3"),[editProfileName,setEditProfileName]=useState("");
   const [librarySaving,setLibrarySaving]=useState(false),[coverFile,setCoverFile]=useState<File|null>(null),[coverPreview,setCoverPreview]=useState("");
   const [instagramConnected,setInstagramConnected]=useState(false),[instagramAccount,setInstagramAccount]=useState(""),[instagramReconnect,setInstagramReconnect]=useState(false),[instagramExpiresAt,setInstagramExpiresAt]=useState<string|null>(null);
+  const [youtube,setYoutube]=useState<YouTubeState>(EMPTY_YOUTUBE),[showYouTubeDisconnect,setShowYouTubeDisconnect]=useState(false);
   const [draft,setDraft]=useState({posts_per_day:3,caption_mode:"zh_ja_random",repeat_when_exhausted:false,posting_times:["09:00","11:30","14:00"],fixed_publish_title:"",fixed_publish_description:"",share_to_feed:true,auto_story:false,story_delay_minutes:30});
   const [analytics,setAnalytics]=useState<AnalyticsData>({totals:{},categoryTotals:[],metrics:[],publishedReels:[],metricCoverage:{follows:0,reach:0,views:0},publishedSummary:{total:0,withInstagramId:0,withMetrics:0}});
   const [analyticsLoading,setAnalyticsLoading]=useState(false);
@@ -63,6 +79,26 @@ export default function InfluencerManagerPage(){
       if(r.ok)setItems(d.items||[]);
     }catch{}
   }
+  async function loadYouTube(profileId:string){
+    try{
+      const r=await fetch("/api/influencer/youtube/status?profileId="+encodeURIComponent(profileId),{cache:"no-store"}),d=await r.json().catch(()=>({}));
+      if(!r.ok){setYoutube(EMPTY_YOUTUBE);return;}
+      setYoutube({
+        connected:Boolean(d.connected),requiresReconnect:Boolean(d.requiresReconnect),
+        channelTitle:typeof d.channelTitle==="string"?d.channelTitle:"",channelHandle:typeof d.channelHandle==="string"?d.channelHandle:"",
+        lastError:typeof d.lastError==="string"?d.lastError:"",recentPosts:Array.isArray(d.recentPosts)?d.recentPosts:[],
+      });
+    }catch{setYoutube(EMPTY_YOUTUBE);}
+  }
+  async function disconnectYouTube(){
+    if(!selected)return;
+    setShowYouTubeDisconnect(false);setSaving(true);setError("");
+    try{
+      const r=await fetch("/api/influencer/youtube/status?profileId="+encodeURIComponent(selected.id),{method:"DELETE"}),d=await r.json().catch(()=>({}));
+      if(!r.ok)throw new Error(d.error||"Não foi possível desvincular o YouTube.");
+      await loadYouTube(selected.id);
+    }catch(e){showError(e instanceof Error?e.message:"Erro ao desvincular o YouTube.","Não foi possível desvincular o YouTube");}finally{setSaving(false);}
+  }
   async function loadInstagram(profileId:string){
     try{
       const r=await fetch("/api/influencer/instagram/status?profileId="+encodeURIComponent(profileId),{cache:"no-store"}),d=await r.json().catch(()=>({}));
@@ -87,6 +123,16 @@ export default function InfluencerManagerPage(){
     finally{if(requestId===analyticsRequestRef.current)setAnalyticsLoading(false);}
   }
   useEffect(()=>{void loadProfiles();void loadLibraries();},[]);
+  useEffect(()=>{
+    const params=new URLSearchParams(window.location.search);
+    const youtubeError=params.get("youtube_profile_error");
+    if(youtubeError)showError(YOUTUBE_ERRORS[youtubeError]||"Não foi possível conectar o YouTube.","Não foi possível conectar o YouTube");
+    if(youtubeError||params.has("youtube_profile_connected")){
+      params.delete("youtube_profile_error");params.delete("youtube_profile_connected");
+      const query=params.toString();
+      window.history.replaceState(null,"",window.location.pathname+(query?"?"+query:""));
+    }
+  },[]);
   // Mantém a agenda sincronizada durante o processamento e a publicação automática.
   const processingItemsKey=items.filter(item=>item.status==="processing").map(item=>item.id).join(",");
   useEffect(()=>{
@@ -111,7 +157,7 @@ export default function InfluencerManagerPage(){
       fixed_publish_title:selected.fixed_publish_title||"",fixed_publish_description:selected.fixed_publish_description||"",
       share_to_feed:selected.share_to_feed!==false,auto_story:Boolean(selected.auto_story),story_delay_minutes:Number(selected.story_delay_minutes)||30
     });
-    setCoverFile(null);setCoverPreview("");void loadInstagram(selected.id);void loadAnalytics(selected.id);void loadLibraries();void loadItems(selected.id);
+    setCoverFile(null);setCoverPreview("");void loadInstagram(selected.id);void loadYouTube(selected.id);void loadAnalytics(selected.id);void loadLibraries();void loadItems(selected.id);
   },[selected?.id,selected?.cover_r2_key]);
 
   async function createProfile(e:FormEvent){
@@ -291,6 +337,25 @@ export default function InfluencerManagerPage(){
             </div>
           </div>
 
+          <div className="im-card im-account">
+            <div className="im-card-head"><div><span className="im-kicker">CANAL VINCULADO</span><h2>YouTube</h2><p>Cada Reel publicado no Instagram também vai para este canal como Short.</p></div><span className={"im-status "+(youtube.connected?"available":"archived")}>{youtube.requiresReconnect?"RECONEXÃO NECESSÁRIA":youtube.connected?"CONECTADO":"NÃO CONECTADO"}</span></div>
+            <div className="im-account-row">
+              <div>
+                <strong>{youtube.channelTitle||"Nenhum canal do YouTube conectado"}</strong>
+                <small className="im-field-help">{youtube.channelHandle||(youtube.connected?"":"Na autorização, escolha a conta ou o canal de marca deste perfil.")}{youtube.requiresReconnect&&youtube.lastError?" · "+youtube.lastError:""}</small>
+              </div>
+              {(!youtube.connected||youtube.requiresReconnect)&&<a className="im-ghost" href={"/api/influencer/youtube/oauth?profileId="+encodeURIComponent(selected.id)}>{youtube.requiresReconnect?"Reconectar YouTube":"Conectar YouTube"}</a>}
+              {(youtube.connected||youtube.requiresReconnect)&&<button className="im-ghost im-danger" disabled={saving} onClick={()=>setShowYouTubeDisconnect(true)}>Desvincular YouTube</button>}
+            </div>
+            {youtube.recentPosts.length>0&&<div className="im-items">
+              {youtube.recentPosts.map(post=><div key={post.id} className="im-item">
+                <div><strong>{post.title||"Short"}</strong><span>{post.error_message||(post.published_at?"Enviado em "+new Intl.DateTimeFormat("pt-BR",{dateStyle:"short",timeStyle:"short",timeZone:"America/Cuiaba"}).format(new Date(post.published_at)):post.scheduled_at?"Previsto para "+new Intl.DateTimeFormat("pt-BR",{dateStyle:"short",timeStyle:"short",timeZone:"America/Cuiaba"}).format(new Date(post.scheduled_at)):"")}</span></div>
+                {post.youtube_video_id?<a className="im-ghost" href={"https://youtube.com/shorts/"+encodeURIComponent(post.youtube_video_id)} target="_blank" rel="noreferrer">Abrir</a>:<span/>}
+                <span className={"im-status "+(post.status==="published"?(post.privacy_status&&post.privacy_status!=="public"?"failed":"available"):post.status==="failed"?"failed":post.status==="canceled"?"archived":"queued")}>{post.status==="published"&&post.privacy_status&&post.privacy_status!=="public"?"Privado":YOUTUBE_POST_STATUS[post.status]||post.status}</span>
+              </div>)}
+            </div>}
+          </div>
+
           <div className="im-card im-profile-config">
             <div className="im-card-head"><div><span className="im-kicker">CONFIGURAÇÃO DO PERFIL</span><h2>Identidade e publicação</h2><p>Configurações exclusivas deste perfil.</p></div></div>
 
@@ -418,6 +483,13 @@ export default function InfluencerManagerPage(){
         <div className="im-feedback-icon">!</div>
         <div className="im-feedback-copy"><span className="im-kicker">ATENÇÃO</span><h2 id="feedback-title">{feedbackTitle}</h2><p>{feedbackMessage}</p></div>
         <button className="im-primary" type="button" onClick={()=>setShowFeedback(false)}>Fechar</button>
+      </div>
+    </div>}
+    {showYouTubeDisconnect&&selected&&<div className="im-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="desvincular-youtube-title" onMouseDown={e=>{if(e.target===e.currentTarget)setShowYouTubeDisconnect(false)}}>
+      <div className="im-modal im-confirm-modal">
+        <div className="im-confirm-icon">!</div>
+        <div><span className="im-kicker">DESVINCULAR YOUTUBE</span><h2 id="desvincular-youtube-title">Desvincular este canal?</h2><p>Os próximos Reels deste perfil não serão mais enviados ao YouTube. Envios pendentes serão cancelados; os vídeos já publicados continuam no canal.</p></div>
+        <div className="im-modal-actions"><button className="im-ghost" type="button" onClick={()=>setShowYouTubeDisconnect(false)}>Cancelar</button><button className="im-primary im-danger-solid" type="button" disabled={saving} onClick={()=>void disconnectYouTube()}>Desvincular YouTube</button></div>
       </div>
     </div>}
     {showDisconnectConfirm&&selected&&<div className="im-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="desvincular-instagram-title" onMouseDown={e=>{if(e.target===e.currentTarget)setShowDisconnectConfirm(false)}}>
