@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
+import { safeEqual } from "../../../../lib/security";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -8,7 +9,7 @@ export async function POST(request: Request) {
   const noStore = { "Cache-Control": "no-store" };
   const secret = process.env.CLIP_FACTORY_SCHEDULER_TOKEN || "";
   const supplied = request.headers.get("x-clip-factory-scheduler-token") || "";
-  if (!secret || supplied !== secret) {
+  if (!safeEqual(supplied, secret)) {
     return NextResponse.json({ error: "Não autorizado." }, { status: 401, headers: noStore });
   }
 

@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
 import { decryptYouTubeRefreshToken } from "../../../../lib/youtube-auth";
+import { hasValidBearer } from "../../../../lib/security";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   const expected = process.env.CLIP_FACTORY_PUBLISH_API_KEY;
   if (!expected) return NextResponse.json({ error: "Publicação segura não configurada." }, { status: 503 });
-  if (request.headers.get("authorization") !== `Bearer ${expected}`) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+  if (!hasValidBearer(request, expected)) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
 
   const body = await request.json().catch(() => null);
   const jobId = typeof body?.job_id === "string" ? body.job_id : "";

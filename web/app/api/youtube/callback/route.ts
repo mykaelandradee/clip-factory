@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { createClient } from "../../../../lib/supabase/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
 import { encryptYouTubeRefreshToken, getOAuthStateCookieName } from "../../../../lib/youtube-auth";
+import { safeEqual } from "../../../../lib/security";
 
 export const runtime = "nodejs";
 
@@ -16,8 +17,8 @@ export async function GET(request: Request) {
   const expectedState = cookieStore.get(getOAuthStateCookieName())?.value;
   cookieStore.delete(getOAuthStateCookieName());
 
-  if (error) return new NextResponse(`YouTube OAuth cancelado: ${error}`, { status: 400 });
-  if (!code || !returnedState || !expectedState || returnedState !== expectedState) {
+  if (error) return new NextResponse("Autorização do YouTube cancelada ou recusada.", { status: 400, headers: { "Content-Type": "text/plain; charset=utf-8" } });
+  if (!code || !safeEqual(returnedState, expectedState)) {
     return new NextResponse("Validação OAuth inválida ou expirada. Tente conectar novamente.", { status: 400 });
   }
 
