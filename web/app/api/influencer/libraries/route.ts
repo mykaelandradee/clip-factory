@@ -36,9 +36,10 @@ export async function GET() {
 
   const profileIds = Array.from(new Set((links || []).map((row: any) => row.profile_id).filter(Boolean)));
   const { data: profiles } = profileIds.length
-    ? await admin.from("influencer_profiles").select("id,name").eq("user_id", user.id).in("id", profileIds)
+    ? await admin.from("influencer_profiles").select("id,name,platform").eq("user_id", user.id).in("id", profileIds)
     : { data: [] };
   const profileNames = new Map((profiles || []).map((profile: any) => [profile.id, profile.name]));
+  const profilePlatforms = new Map((profiles || []).map((profile: any) => [profile.id, profile.platform === "youtube" ? "youtube" : "instagram"]));
 
   const { data: items } = ids.length
     ? await admin.from("influencer_content_items").select("id,library_id").eq("user_id", user.id).in("library_id", ids)
@@ -50,6 +51,7 @@ export async function GET() {
     list.push({
       profile_id: row.profile_id,
       profile_name: profileNames.get(row.profile_id) || "Perfil",
+      profile_platform: profilePlatforms.get(row.profile_id) || "instagram",
       priority: row.priority || 0,
       enabled: row.enabled !== false
     });

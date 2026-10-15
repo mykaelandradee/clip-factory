@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 type Profile = { id:string; name:string; posting_times?:string[]; posts_per_day?:number; publishing_enabled?:boolean };
-type Library = { id:string; name:string; description?:string|null; item_count:number; profiles:{profile_id:string;profile_name:string;priority:number;enabled:boolean}[] };
+type Library = { id:string; name:string; description?:string|null; item_count:number; profiles:{profile_id:string;profile_name:string;profile_platform?:"instagram"|"youtube";priority:number;enabled:boolean}[] };
 type Item = { id:string; source_url:string; title:string|null; status:string; created_at:string; result_url?:string|null; error_message?:string|null; library_id?:string; category?:string; profile_publications?:{profile_id:string;profile_name:string;status:string;published_at?:string|null;scheduled_at?:string|null}[] };
 
 const STATUS:Record<string,string>={queued:"Na fila",processing:"Processando",available:"Disponível",scheduled:"Agendado",published:"Publicado",failed:"Erro",archived:"Arquivado"};
@@ -169,10 +169,10 @@ export default function InfluencerLibrariesPage(){
         action:"publish-item",profileId:publishProfileId,itemId:showPublishVideo.id
       })});
       const d=await r.json().catch(()=>({}));
-      if(!r.ok)throw new Error(d.error||"Não foi possível publicar o Reel.");
+      if(!r.ok)throw new Error(d.error||"Não foi possível publicar o vídeo.");
       setShowPublishVideo(null);setPublishProfileId("");
       await loadItems(selectedId);await loadLibraries(selectedId);
-    }catch(e){showError(e instanceof Error?e.message:"Erro ao publicar o Reel.","Não foi possível publicar o Reel");}
+    }catch(e){showError(e instanceof Error?e.message:"Erro ao publicar o vídeo.","Não foi possível publicar o vídeo");}
     finally{setPublishingItem(false);}
   }
 
@@ -214,11 +214,11 @@ export default function InfluencerLibrariesPage(){
             const disabled=scheduled;
             return <button key={p.profile_id} type="button" className={"im-publish-profile-option "+(publishProfileId===p.profile_id?"selected ":"")+(disabled?"disabled":"")} disabled={disabled||publishingItem} onClick={()=>setPublishProfileId(p.profile_id)}>
               <span className="im-publish-profile-radio">{publishProfileId===p.profile_id&&!disabled?"✓":""}</span>
-              <span className="im-publish-profile-copy"><strong>{p.profile_name}</strong><small>{published?"Já publicado · disponível para nova publicação":scheduled?"Já está agendado":"Disponível para publicação"}</small></span>
+              <span className="im-publish-profile-copy"><strong>{p.profile_name} · {p.profile_platform==="youtube"?"YouTube":"Instagram"}</strong><small>{published?"Já publicado · disponível para nova publicação":scheduled?"Já está agendado":"Disponível para publicação"}</small></span>
             </button>;
           })}
         </div>
-        <div className="im-modal-actions"><button className="im-ghost" type="button" disabled={publishingItem} onClick={()=>setShowPublishVideo(null)}>Cancelar</button><button className="im-primary" type="button" disabled={!publishProfileId||publishingItem} onClick={()=>void publishVideo()}>{publishingItem?"Publicando…":"Publicar Reel"}</button></div>
+        <div className="im-modal-actions"><button className="im-ghost" type="button" disabled={publishingItem} onClick={()=>setShowPublishVideo(null)}>Cancelar</button><button className="im-primary" type="button" disabled={!publishProfileId||publishingItem} onClick={()=>void publishVideo()}>{publishingItem?"Publicando…":"Publicar vídeo"}</button></div>
       </div>
     </div>}
     {showDeleteLibrary&&selected&&<div className="im-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="excluir-biblioteca-title">
@@ -327,7 +327,7 @@ export default function InfluencerLibrariesPage(){
                 </div>})()}
                 <div className="im-item-action-buttons">
                   {item.result_url&&<a className="im-ghost" href={item.result_url} target="_blank" rel="noreferrer">Abrir vídeo</a>}
-                  {(()=>{const publishedIds=new Set((item.profile_publications||[]).filter(p=>p.status==="published").map(p=>p.profile_id));return <button className="im-primary" disabled={busy||publishingItem} onClick={()=>openPublish(item)}>{publishedIds.size>0?"Publicar em outro perfil":"Publicar Reel"}</button>})()}
+                  {(()=>{const publishedIds=new Set((item.profile_publications||[]).filter(p=>p.status==="published").map(p=>p.profile_id));return <button className="im-primary" disabled={busy||publishingItem} onClick={()=>openPublish(item)}>{publishedIds.size>0?"Publicar em outro perfil":"Publicar vídeo"}</button>})()}
                   {editing===item.id?<><input className="im-form-select" value={titleDraft} onChange={e=>setTitleDraft(e.target.value)} /><button className="im-primary" disabled={busy} onClick={()=>void rename(item.id)}>Salvar</button><button className="im-ghost" onClick={()=>setEditing(null)}>Cancelar</button></>:<button className="im-ghost" onClick={()=>{setEditing(item.id);setTitleDraft(item.title||"")}}>Renomear</button>}
                   <button className="im-ghost im-delete-item" disabled={busy||publishingItem} onClick={()=>void remove(item)}>Excluir vídeo</button>
                 </div>
