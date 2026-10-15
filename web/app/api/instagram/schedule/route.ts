@@ -4,6 +4,7 @@ import { createClient } from "../../../../lib/supabase/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
 import { getR2PublicClipUrl } from "../../../../lib/r2";
 import { getClientKey, rateLimit } from "../../../../lib/rate-limit";
+import { getAnonymousJobSecret } from "../../../../lib/security";
 
 export const runtime = "nodejs";
 const MAX_BODY_BYTES = 16 * 1024;
@@ -12,7 +13,7 @@ const validUuid = (v:string)=>/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][
 
 function isAnonymousJobAccessValid(jobId:string, token:string|null) {
  if(!token)return false;
- const secret=process.env.CLIP_FACTORY_TOKEN_ENCRYPTION_KEY||process.env.CLIP_FACTORY_WORKER_TOKEN||process.env.CLIP_FACTORY_GITHUB_TOKEN||"";
+ const secret=getAnonymousJobSecret();
  if(!secret)return false;
  try {
   const expected=createHmac("sha256",secret).update("clip-factory-anonymous-job:"+jobId).digest("base64url");
