@@ -3,6 +3,7 @@ import { createClient } from "../../../../lib/supabase/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { getClientKey, rateLimit } from "../../../../lib/rate-limit";
+import { getAnonymousJobSecret } from "../../../../lib/security";
 
 export const runtime = "nodejs";
 
@@ -14,9 +15,6 @@ const GENERATION_ONLY_MODE = process.env.CLIP_FACTORY_GENERATION_ONLY === "true"
 const JOB_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_BODY_BYTES = 16 * 1024;
 
-function getAnonymousJobSecret() {
-  return process.env.CLIP_FACTORY_TOKEN_ENCRYPTION_KEY || process.env.CLIP_FACTORY_WORKER_TOKEN || process.env.CLIP_FACTORY_GITHUB_TOKEN || "";
-}
 
 function createAnonymousAccessToken(jobId: string) {
   const secret = getAnonymousJobSecret();
@@ -153,7 +151,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Clip job cancel error:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Não foi possível cancelar o processamento." },
+      { error: "Não foi possível cancelar o processamento." },
       { status: 502 },
     );
   }

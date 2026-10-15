@@ -5,6 +5,7 @@ import { createClient } from "../../../../lib/supabase/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
 import { listR2ClipUrls } from "../../../../lib/r2";
 import { getClientKey, rateLimit } from "../../../../lib/rate-limit";
+import { getAnonymousJobSecret } from "../../../../lib/security";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -12,9 +13,6 @@ export const maxDuration = 300;
 const JOB_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const FILE_PATTERN = /^clip-(?:0[1-9]|1[0-5])\.mp4$/i;
 
-function getAnonymousJobSecret() {
-  return process.env.CLIP_FACTORY_TOKEN_ENCRYPTION_KEY || process.env.CLIP_FACTORY_WORKER_TOKEN || process.env.CLIP_FACTORY_GITHUB_TOKEN || "";
-}
 
 function isValidAnonymousAccessToken(jobId: string, token: string | null) {
   const secret = getAnonymousJobSecret();
