@@ -3,6 +3,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { createClient } from "../../../../lib/supabase/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
 import { getClientKey, rateLimit } from "../../../../lib/rate-limit";
+import { getAnonymousJobSecret } from "../../../../lib/security";
 
 export const runtime = "nodejs";
 
@@ -12,7 +13,7 @@ const REPO = "clip-factory";
 
 function isAnonymousJobAccessValid(jobId: string, token: string | null) {
   if (!token) return false;
-  const secret = process.env.CLIP_FACTORY_TOKEN_ENCRYPTION_KEY || process.env.CLIP_FACTORY_WORKER_TOKEN || process.env.CLIP_FACTORY_GITHUB_TOKEN || "";
+  const secret = getAnonymousJobSecret();
   if (!secret) return false;
   try {
     const expected = createHmac("sha256", secret).update("clip-factory-anonymous-job:" + jobId).digest("base64url");

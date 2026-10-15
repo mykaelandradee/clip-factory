@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import base64
 import os
-import shutil
+import tempfile
 from pathlib import Path
 
 import yt_dlp
@@ -15,6 +15,15 @@ COOKIE_FILE_ENV_VAR = "YOUTUBE_COOKIES_FILE"
 COOKIE_FILE_ENV_VAR_ALT = "YOUTUBE_COOKIE_FILE"
 COOKIE_SECRET_FILE = Path("/etc/secrets/youtube_cookies.txt")
 COOKIE_FILE = "youtube_cookies.txt"
+
+
+def _write_private_file(path: Path, content: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    os.chmod(path.parent, 0o700)
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "wb") as handle:
+        handle.write(content)
+    os.chmod(path, 0o600)
 
 
 def prepare_youtube_cookies() -> Path | None:
@@ -36,7 +45,10 @@ def prepare_youtube_cookies() -> Path | None:
         return configured_path
 
     encoded = os.getenv(COOKIE_ENV_VAR, "").strip()
-    cookie_path = settings.data_dir / COOKIE_FILE
+    # Mantém os cookies fora do diretório de dados (que é servido/enviado como artefato)
+    # e legíveis apenas pelo processo atual.
+    secrets_dir = Path(tempfile.gettempdir()) / "clip-factory-secrets"
+    cookie_path = secrets_dir / COOKIE_FILE
 
     if encoded:
         try:
@@ -45,14 +57,12 @@ def prepare_youtube_cookies() -> Path | None:
             raise RuntimeError("YOUTUBE_COOKIES_B64 não contém Base64 válido") from exc
         if not cookie_bytes.strip():
             raise RuntimeError("YOUTUBE_COOKIES_B64 está vazio após decodificação")
-        cookie_path.parent.mkdir(parents=True, exist_ok=True)
-        cookie_path.write_bytes(cookie_bytes)
+        _write_private_file(cookie_path, cookie_bytes)
         return cookie_path
 
     if COOKIE_SECRET_FILE.is_file():
-        cookie_path.parent.mkdir(parents=True, exist_ok=True)
         try:
-            shutil.copyfile(COOKIE_SECRET_FILE, cookie_path)
+            _write_private_file(cookie_path, COOKIE_SECRET_FILE.read_bytes())
         except OSError as exc:
             raise RuntimeError(f"Não foi possível copiar o Secret File de cookies: {exc}") from exc
         return cookie_path

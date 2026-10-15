@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { createClient } from "../../../../../lib/supabase/server";
 import { createAdminClient } from "../../../../../lib/supabase/admin";
 import { encryptInstagramAccessToken, exchangeInstagramShortLivedToken, getInstagramOAuthStateCookieName } from "../../../../../lib/instagram-auth";
+import { safeEqual } from "../../../../../lib/security";
 
 export const runtime = "nodejs";
 
@@ -19,7 +20,7 @@ export async function GET(request: Request) {
   const state = url.searchParams.get("state");
   const expected = readCookie(request, getInstagramOAuthStateCookieName());
   const profileId = readCookie(request, "cf_influencer_instagram_profile");
-  if (!code || !state || !expected || state !== expected || !profileId) return NextResponse.redirect(new URL("/influencer-manager?instagram_profile_error=invalid_callback", publicOrigin));
+  if (!code || !safeEqual(state, expected) || !profileId) return NextResponse.redirect(new URL("/influencer-manager?instagram_profile_error=invalid_callback", publicOrigin));
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

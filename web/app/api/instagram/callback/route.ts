@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "../../../../lib/supabase/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
 import { encryptInstagramAccessToken, exchangeInstagramShortLivedToken, getInstagramOAuthStateCookieName } from "../../../../lib/instagram-auth";
+import { safeEqual } from "../../../../lib/security";
 
 export const runtime = "nodejs";
 
@@ -19,7 +20,7 @@ export async function GET(request: Request) {
   const expectedState = readCookie(request, getInstagramOAuthStateCookieName());
   const influencerProfileId = readCookie(request, "cf_influencer_instagram_profile");
 
-  if (!code || !returnedState || !expectedState || returnedState !== expectedState) {
+  if (!code || !safeEqual(returnedState, expectedState)) {
     return NextResponse.redirect(new URL("/?instagram_error=invalid_callback", publicOrigin));
   }
 

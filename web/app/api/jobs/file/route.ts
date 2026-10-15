@@ -2,12 +2,13 @@ import { createClient } from "../../../../lib/supabase/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
 import { getR2PublicClipUrl } from "../../../../lib/r2";
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { getAnonymousJobSecret } from "../../../../lib/security";
 
 export const runtime = "nodejs";
 
 const GENERATION_ONLY_MODE = process.env.CLIP_FACTORY_GENERATION_ONLY === "true";
 function isValidAnonymousAccessToken(jobId: string, token: string | null) {
-  const secret = process.env.CLIP_FACTORY_TOKEN_ENCRYPTION_KEY || process.env.CLIP_FACTORY_WORKER_TOKEN || "";
+  const secret = getAnonymousJobSecret();
   if (!secret || !token) return false;
   const expected = createHmac("sha256", secret).update(`clip-factory-anonymous-job:${jobId}`).digest("base64url");
   const a = Buffer.from(expected); const b = Buffer.from(token);
@@ -48,7 +49,7 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error("R2 clip redirect error:", error);
     return Response.json(
-      { error: error instanceof Error ? error.message : "Erro ao obter o clip." },
+      { error: "Erro ao obter o clip." },
       { status: 502 },
     );
   }

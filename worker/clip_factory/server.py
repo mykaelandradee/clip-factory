@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hmac
 import json
 import mimetypes
 import subprocess
@@ -15,6 +16,21 @@ from .config import settings
 
 jobs: dict[str, dict] = {}
 jobs_lock = threading.Lock()
+
+MAX_REQUEST_BYTES = 64 * 1024
+# Somente mídias e legendas geradas pelo pipeline podem ser servidas.
+SERVABLE_SUFFIXES = {".mp4", ".mov", ".webm", ".jpg", ".jpeg", ".png", ".webp", ".srt", ".vtt", ".ass"}
+SERVABLE_ROOTS = ("projects", "output")
+LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
+YOUTUBE_HOSTS = {"youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be", "www.youtu.be"}
+
+
+def is_youtube_url(value: str) -> bool:
+    try:
+        parsed = urlparse(value)
+    except ValueError:
+        return False
+    return parsed.scheme == "https" and (parsed.hostname or "").lower() in YOUTUBE_HOSTS
 
 
 def update_job(job_id: str, **changes) -> None:
@@ -37,9 +53,12 @@ class Handler(BaseHTTPRequestHandler):
         self._send(status, json.dumps(payload, ensure_ascii=False).encode("utf-8"), "application/json; charset=utf-8")
 
     def _authorized(self) -> bool:
-        if not settings.worker_token:
-            return True
-        return self.headers.get("Authorization", "") == f"Bearer {settings.worker_token}"
+        token = settings.worker_token
+        if not token:
+            # Sem token, só aceita requisições quando o worker está restrito à máquina local.
+            return settings.worker_host in LOOPBACK_HOSTS
+        supplied = self.headers.get("Authorization", "")
+        return hmac.compare_digest(supplied.encode("utf-8"), f"Bearer {token}".encode("utf-8"))
 
     def do_OPTIONS(self) -> None:
         self._send(204, b"", "text/plain")
@@ -67,11 +86,18 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path.startswith("/files/"):
             relative = unquote(path[len("/files/"):]).replace("\\", "/")
-            if ".." in Path(relative).parts:
+            parts = Path(relative).parts
+            if ".." in parts or not parts or parts[0] not in SERVABLE_ROOTS or any(part.startswith(".") for part in parts):
                 self._json(400, {"error": "Caminho inválido"})
                 return
-            file_path = (settings.data_dir / relative).resolve()
-            if not file_path.is_file() or settings.data_dir.resolve() not in file_path.parents:
+            data_root = settings.data_dir.resolve()
+            file_path = (data_root / relative).resolve()
+            allowed_roots = [(data_root / root).resolve() for root in SERVABLE_ROOTS]
+            if (
+                not file_path.is_file()
+                or file_path.suffix.lower() not in SERVABLE_SUFFIXES
+                or not any(root in file_path.parents for root in allowed_roots)
+            ):
                 self._json(404, {"error": "Arquivo não encontrado"})
                 return
             self._send(200, file_path.read_bytes(), mimetypes.guess_type(file_path.name)[0] or "application/octet-stream")
@@ -85,9 +111,7 @@ class Handler(BaseHTTPRequestHandler):
             self._json(400, {"error": "Informe ?url= com a URL do YouTube"})
             return
 
-        hostname = (urlparse(url).hostname or "").lower()
-        allowed_hosts = {"youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "www.youtu.be"}
-        if hostname not in allowed_hosts:
+        if not is_youtube_url(url):
             self._json(400, {"error": "Apenas URLs do YouTube são permitidas neste diagnóstico"})
             return
 
@@ -141,7 +165,7 @@ class Handler(BaseHTTPRequestHandler):
         ]
         if cookie_path:
             command.extend(["--cookies", str(cookie_path)])
-        command.append(url)
+        command.extend(["--", url])
 
         try:
             completed = subprocess.run(
@@ -228,10 +252,18 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             length = int(self.headers.get("Content-Length", "0"))
+            if length <= 0 or length > MAX_REQUEST_BYTES:
+                self._json(413 if length > MAX_REQUEST_BYTES else 400, {"error": "Tamanho de requisição inválido"})
+                return
             payload = json.loads(self.rfile.read(length).decode("utf-8"))
+            if not isinstance(payload, dict):
+                raise ValueError("Requisição inválida")
             url = str(payload.get("url", "")).strip()
             if not url:
                 raise ValueError("URL do YouTube é obrigatória")
+            if len(url) > 2048 or not is_youtube_url(url):
+                raise ValueError("Informe uma URL https válida do YouTube")
+            payload["url"] = url
             provider = str(payload.get("provider", "openai"))
             count = int(payload.get("count", 5))
             min_duration = int(payload.get("min_duration", 20))
@@ -281,6 +313,11 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
+    if not settings.worker_token and settings.worker_host not in LOOPBACK_HOSTS:
+        raise SystemExit(
+            "CLIP_FACTORY_WORKER_TOKEN é obrigatório quando o worker escuta fora de localhost "
+            f"(CLIP_FACTORY_WORKER_HOST={settings.worker_host})."
+        )
     settings.ensure_dirs()
     server = ThreadingHTTPServer((settings.worker_host, settings.worker_port), Handler)
     print(f"Starting Clip Factory worker on {settings.worker_host}:{settings.worker_port}", flush=True)

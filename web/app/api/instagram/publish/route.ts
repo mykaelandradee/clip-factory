@@ -5,6 +5,7 @@ import { createAdminClient } from "../../../../lib/supabase/admin";
 import { decryptInstagramAccessToken, encryptInstagramAccessToken, refreshInstagramLongLivedToken } from "../../../../lib/instagram-auth";
 import { deleteR2Clip, getR2PublicClipUrl } from "../../../../lib/r2";
 import { getClientKey, rateLimit } from "../../../../lib/rate-limit";
+import { getAnonymousJobSecret } from "../../../../lib/security";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -13,7 +14,7 @@ const MAX_BODY_BYTES = 16 * 1024;
 
 function isAnonymousJobAccessValid(jobId: string, token: string | null) {
   if (!token) return false;
-  const secret = process.env.CLIP_FACTORY_TOKEN_ENCRYPTION_KEY || process.env.CLIP_FACTORY_WORKER_TOKEN || process.env.CLIP_FACTORY_GITHUB_TOKEN || "";
+  const secret = getAnonymousJobSecret();
   if (!secret) return false;
   try {
     const expected = createHmac("sha256", secret).update("clip-factory-anonymous-job:" + jobId).digest("base64url");
