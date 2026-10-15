@@ -20,8 +20,9 @@ export async function GET(request: Request) {
   }
 
   const admin = createAdminClient();
-  const { data: profile } = await admin.from("influencer_profiles").select("id").eq("id", profileId).eq("user_id", user.id).maybeSingle();
+  const { data: profile } = await admin.from("influencer_profiles").select("id,platform").eq("id", profileId).eq("user_id", user.id).maybeSingle();
   if (!profile) return NextResponse.redirect(new URL("/influencer-manager?youtube_profile_error=invalid_profile", request.url));
+  if (profile.platform !== "youtube") return NextResponse.redirect(new URL("/influencer-manager?profileId=" + encodeURIComponent(profileId) + "&youtube_profile_error=wrong_platform", request.url));
 
   const clientId = process.env.YOUTUBE_CLIENT_ID;
   if (!clientId || !process.env.CLIP_FACTORY_TOKEN_ENCRYPTION_KEY) {

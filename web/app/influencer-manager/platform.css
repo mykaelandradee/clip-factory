@@ -1,0 +1,10 @@
+/* Influencer Manager: escolha da rede ao criar um perfil */
+.im-platform-choice{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0;padding:0;border:0;min-width:0}
+.im-platform-choice legend{margin-bottom:8px;padding:0;color:#9a9ca6;font-size:11px}
+.im-platform-option{position:relative;display:grid!important;gap:4px;padding:12px 14px;border:1px solid rgba(255,255,255,.07);border-radius:10px;background:rgba(255,255,255,.025);cursor:pointer}
+.im-platform-option input{position:absolute;opacity:0;pointer-events:none}
+.im-platform-option strong{color:#f2f2f5;font-size:13px}
+.im-platform-option small{color:#777982;font-size:10px;line-height:1.4}
+.im-platform-option.active{border-color:#a99bff;background:rgba(169,155,255,.08)}
+.im-platform-option:focus-within{outline:2px solid #a99bff;outline-offset:2px}
+@media(max-width:560px){.im-platform-choice{grid-template-columns:1fr}}
