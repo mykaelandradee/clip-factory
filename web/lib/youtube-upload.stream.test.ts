@@ -4,13 +4,15 @@ import type { AddressInfo } from "node:net";
 import { uploadShort } from "./youtube-upload";
 
 // Simula o R2 (HEAD + GET de um vídeo de 40 MB gerado em pedaços) e o upload
-// resumable do YouTube, para garantir que o vídeo é transmitido sem ser
-// carregado inteiro na memória e com o Content-Length correto.
+// resumable do YouTube. O teste prova que o vídeo é transmitido em streaming:
+// o YouTube começa a receber bytes antes de o R2 terminar de enviá-los. Se o
+// vídeo fosse carregado inteiro na memória antes do envio, isso seria impossível.
 const VIDEO_BYTES = 40 * 1024 * 1024;
 const CHUNK = Buffer.alloc(64 * 1024, 7);
 let server: http.Server;
 let base = "";
 const received = { bytes: 0, contentLength: "", sessionLength: "", auth: "" };
+const timeline = { sourceFinished: 0, firstUploadByte: 0, tick: 0 };
 
 beforeAll(async () => {
   server = http.createServer((req, res) => {
@@ -24,6 +26,7 @@ beforeAll(async () => {
           sent += size;
           if (!res.write(CHUNK.subarray(0, size))) return res.once("drain", pump);
         }
+        timeline.sourceFinished = ++timeline.tick;
         res.end();
       };
       return pump();
@@ -37,7 +40,10 @@ beforeAll(async () => {
     if (req.url === "/session/1" && req.method === "PUT") {
       received.contentLength = String(req.headers["content-length"] || "");
       received.auth = String(req.headers.authorization || "");
-      req.on("data", (chunk: Buffer) => { received.bytes += chunk.length; });
+      req.on("data", (chunk: Buffer) => {
+        if (!timeline.firstUploadByte) timeline.firstUploadByte = ++timeline.tick;
+        received.bytes += chunk.length;
+      });
       req.on("end", () => {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ id: "abc123", status: { privacyStatus: "public" } }));
@@ -54,7 +60,6 @@ afterAll(() => new Promise<void>((resolve) => server.close(() => resolve())));
 
 describe("uploadShort streaming", () => {
   it("streams the whole video with the right Content-Length", async () => {
-    const before = process.memoryUsage().rss;
     const result = await uploadShort({
       accessToken: "token",
       videoUrl: base + "/video.mp4",
@@ -62,14 +67,14 @@ describe("uploadShort streaming", () => {
       description: "",
       uploadUrl: base + "/upload",
     });
-    const growth = process.memoryUsage().rss - before;
 
     expect(result).toEqual({ videoId: "abc123", privacyStatus: "public" });
     expect(received.sessionLength).toBe(String(VIDEO_BYTES));
     expect(received.contentLength).toBe(String(VIDEO_BYTES));
     expect(received.bytes).toBe(VIDEO_BYTES);
     expect(received.auth).toBe("Bearer token");
-    // Um vídeo de 40 MB não pode aumentar a memória na mesma proporção.
-    expect(growth).toBeLessThan(VIDEO_BYTES);
+    // Streaming: o upload começou antes de o R2 terminar de enviar o vídeo.
+    expect(timeline.firstUploadByte).toBeGreaterThan(0);
+    expect(timeline.firstUploadByte).toBeLessThan(timeline.sourceFinished);
   }, 60_000);
 });
