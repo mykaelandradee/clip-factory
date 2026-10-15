@@ -10,3 +10,12 @@ worker/data/
 worker/output/
 *.pyc
 .DS_Store
+
+# Credenciais descriptografadas nunca devem ser versionadas
+youtube_cookies.txt
+**/youtube_cookies.txt
+secrets/*.txt
+secrets/*.json
+*.pem
+*.key
+web/tsconfig.tsbuildinfo
