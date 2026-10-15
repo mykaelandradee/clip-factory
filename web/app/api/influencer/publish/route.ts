@@ -5,6 +5,7 @@ import { createAdminClient } from "../../../../lib/supabase/admin";
 import { decryptInstagramAccessToken, encryptInstagramAccessToken, refreshInstagramLongLivedToken } from "../../../../lib/instagram-auth";
 import { decryptYouTubeRefreshToken } from "../../../../lib/youtube-auth";
 import { buildShortDescription, buildShortTitle, getYouTubeAccessToken, uploadShort, YouTubeError } from "../../../../lib/youtube-upload";
+import { logEvent } from "../../../../lib/observability";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -182,6 +183,32 @@ async function publishStoryOne(admin: ReturnType<typeof createAdminClient>, stor
 }
 
 
+type PublishStatus = "published" | "empty" | "error" | "retry";
+
+const EMPTY_QUEUE_MESSAGE = "Nenhum vídeo disponível na fila. Adicione vídeos às bibliotecas do perfil ou ative \"Repetir biblioteca quando acabar\".";
+
+// Registra o último resultado da publicação no perfil, para a tela mostrar o
+// motivo quando a fila não publica. Atualização separada: se a coluna ainda
+// não existir no banco, a publicação em si não é afetada.
+async function recordPublishStatus(admin: ReturnType<typeof createAdminClient>, profileId: string, userId: string, status: PublishStatus, message: string) {
+  const { error } = await admin.from("influencer_profiles").update({
+    last_publish_status: status,
+    last_publish_message: message.slice(0, 1000),
+    last_publish_at: new Date().toISOString(),
+  }).eq("id", profileId).eq("user_id", userId);
+  if (error) console.warn("Influencer publish status not recorded:", error.message);
+}
+
+function statusFromResult(result: any): { status: PublishStatus; message: string } | null {
+  if (result?.status === "published") return { status: "published", message: result.title ? "Publicado: " + String(result.title) : "Vídeo publicado." };
+  if (result?.status === "empty") return { status: "empty", message: EMPTY_QUEUE_MESSAGE };
+  if (result?.status === "error") {
+    const retrying = result.retryable !== false && !result.exhausted;
+    return { status: retrying ? "retry" : "error", message: String(result.error || "Falha na publicação.") + (retrying ? " Nova tentativa automática em breve." : "") };
+  }
+  return null;
+}
+
 async function processDueStories(admin: ReturnType<typeof createAdminClient>) {
   const results: Array<{ storyId: string; status: string; error?: string }> = [];
   const now = new Date();
@@ -210,11 +237,11 @@ async function processDueStories(admin: ReturnType<typeof createAdminClient>) {
   return results;
 }
 
-async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId: string, userId: string, itemId?: string) {
+async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId: string, userId: string, itemId?: string, options: { force?: boolean } = {}) {
   const { data: profile } = await admin.from("influencer_profiles")
     .select("id,user_id,platform,posting_times,posts_per_day,next_publish_at,publishing_enabled,repeat_when_exhausted,cover_r2_key,share_to_feed,fixed_publish_title,fixed_publish_description,caption_mode,auto_story,story_delay_minutes")
     .eq("id",profileId).eq("user_id",userId).maybeSingle();
-  if (!profile || (!itemId && !profile.publishing_enabled)) return { status:"stopped" };
+  if (!profile || (!itemId && !options.force && !profile.publishing_enabled)) return { status:"stopped" };
   const isYouTube = (profile as any).platform === "youtube";
 
   let item: any = null;
@@ -231,7 +258,7 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
   if(!libraryIds.length) return {status:"empty"};
 
   const {data:libraryItems}=await admin.from("influencer_content_items")
-    .select("id,user_id,r2_key,publish_title,publish_description,status,scheduled_at,retry_count,created_at,published_at")
+    .select("id,user_id,title,r2_key,publish_title,publish_description,status,scheduled_at,retry_count,created_at,published_at")
     .in("library_id",libraryIds).eq("user_id",userId)
     .in("status",["available","published"])
     .order("created_at",{ascending:true});
@@ -327,12 +354,9 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
     profileContent=chosen.state;
   }
 
-  if (!item) {
-    if (!itemId && !repeatWhenExhausted) {
-      await admin.from("influencer_profiles").update({publishing_enabled:false,next_publish_at:null,updated_at:new Date().toISOString()}).eq("id",profileId).eq("user_id",userId);
-    }
-    return { status:"empty" };
-  }
+  // Fila vazia não desliga mais a publicação automática: o perfil continua
+  // ativo e publica assim que um vídeo novo ficar disponível.
+  if (!item) return { status:"empty" };
 
   // Cada perfil publica em uma única rede. Conexão e credenciais dependem dela.
   let accessToken = "";
@@ -401,7 +425,7 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
       .update({status:"scheduled",scheduled_at:claimTime,error_message:null,updated_at:claimTime})
       .eq("id",profileContent.id).eq("user_id",userId).in("status",claimableStatuses)
       .select("id").maybeSingle();
-    if(!claimed) return {status:"busy",itemId:item.id,error:"Este Reel já está em processamento ou foi publicado por outro processo."};
+    if(!claimed) return {status:"busy",itemId:item.id,error:"Este vídeo já está sendo publicado por outro processo."};
   }
 
   try {
@@ -413,13 +437,15 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
     ].filter(Boolean);
 
     if (isYouTube) {
-      const title = buildShortTitle(fixedTitle || String(item.publish_title || "").trim());
+      // Os textos aleatórios em chinês/japonês são do Instagram. No YouTube usamos
+      // o título fixo do perfil ou o título real do vídeo, e a descrição do perfil.
+      const title = buildShortTitle(fixedTitle || String(item.title || "").trim());
       const youtubeAccessToken = await getYouTubeAccessToken(youtubeRefreshToken);
       const upload = await uploadShort({
         accessToken: youtubeAccessToken,
         videoUrl,
         title,
-        description: buildShortDescription(fixedDescription || String(item.publish_description || "").trim()),
+        description: buildShortDescription(fixedDescription),
       });
       // Projetos Google não auditados têm uploads forçados a "privado" pelo YouTube.
       const lockedPrivate = Boolean(upload.privacyStatus && upload.privacyStatus !== "public");
@@ -438,7 +464,7 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
           : null,
       });
       if (historyError) console.error("Failed to record Influencer YouTube history:", historyError.message);
-      return { status:"published", itemId:item.id, videoId:upload.videoId, privacyStatus:upload.privacyStatus, nextPublishAt:next.toISOString() };
+      return { status:"published", itemId:item.id, title, videoId:upload.videoId, privacyStatus:upload.privacyStatus, nextPublishAt:next.toISOString() };
     }
 
     const caption = captionParts.join("\n\n") || "✨";
@@ -504,6 +530,7 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
     return {
       status:"published",
       itemId:item.id,
+      title:captionParts[0] || String(item.title || "").trim() || null,
       mediaId:String(publishData.id),
       nextPublishAt:next.toISOString(),
       storyScheduled,
@@ -616,7 +643,16 @@ export async function POST(request:Request) {
       if(!claimed) continue;
 
       const result=await publishOne(admin,p.id,p.user_id);
-      if(result.status==="error"){
+      const recorded=statusFromResult(result);
+      if(recorded) await recordPublishStatus(admin,p.id,p.user_id,recorded.status,recorded.message);
+      logEvent("influencer_publish_result",{profileId:p.id,status:result.status,error:(result as any).error?String((result as any).error).slice(0,300):undefined});
+      if(result.status==="empty"){
+        // Sem vídeo agora: tenta de novo no próximo horário configurado.
+        const {data:slotProfile}=await admin.from("influencer_profiles").select("posting_times,posts_per_day").eq("id",p.id).eq("user_id",p.user_id).maybeSingle();
+        const next=nextSlot((slotProfile as any)?.posting_times||[],new Date(),Number((slotProfile as any)?.posts_per_day)||3);
+        await admin.from("influencer_profiles").update({next_publish_at:next.toISOString(),updated_at:new Date().toISOString()})
+          .eq("id",p.id).eq("user_id",p.user_id).eq("auto_publish",true).eq("publishing_enabled",true);
+      } else if(result.status==="error"){
         const {data:retryProfile}=await admin.from("influencer_profiles")
           .select("posting_times,posts_per_day,publish_retry_count")
           .eq("id",p.id).eq("user_id",p.user_id).maybeSingle();
@@ -645,6 +681,12 @@ export async function POST(request:Request) {
     const storyResults = await processDueStories(admin);
     results.push(...storyResults);
 
+    logEvent("influencer_scheduler_run",{
+      activeProfiles:(activeProfiles||[]).length,
+      dueProfiles:(dueProfiles||[]).length,
+      published:results.filter((r:any)=>r.status==="published").length,
+      errors:results.filter((r:any)=>r.status==="error").length,
+    });
     return NextResponse.json({ok:true,results},{headers:{"Cache-Control":"no-store"}});
   }
 
@@ -659,13 +701,17 @@ export async function POST(request:Request) {
   const {data:profile}=await admin.from("influencer_profiles").select("id").eq("id",profileId).eq("user_id",userId).maybeSingle();
   if(!profile) return NextResponse.json({error:"Perfil não encontrado."},{status:404});
 
-  if(action==="publish-item"){
-    const itemId=typeof body?.itemId==="string"?body.itemId:"";
-    if(!itemId) return NextResponse.json({error:"Reel inválido."},{status:400});
-    const result=await publishOne(admin,profileId,userId,itemId);
+  if(action==="publish-item" || action==="publish-next"){
+    const itemId=action==="publish-item" && typeof body?.itemId==="string"?body.itemId:"";
+    if(action==="publish-item" && !itemId) return NextResponse.json({error:"Vídeo inválido."},{status:400});
+    const result=await publishOne(admin,profileId,userId,itemId||undefined,{force:true});
+    const recorded=statusFromResult(result);
+    if(recorded) await recordPublishStatus(admin,profileId,userId,recorded.status,recorded.message);
+    logEvent("influencer_manual_publish",{profileId,action,status:result.status,error:(result as any).error?String((result as any).error).slice(0,300):undefined});
     if(result.status==="error") return NextResponse.json({ok:false,...result},{status:502});
     if(result.status==="busy") return NextResponse.json({ok:false,...result},{status:409});
-    if(result.status!=="published") return NextResponse.json({ok:false,error:"Este Reel não está disponível para publicação."},{status:409});
+    if(result.status==="empty") return NextResponse.json({ok:false,error:EMPTY_QUEUE_MESSAGE},{status:409});
+    if(result.status!=="published") return NextResponse.json({ok:false,error:"Este vídeo não está disponível para publicação."},{status:409});
     return NextResponse.json({ok:true,...result});
   }
 

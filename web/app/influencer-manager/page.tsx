@@ -9,6 +9,7 @@ type Profile={
   cover_r2_key?:string|null; fixed_publish_title?:string|null; fixed_publish_description?:string|null;
   share_to_feed?:boolean; auto_story?:boolean; story_delay_minutes?:number; publishing_enabled?:boolean; next_publish_at?:string|null;
   platform?:"instagram"|"youtube"; youtube_channel_title?:string|null;
+  last_publish_status?:"published"|"empty"|"error"|"retry"|null; last_publish_message?:string|null; last_publish_at?:string|null;
 };
 type Platform="instagram"|"youtube";
 const PLATFORM_LABEL:Record<Platform,string>={instagram:"Instagram",youtube:"YouTube"};
@@ -44,6 +45,9 @@ const INSTAGRAM_ERRORS:Record<string,string>={
 const YOUTUBE_POST_STATUS:Record<string,string>={scheduled:"Na fila",processing:"Enviando",published:"Publicado",failed:"Falhou",canceled:"Cancelado"};
 type AnalyticsData={totals:any;categoryTotals:any[];metrics:AnalyticsMetric[];publishedReels:PublishedReel[];metricCoverage:{follows:number;reach:number;views:number};publishedSummary:{total:number;withInstagramId:number;withMetrics:number}};
 
+const formatDateTime=(value:string)=>new Intl.DateTimeFormat("pt-BR",{dateStyle:"short",timeStyle:"short",timeZone:"America/Cuiaba"}).format(new Date(value));
+const PUBLISH_STATUS_LABEL:Record<string,string>={published:"Última publicação concluída",empty:"Fila vazia",error:"Publicação falhou",retry:"Nova tentativa agendada"};
+
 const DEFAULT_TIMES=["09:00","11:30","14:00","16:30","19:00","21:30","23:00","08:00","12:00"];
 
 export default function InfluencerManagerPage(){
@@ -58,7 +62,7 @@ export default function InfluencerManagerPage(){
   const [name,setName]=useState(""),[posts,setPosts]=useState("3"),[editProfileName,setEditProfileName]=useState(""),[newPlatform,setNewPlatform]=useState<Platform>("instagram");
   const [librarySaving,setLibrarySaving]=useState(false),[coverFile,setCoverFile]=useState<File|null>(null),[coverPreview,setCoverPreview]=useState("");
   const [instagramConnected,setInstagramConnected]=useState(false),[instagramAccount,setInstagramAccount]=useState(""),[instagramReconnect,setInstagramReconnect]=useState(false),[instagramExpiresAt,setInstagramExpiresAt]=useState<string|null>(null);
-  const [youtube,setYoutube]=useState<YouTubeState>(EMPTY_YOUTUBE),[showYouTubeDisconnect,setShowYouTubeDisconnect]=useState(false);
+  const [youtube,setYoutube]=useState<YouTubeState>(EMPTY_YOUTUBE),[showYouTubeDisconnect,setShowYouTubeDisconnect]=useState(false),[publishingNow,setPublishingNow]=useState(false);
   const [draft,setDraft]=useState({posts_per_day:3,caption_mode:"zh_ja_random",repeat_when_exhausted:false,posting_times:["09:00","11:30","14:00"],fixed_publish_title:"",fixed_publish_description:"",share_to_feed:true,auto_story:false,story_delay_minutes:30});
   const [analytics,setAnalytics]=useState<AnalyticsData>({totals:{},categoryTotals:[],metrics:[],publishedReels:[],metricCoverage:{follows:0,reach:0,views:0},publishedSummary:{total:0,withInstagramId:0,withMetrics:0}});
   const [analyticsLoading,setAnalyticsLoading]=useState(false);
@@ -233,6 +237,18 @@ export default function InfluencerManagerPage(){
     }catch(e){showError(e instanceof Error?e.message:"Erro na publicação.","Não foi possível alterar a publicação automática");}finally{setSaving(false);}
   }
 
+  async function publishNextNow(){
+    if(!selected)return;setPublishingNow(true);setError("");
+    try{
+      const r=await fetch("/api/influencer/publish",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"publish-next",profileId:selected.id})});
+      const d=await r.json().catch(()=>({}));
+      if(!r.ok)throw new Error(d.error||"Não foi possível publicar agora. Tente novamente em alguns instantes.");
+      await loadProfiles();await loadItems(selected.id);
+      if(platformOf(selected)==="youtube")await loadYouTube(selected.id);
+    }catch(e){showError(e instanceof Error?e.message:"Erro ao publicar.","Não foi possível publicar agora");await loadProfiles();}
+    finally{setPublishingNow(false);}
+  }
+
   async function uploadCover(){
     if(!selected||!coverFile)return;setSaving(true);setError("");
     try{
@@ -403,8 +419,8 @@ export default function InfluencerManagerPage(){
             <div className="im-config-section">
               <div className="im-config-section-head"><div><span className="im-kicker">TEXTO DA PUBLICAÇÃO</span><h3>{isYouTube?"Título e descrição":"Nome e descrição"}</h3><p>{isYouTube?"Usados em todos os Shorts deste perfil. Em branco, cada vídeo usa o próprio texto.":"Texto usado nas publicações deste perfil."}</p></div></div>
               <div className="im-fixed-copy">
-                <label>{isYouTube?"Título do Short":"Nome do Reel"}<input value={draft.fixed_publish_title} maxLength={isYouTube?92:undefined} onChange={e=>setDraft(v=>({...v,fixed_publish_title:e.target.value}))} placeholder="Automático" /></label>
-                <label>Descrição<textarea rows={5} value={draft.fixed_publish_description} onChange={e=>setDraft(v=>({...v,fixed_publish_description:e.target.value}))} placeholder="Automática em chinês/japonês" /></label>
+                <label>{isYouTube?"Título do Short":"Nome do Reel"}<input value={draft.fixed_publish_title} maxLength={isYouTube?92:undefined} onChange={e=>setDraft(v=>({...v,fixed_publish_title:e.target.value}))} placeholder={isYouTube?"Título original do vídeo":"Automático"} /></label>
+                <label>Descrição<textarea rows={5} value={draft.fixed_publish_description} onChange={e=>setDraft(v=>({...v,fixed_publish_description:e.target.value}))} placeholder={isYouTube?"Opcional":"Automática em chinês/japonês"} /></label>
               </div>
               {!isYouTube&&<><label className="im-check"><input type="checkbox" checked={draft.share_to_feed} onChange={e=>setDraft(v=>({...v,share_to_feed:e.target.checked}))}/><span>Mostrar também na Grade do Instagram</span></label>
               <div className="im-story-settings"><label className="im-check"><input type="checkbox" checked={draft.auto_story} onChange={e=>setDraft(v=>({...v,auto_story:e.target.checked}))}/><span>Compartilhar o Reel no Story automaticamente</span></label>{draft.auto_story&&<label>Publicar Story após (minutos)<input type="number" min="0" max="1440" step="1" value={draft.story_delay_minutes} onChange={e=>setDraft(v=>({...v,story_delay_minutes:Math.min(1440,Math.max(0,Number(e.target.value)||0))}))}/><small className="im-field-help">Ex.: 30 = Reel agora e Story 30 minutos depois.</small></label>}</div></>}
@@ -414,13 +430,18 @@ export default function InfluencerManagerPage(){
               <div className="im-config-section-head"><div><span className="im-kicker">PUBLICAÇÃO</span><h3>Regras e horários</h3><p>Frequência, horários e comportamento da fila.</p></div><span className={"im-status "+(selected.publishing_enabled?"available":"archived")}>{selected.publishing_enabled?"EXECUTANDO":"PARADA"}</span></div>
               <div className="im-settings-grid">
                 <label>{videoUnit} por dia<select className="im-form-select" value={draft.posts_per_day} onChange={e=>setDraft(v=>({...v,posts_per_day:Number(e.target.value)}))}>{[1,2,3,4,5,6,7,8,9].map(n=><option key={n}>{n}</option>)}</select></label>
-                <label>Legenda<select className="im-form-select" value={draft.caption_mode} onChange={e=>setDraft(v=>({...v,caption_mode:e.target.value}))}><option value="zh_ja_random">Chinês + Japonês aleatório</option><option value="zh_random">Chinês</option><option value="ja_random">Japonês</option><option value="custom">Banco personalizado</option></select></label>
+                {!isYouTube&&<label>Idioma do texto automático<select className="im-form-select" value={draft.caption_mode} onChange={e=>setDraft(v=>({...v,caption_mode:e.target.value}))}><option value="zh_ja_random">Chinês + Japonês aleatório</option><option value="zh_random">Chinês</option><option value="ja_random">Japonês</option><option value="custom">Banco personalizado</option></select></label>}
               </div>
               <div className="im-times"><span className="im-kicker">HORÁRIOS DIÁRIOS</span><div className="im-time-grid">{Array.from({length:draft.posts_per_day},(_,i)=><label key={i}>Post {i+1}<input type="time" value={draft.posting_times[i]||DEFAULT_TIMES[i]} onChange={e=>setDraft(v=>{const times=[...v.posting_times];while(times.length<v.posts_per_day)times.push("");times[i]=e.target.value;return {...v,posting_times:times};})}/></label>)}</div></div>
               <div className="im-publish-controls">
                 <button className="im-primary" disabled={saving||selected.publishing_enabled||!accountConnected} title={accountConnected?undefined:"Conecte "+(isYouTube?"o canal do YouTube":"o Instagram")+" deste perfil primeiro."} onClick={()=>void togglePublishing()}>▶ Ativar publicação automática</button>
                 <button className="im-ghost" disabled={saving||!selected.publishing_enabled} onClick={()=>void togglePublishing()}>■ Desativar publicação</button>
                 <label className="im-check im-repeat-toggle"><input type="checkbox" checked={draft.repeat_when_exhausted} onChange={e=>setDraft(v=>({...v,repeat_when_exhausted:e.target.checked}))}/><span>Repetir biblioteca quando acabar</span></label>
+              </div>
+              <div className="im-publish-status">
+                <div><span>Próxima publicação</span><strong>{selected.publishing_enabled&&selected.next_publish_at?formatDateTime(selected.next_publish_at):"—"}</strong></div>
+                <div><span>{selected.last_publish_status?PUBLISH_STATUS_LABEL[selected.last_publish_status]||"Último resultado":"Último resultado"}</span><strong className={"im-publish-status-"+(selected.last_publish_status||"none")}>{selected.last_publish_message||"Nenhuma publicação automática ainda."}</strong>{selected.last_publish_at&&<small>{formatDateTime(selected.last_publish_at)}</small>}</div>
+                <button className="im-ghost" type="button" disabled={saving||publishingNow||!accountConnected} onClick={()=>void publishNextNow()}>{publishingNow?"Publicando…":"Publicar o próximo agora"}</button>
               </div>
               {!accountConnected&&!selected.publishing_enabled&&<div className="im-form-note">Conecte {isYouTube?"o canal do YouTube":"o Instagram"} deste perfil para ativar a publicação automática.</div>}
               <div className="im-profile-save"><button className="im-primary" type="button" disabled={saving} onClick={()=>void saveProfile()}>{saving?"Salvando…":"Salvar alterações do perfil"}</button></div>
@@ -435,7 +456,7 @@ export default function InfluencerManagerPage(){
               <div className="im-agenda-column">
                 <div className="im-agenda-title"><strong>Próximos horários</strong><span>{queuePreview.length} na fila</span></div>
                 {!selected.publishing_enabled ? <div className="im-agenda-empty"><strong>Publicação automática desativada</strong><span>Ative a publicação automática para visualizar a próxima sequência.</span></div>
-                : queuePreview.length===0 ? <div className="im-agenda-empty"><strong>Nenhum vídeo disponível para a fila</strong><span>{draft.repeat_when_exhausted ? "A biblioteca será repetida quando houver conteúdo publicado." : "Todos os vídeos disponíveis já foram publicados. Ative a repetição da biblioteca para reutilizá-los."}</span></div>
+                : queuePreview.length===0 ? <div className="im-agenda-empty"><strong>Nenhum vídeo disponível para a fila</strong><span>{items.length===0 ? (linked.length===0 ? "Vincule uma biblioteca a este perfil e adicione vídeos a ela." : "As bibliotecas vinculadas ainda não têm vídeos prontos.") : draft.repeat_when_exhausted ? "A biblioteca será repetida quando houver conteúdo publicado." : "Todos os vídeos já foram publicados neste perfil. Ative \"Repetir biblioteca quando acabar\" para reutilizá-los."}</span></div>
                 : <div className="im-agenda-list">{queuePreview.slice(0,6).map((slot,index)=>{const postNumber=published+index+1;return <div className={"im-agenda-row "+(index===0?"is-next":"")} key={slot.time+"-"+(slot.item?.id||index)}><span>{index===0?"PRÓXIMO #"+postNumber:"#"+postNumber}</span><strong>{slot.time}</strong><small>{slot.item?.title||"Próximo vídeo"}</small></div>})}</div>}
               </div>
               <div className="im-agenda-column">
@@ -518,7 +539,7 @@ export default function InfluencerManagerPage(){
     {showYouTubeDisconnect&&selected&&<div className="im-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="desvincular-youtube-title" onMouseDown={e=>{if(e.target===e.currentTarget)setShowYouTubeDisconnect(false)}}>
       <div className="im-modal im-confirm-modal">
         <div className="im-confirm-icon">!</div>
-        <div><span className="im-kicker">DESVINCULAR YOUTUBE</span><h2 id="desvincular-youtube-title">Desvincular este canal?</h2><p>Os próximos Reels deste perfil não serão mais enviados ao YouTube. Envios pendentes serão cancelados; os vídeos já publicados continuam no canal.</p></div>
+        <div><span className="im-kicker">DESVINCULAR YOUTUBE</span><h2 id="desvincular-youtube-title">Desvincular este canal?</h2><p>A publicação automática deste perfil será interrompida. Os vídeos já publicados continuam no canal.</p></div>
         <div className="im-modal-actions"><button className="im-ghost" type="button" onClick={()=>setShowYouTubeDisconnect(false)}>Cancelar</button><button className="im-primary im-danger-solid" type="button" disabled={saving} onClick={()=>void disconnectYouTube()}>Desvincular YouTube</button></div>
       </div>
     </div>}
