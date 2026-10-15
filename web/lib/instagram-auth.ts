@@ -53,7 +53,7 @@ export async function exchangeInstagramShortLivedToken(shortLivedToken: string) 
   const response = await fetch(url, { cache: "no-store" });
   const data = await readJson(response);
   if (!response.ok || !data.access_token) {
-    console.error("Instagram long-lived token exchange failed:", data);
+    console.error("Instagram long-lived token exchange failed:", { status: response.status, type: data?.error?.type, code: data?.error?.code });
     throw new Error("Não foi possível obter o token de longa duração do Instagram. Conecte a conta novamente.");
   }
 
@@ -71,7 +71,7 @@ export async function refreshInstagramLongLivedToken(accessToken: string) {
   const response = await fetch(url, { cache: "no-store" });
   const data = await readJson(response);
   if (!response.ok || !data.access_token) {
-    console.error("Instagram long-lived token refresh failed:", data);
+    console.error("Instagram long-lived token refresh failed:", { status: response.status, type: data?.error?.type, code: data?.error?.code });
     throw new Error(
       data?.error?.message
         ? String(data.error.message)
