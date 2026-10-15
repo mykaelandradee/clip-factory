@@ -1,13 +1,18 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import "./platform.css";
 
 type Profile={
   id:string; name:string; instagram_username:string|null; posts_per_day:number;
   posting_times:string[]; caption_mode:string; auto_publish:boolean; repeat_when_exhausted:boolean;
   cover_r2_key?:string|null; fixed_publish_title?:string|null; fixed_publish_description?:string|null;
   share_to_feed?:boolean; auto_story?:boolean; story_delay_minutes?:number; publishing_enabled?:boolean; next_publish_at?:string|null;
+  platform?:"instagram"|"youtube"; youtube_channel_title?:string|null;
 };
+type Platform="instagram"|"youtube";
+const PLATFORM_LABEL:Record<Platform,string>={instagram:"Instagram",youtube:"YouTube"};
+const platformOf=(p?:Profile|null):Platform=>p?.platform==="youtube"?"youtube":"instagram";
 type Library={
   id:string; name:string; description?:string|null; item_count:number;
   profiles:{profile_id:string;profile_name:string;priority:number;enabled:boolean}[];
@@ -31,6 +36,10 @@ const YOUTUBE_ERRORS:Record<string,string>={
   channel_in_use:"Este canal do YouTube já está vinculado a outro perfil. Desvincule-o lá primeiro.",
   no_channel:"A conta Google escolhida não tem um canal do YouTube. Escolha a conta ou o canal de marca correto.",
   save_failed:"Não foi possível salvar o canal do YouTube. Tente de novo.",
+  wrong_platform:"Este é um perfil do Instagram. Crie um perfil do YouTube para conectar um canal.",
+};
+const INSTAGRAM_ERRORS:Record<string,string>={
+  wrong_platform:"Este é um perfil do YouTube. Crie um perfil do Instagram para conectar uma conta.",
 };
 const YOUTUBE_POST_STATUS:Record<string,string>={scheduled:"Na fila",processing:"Enviando",published:"Publicado",failed:"Falhou",canceled:"Cancelado"};
 type AnalyticsData={totals:any;categoryTotals:any[];metrics:AnalyticsMetric[];publishedReels:PublishedReel[];metricCoverage:{follows:number;reach:number;views:number};publishedSummary:{total:number;withInstagramId:number;withMetrics:number}};
@@ -46,7 +55,7 @@ export default function InfluencerManagerPage(){
   const [showFeedback,setShowFeedback]=useState(false),[feedbackTitle,setFeedbackTitle]=useState("Algo deu errado"),[feedbackMessage,setFeedbackMessage]=useState("");
   const [showDisconnectConfirm,setShowDisconnectConfirm]=useState(false);
   const [showProfiles,setShowProfiles]=useState(false),[showNew,setShowNew]=useState(false),[showEditProfile,setShowEditProfile]=useState(false),[showDeleteProfile,setShowDeleteProfile]=useState(false);
-  const [name,setName]=useState(""),[posts,setPosts]=useState("3"),[editProfileName,setEditProfileName]=useState("");
+  const [name,setName]=useState(""),[posts,setPosts]=useState("3"),[editProfileName,setEditProfileName]=useState(""),[newPlatform,setNewPlatform]=useState<Platform>("instagram");
   const [librarySaving,setLibrarySaving]=useState(false),[coverFile,setCoverFile]=useState<File|null>(null),[coverPreview,setCoverPreview]=useState("");
   const [instagramConnected,setInstagramConnected]=useState(false),[instagramAccount,setInstagramAccount]=useState(""),[instagramReconnect,setInstagramReconnect]=useState(false),[instagramExpiresAt,setInstagramExpiresAt]=useState<string|null>(null);
   const [youtube,setYoutube]=useState<YouTubeState>(EMPTY_YOUTUBE),[showYouTubeDisconnect,setShowYouTubeDisconnect]=useState(false);
@@ -96,6 +105,7 @@ export default function InfluencerManagerPage(){
     try{
       const r=await fetch("/api/influencer/youtube/status?profileId="+encodeURIComponent(selected.id),{method:"DELETE"}),d=await r.json().catch(()=>({}));
       if(!r.ok)throw new Error(d.error||"Não foi possível desvincular o YouTube.");
+      if(d.profile){setSelected(d.profile);setProfiles(all=>all.map(p=>p.id===d.profile.id?d.profile:p));}
       await loadYouTube(selected.id);
     }catch(e){showError(e instanceof Error?e.message:"Erro ao desvincular o YouTube.","Não foi possível desvincular o YouTube");}finally{setSaving(false);}
   }
@@ -126,9 +136,12 @@ export default function InfluencerManagerPage(){
   useEffect(()=>{
     const params=new URLSearchParams(window.location.search);
     const youtubeError=params.get("youtube_profile_error");
+    const instagramError=params.get("instagram_profile_error");
     if(youtubeError)showError(YOUTUBE_ERRORS[youtubeError]||"Não foi possível conectar o YouTube.","Não foi possível conectar o YouTube");
-    if(youtubeError||params.has("youtube_profile_connected")){
+    else if(instagramError)showError(INSTAGRAM_ERRORS[instagramError]||"Não foi possível conectar o Instagram. Tente de novo.","Não foi possível conectar o Instagram");
+    if(youtubeError||instagramError||params.has("youtube_profile_connected")||params.has("instagram_profile_connected")){
       params.delete("youtube_profile_error");params.delete("youtube_profile_connected");
+      params.delete("instagram_profile_error");params.delete("instagram_profile_connected");
       const query=params.toString();
       window.history.replaceState(null,"",window.location.pathname+(query?"?"+query:""));
     }
@@ -157,7 +170,11 @@ export default function InfluencerManagerPage(){
       fixed_publish_title:selected.fixed_publish_title||"",fixed_publish_description:selected.fixed_publish_description||"",
       share_to_feed:selected.share_to_feed!==false,auto_story:Boolean(selected.auto_story),story_delay_minutes:Number(selected.story_delay_minutes)||30
     });
-    setCoverFile(null);setCoverPreview("");void loadInstagram(selected.id);void loadYouTube(selected.id);void loadAnalytics(selected.id);void loadLibraries();void loadItems(selected.id);
+    setCoverFile(null);setCoverPreview("");
+    setInstagramConnected(false);setInstagramReconnect(false);setInstagramAccount("");setInstagramExpiresAt(null);setYoutube(EMPTY_YOUTUBE);
+    if(platformOf(selected)==="youtube")void loadYouTube(selected.id);
+    else{void loadInstagram(selected.id);void loadAnalytics(selected.id);}
+    void loadLibraries();void loadItems(selected.id);
   },[selected?.id,selected?.cover_r2_key]);
 
   async function createProfile(e:FormEvent){
@@ -165,11 +182,11 @@ export default function InfluencerManagerPage(){
     try{
       const count=Number(posts)||3;
       const r=await fetch("/api/influencer/profiles",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
-        name,description:"",instagramUsername:"",postsPerDay:count,postingTimes:DEFAULT_TIMES.slice(0,count),
+        name,platform:newPlatform,description:"",instagramUsername:"",postsPerDay:count,postingTimes:DEFAULT_TIMES.slice(0,count),
         captionMode:"zh_ja_random",fixedPublishTitle:name,fixedPublishDescription:"",shareToFeed:true,autoStory:false,storyDelayMinutes:30
       })});
       const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível criar o perfil.");
-      setProfiles(all=>[...all,d.profile]);setSelected(d.profile);setName("");setPosts("3");setShowNew(false);
+      setProfiles(all=>[...all,d.profile]);setSelected(d.profile);setName("");setPosts("3");setNewPlatform("instagram");setShowNew(false);
     }catch(e){showError(e instanceof Error?e.message:"Erro ao criar o perfil.","Não foi possível criar o perfil");}finally{setSaving(false);}
   }
 
@@ -251,6 +268,10 @@ export default function InfluencerManagerPage(){
     }catch(e){showError(e instanceof Error?e.message:"Erro ao excluir o perfil.","Não foi possível excluir o perfil");}finally{setSaving(false);}
   }
 
+  const platform=platformOf(selected);
+  const isYouTube=platform==="youtube";
+  const accountConnected=isYouTube?youtube.connected:instagramConnected;
+  const videoUnit=isYouTube?"Shorts":"Reels";
   const linked=libraries.filter(l=>l.profiles.some(p=>p.profile_id===selected?.id&&p.enabled));
   const expiresSoon=Boolean(instagramExpiresAt&&new Date(instagramExpiresAt).getTime()-Date.now()<7*24*60*60*1000);
   const coverUrl=selected?.cover_r2_key?"/api/influencer/cover?profileId="+encodeURIComponent(selected.id)+"&v="+encodeURIComponent(selected.cover_r2_key):"";
@@ -308,11 +329,19 @@ export default function InfluencerManagerPage(){
 
     {showNew&&<div className="im-modal-backdrop" role="dialog" aria-modal="true">
       <div className="im-modal im-new-profile-modal">
-        <div className="im-card-head"><div><span className="im-kicker">NOVO PERFIL</span><h2>Criar perfil</h2><p>Crie o perfil primeiro. A biblioteca será vinculada depois.</p></div><button className="im-ghost" type="button" onClick={()=>setShowNew(false)}>Fechar</button></div>
+        <div className="im-card-head"><div><span className="im-kicker">NOVO PERFIL</span><h2>Criar perfil</h2><p>Cada perfil publica em uma rede. A conta e as bibliotecas são configuradas depois.</p></div><button className="im-ghost" type="button" onClick={()=>setShowNew(false)}>Fechar</button></div>
         <form className="im-form im-new-profile-form" onSubmit={createProfile}>
+          <fieldset className="im-platform-choice">
+            <legend>Rede social</legend>
+            {(["instagram","youtube"] as Platform[]).map(option=><label key={option} className={"im-platform-option"+(newPlatform===option?" active":"")}>
+              <input type="radio" name="platform" value={option} checked={newPlatform===option} onChange={()=>setNewPlatform(option)} />
+              <strong>{PLATFORM_LABEL[option]}</strong>
+              <small>{option==="youtube"?"Publica Shorts em um canal do YouTube.":"Publica Reels e Stories numa conta do Instagram."}</small>
+            </label>)}
+          </fieldset>
           <label>Nome do perfil<input value={name} onChange={e=>setName(e.target.value)} placeholder="Memes BR" required /></label>
-          <label>Reels por dia<select className="im-form-select" value={posts} onChange={e=>setPosts(e.target.value)}>{[1,2,3,4,5,6,7,8,9].map(n=><option key={n}>{n}</option>)}</select></label>
-          <div className="im-form-note">O Instagram e as bibliotecas são configurados depois.</div>
+          <label>{newPlatform==="youtube"?"Shorts":"Reels"} por dia<select className="im-form-select" value={posts} onChange={e=>setPosts(e.target.value)}>{[1,2,3,4,5,6,7,8,9].map(n=><option key={n}>{n}</option>)}</select></label>
+          <div className="im-form-note">A rede não pode ser trocada depois. Para publicar nas duas, crie um perfil para cada uma.</div>
           <div className="im-modal-actions"><button className="im-ghost" type="button" onClick={()=>setShowNew(false)}>Cancelar</button><button className="im-primary" disabled={saving}>{saving?"Criando…":"Criar perfil"}</button></div>
         </form>
       </div>
@@ -322,23 +351,23 @@ export default function InfluencerManagerPage(){
       <section className="im-main">
         {!selected?<div className="im-card im-empty-main"><strong>{loading?"Carregando…":"Crie um perfil para começar."}</strong></div>:<>
           <div className="im-card im-overview">
-            <div><span className="im-kicker">PERFIL ATIVO</span><h2>{selected.name}</h2><p>{selected.instagram_username?"@"+selected.instagram_username:"Conecte um Instagram para publicar automaticamente."}</p></div>
+            <div><span className="im-kicker">PERFIL ATIVO · {PLATFORM_LABEL[platform].toUpperCase()}</span><h2>{selected.name}</h2><p>{isYouTube?(selected.youtube_channel_title||"Conecte um canal do YouTube para publicar automaticamente."):(selected.instagram_username?"@"+selected.instagram_username:"Conecte um Instagram para publicar automaticamente.")}</p></div>
             <div className="im-overview-actions"><button className="im-ghost" disabled={saving} onClick={()=>{setEditProfileName(selected.name);setShowEditProfile(true)}}>Editar perfil</button><button className="im-ghost im-danger" disabled={saving} onClick={()=>void deleteProfile()}>Excluir perfil</button></div>
           </div>
 
 
 
-          <div className="im-card im-account">
+          {!isYouTube&&<div className="im-card im-account">
             <div className="im-card-head"><div><span className="im-kicker">CONTA VINCULADA</span><h2>Instagram</h2><p>Conta vinculada somente a este perfil.</p></div><span className={"im-status "+(instagramConnected?"available":"archived")}>{instagramReconnect?"RECONEXÃO NECESSÁRIA":instagramConnected?"CONECTADO":"NÃO CONECTADO"}</span></div>
             <div className="im-account-row">
               <div><strong>{instagramAccount||"Nenhuma conta Instagram conectada"}</strong>{instagramExpiresAt&&<small className="im-field-help">Token válido até {new Intl.DateTimeFormat("pt-BR",{dateStyle:"short",timeStyle:"short",timeZone:"America/Cuiaba"}).format(new Date(instagramExpiresAt))}{expiresSoon?" · renovação necessária em breve":""}</small>}</div>
               {(!instagramConnected||instagramReconnect)&&<a className="im-ghost" href={"/api/influencer/instagram/oauth?profileId="+encodeURIComponent(selected.id)}>{instagramReconnect?"Reconectar Instagram":"Conectar Instagram"}</a>}
               {(instagramConnected||instagramReconnect)&&<button className="im-ghost im-danger" disabled={saving} onClick={()=>void disconnectInstagram()}>Desvincular Instagram</button>}
             </div>
-          </div>
+          </div>}
 
-          <div className="im-card im-account">
-            <div className="im-card-head"><div><span className="im-kicker">CANAL VINCULADO</span><h2>YouTube</h2><p>Cada Reel publicado no Instagram também vai para este canal como Short.</p></div><span className={"im-status "+(youtube.connected?"available":"archived")}>{youtube.requiresReconnect?"RECONEXÃO NECESSÁRIA":youtube.connected?"CONECTADO":"NÃO CONECTADO"}</span></div>
+          {isYouTube&&<div className="im-card im-account">
+            <div className="im-card-head"><div><span className="im-kicker">CANAL VINCULADO</span><h2>YouTube</h2><p>Canal vinculado somente a este perfil. Os vídeos são publicados como Shorts.</p></div><span className={"im-status "+(youtube.connected?"available":"archived")}>{youtube.requiresReconnect?"RECONEXÃO NECESSÁRIA":youtube.connected?"CONECTADO":"NÃO CONECTADO"}</span></div>
             <div className="im-account-row">
               <div>
                 <strong>{youtube.channelTitle||"Nenhum canal do YouTube conectado"}</strong>
@@ -354,12 +383,12 @@ export default function InfluencerManagerPage(){
                 <span className={"im-status "+(post.status==="published"?(post.privacy_status&&post.privacy_status!=="public"?"failed":"available"):post.status==="failed"?"failed":post.status==="canceled"?"archived":"queued")}>{post.status==="published"&&post.privacy_status&&post.privacy_status!=="public"?"Privado":YOUTUBE_POST_STATUS[post.status]||post.status}</span>
               </div>)}
             </div>}
-          </div>
+          </div>}
 
           <div className="im-card im-profile-config">
             <div className="im-card-head"><div><span className="im-kicker">CONFIGURAÇÃO DO PERFIL</span><h2>Identidade e publicação</h2><p>Configurações exclusivas deste perfil.</p></div></div>
 
-            <div className="im-config-section">
+            {!isYouTube&&<div className="im-config-section">
               <div className="im-config-section-head"><div><span className="im-kicker">IDENTIDADE</span><h3>Capa do perfil</h3><p>Capa usada nos Reels publicados por este perfil.</p></div></div>
               <div className="im-cover-upload">
                 <label>Arquivo da capa<input type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>{const f=e.target.files?.[0]||null;setCoverFile(f);setCoverPreview(f?URL.createObjectURL(f):"");}} /></label>
@@ -369,30 +398,31 @@ export default function InfluencerManagerPage(){
                 </div>
                 <small>JPG, PNG ou WEBP · até 5 MB.</small>
               </div>
-            </div>
+            </div>}
 
             <div className="im-config-section">
-              <div className="im-config-section-head"><div><span className="im-kicker">IDENTIDADE DO REEL</span><h3>Nome e descrição</h3><p>Texto usado nas publicações deste perfil.</p></div></div>
+              <div className="im-config-section-head"><div><span className="im-kicker">TEXTO DA PUBLICAÇÃO</span><h3>{isYouTube?"Título e descrição":"Nome e descrição"}</h3><p>{isYouTube?"Usados em todos os Shorts deste perfil. Em branco, cada vídeo usa o próprio texto.":"Texto usado nas publicações deste perfil."}</p></div></div>
               <div className="im-fixed-copy">
-                <label>Nome do Reel<input value={draft.fixed_publish_title} onChange={e=>setDraft(v=>({...v,fixed_publish_title:e.target.value}))} placeholder="Automático" /></label>
+                <label>{isYouTube?"Título do Short":"Nome do Reel"}<input value={draft.fixed_publish_title} maxLength={isYouTube?92:undefined} onChange={e=>setDraft(v=>({...v,fixed_publish_title:e.target.value}))} placeholder="Automático" /></label>
                 <label>Descrição<textarea rows={5} value={draft.fixed_publish_description} onChange={e=>setDraft(v=>({...v,fixed_publish_description:e.target.value}))} placeholder="Automática em chinês/japonês" /></label>
               </div>
-              <label className="im-check"><input type="checkbox" checked={draft.share_to_feed} onChange={e=>setDraft(v=>({...v,share_to_feed:e.target.checked}))}/><span>Mostrar também na Grade do Instagram</span></label>
-              <div className="im-story-settings"><label className="im-check"><input type="checkbox" checked={draft.auto_story} onChange={e=>setDraft(v=>({...v,auto_story:e.target.checked}))}/><span>Compartilhar o Reel no Story automaticamente</span></label>{draft.auto_story&&<label>Publicar Story após (minutos)<input type="number" min="0" max="1440" step="1" value={draft.story_delay_minutes} onChange={e=>setDraft(v=>({...v,story_delay_minutes:Math.min(1440,Math.max(0,Number(e.target.value)||0))}))}/><small className="im-field-help">Ex.: 30 = Reel agora e Story 30 minutos depois.</small></label>}</div>
+              {!isYouTube&&<><label className="im-check"><input type="checkbox" checked={draft.share_to_feed} onChange={e=>setDraft(v=>({...v,share_to_feed:e.target.checked}))}/><span>Mostrar também na Grade do Instagram</span></label>
+              <div className="im-story-settings"><label className="im-check"><input type="checkbox" checked={draft.auto_story} onChange={e=>setDraft(v=>({...v,auto_story:e.target.checked}))}/><span>Compartilhar o Reel no Story automaticamente</span></label>{draft.auto_story&&<label>Publicar Story após (minutos)<input type="number" min="0" max="1440" step="1" value={draft.story_delay_minutes} onChange={e=>setDraft(v=>({...v,story_delay_minutes:Math.min(1440,Math.max(0,Number(e.target.value)||0))}))}/><small className="im-field-help">Ex.: 30 = Reel agora e Story 30 minutos depois.</small></label>}</div></>}
             </div>
 
             <div className="im-config-section">
               <div className="im-config-section-head"><div><span className="im-kicker">PUBLICAÇÃO</span><h3>Regras e horários</h3><p>Frequência, horários e comportamento da fila.</p></div><span className={"im-status "+(selected.publishing_enabled?"available":"archived")}>{selected.publishing_enabled?"EXECUTANDO":"PARADA"}</span></div>
               <div className="im-settings-grid">
-                <label>Reels por dia<select className="im-form-select" value={draft.posts_per_day} onChange={e=>setDraft(v=>({...v,posts_per_day:Number(e.target.value)}))}>{[1,2,3,4,5,6,7,8,9].map(n=><option key={n}>{n}</option>)}</select></label>
+                <label>{videoUnit} por dia<select className="im-form-select" value={draft.posts_per_day} onChange={e=>setDraft(v=>({...v,posts_per_day:Number(e.target.value)}))}>{[1,2,3,4,5,6,7,8,9].map(n=><option key={n}>{n}</option>)}</select></label>
                 <label>Legenda<select className="im-form-select" value={draft.caption_mode} onChange={e=>setDraft(v=>({...v,caption_mode:e.target.value}))}><option value="zh_ja_random">Chinês + Japonês aleatório</option><option value="zh_random">Chinês</option><option value="ja_random">Japonês</option><option value="custom">Banco personalizado</option></select></label>
               </div>
               <div className="im-times"><span className="im-kicker">HORÁRIOS DIÁRIOS</span><div className="im-time-grid">{Array.from({length:draft.posts_per_day},(_,i)=><label key={i}>Post {i+1}<input type="time" value={draft.posting_times[i]||DEFAULT_TIMES[i]} onChange={e=>setDraft(v=>{const times=[...v.posting_times];while(times.length<v.posts_per_day)times.push("");times[i]=e.target.value;return {...v,posting_times:times};})}/></label>)}</div></div>
               <div className="im-publish-controls">
-                <button className="im-primary" disabled={saving||selected.publishing_enabled} onClick={()=>void togglePublishing()}>▶ Ativar publicação automática</button>
+                <button className="im-primary" disabled={saving||selected.publishing_enabled||!accountConnected} title={accountConnected?undefined:"Conecte "+(isYouTube?"o canal do YouTube":"o Instagram")+" deste perfil primeiro."} onClick={()=>void togglePublishing()}>▶ Ativar publicação automática</button>
                 <button className="im-ghost" disabled={saving||!selected.publishing_enabled} onClick={()=>void togglePublishing()}>■ Desativar publicação</button>
                 <label className="im-check im-repeat-toggle"><input type="checkbox" checked={draft.repeat_when_exhausted} onChange={e=>setDraft(v=>({...v,repeat_when_exhausted:e.target.checked}))}/><span>Repetir biblioteca quando acabar</span></label>
               </div>
+              {!accountConnected&&!selected.publishing_enabled&&<div className="im-form-note">Conecte {isYouTube?"o canal do YouTube":"o Instagram"} deste perfil para ativar a publicação automática.</div>}
               <div className="im-profile-save"><button className="im-primary" type="button" disabled={saving} onClick={()=>void saveProfile()}>{saving?"Salvando…":"Salvar alterações do perfil"}</button></div>
             </div>
           </div>
@@ -428,7 +458,7 @@ export default function InfluencerManagerPage(){
             <div className="im-form-note">Vincular uma biblioteca não move, duplica ou compartilha vídeos.</div>
           </div>
 
-          <div className="im-card im-analytics-card im-analytics-modern">
+          {!isYouTube&&<div className="im-card im-analytics-card im-analytics-modern">
             <div className="im-card-head im-analytics-heading">
               <div><span className="im-kicker">ANALYTICS / INSTAGRAM</span><h2>Desempenho dos Reels</h2><p>Métricas reais das publicações, organizadas por tipo de conteúdo.</p></div>
               <button className="im-primary im-analytics-refresh" type="button" disabled={!selected||analyticsLoading||!instagramConnected} onClick={()=>selected&&void loadAnalytics(selected.id,true)}>{analyticsLoading?"Sincronizando…":"↻ Atualizar métricas"}</button>
@@ -473,7 +503,7 @@ export default function InfluencerManagerPage(){
               </div>
               <div className="im-analytics-footnote">Todos os Reels publicados são listados por tipo de conteúdo. Traços indicam publicações sem métricas disponíveis; os totais somam somente os Insights coletados.</div>
             </>}
-          </div>
+          </div>}
         </>}
       </section>
     </section>
@@ -516,7 +546,7 @@ export default function InfluencerManagerPage(){
     {showProfiles&&<div className="im-modal-backdrop" role="dialog" aria-modal="true">
       <div className="im-modal im-profiles-modal-card">
         <div className="im-card-head"><div><span className="im-kicker">SEUS PERFIS</span><h2>Escolha um perfil</h2><p>Selecione o perfil que você quer configurar.</p></div><button className="im-ghost" onClick={()=>setShowProfiles(false)}>Fechar</button></div>
-        {profiles.length===0?<div className="im-empty">Nenhum perfil cadastrado.</div>:<div className="im-profile-modal-list">{profiles.map(p=><button key={p.id} className={"im-profile "+(selected?.id===p.id?"active":"")} onClick={()=>{setSelected(p);setShowProfiles(false)}}><span className="im-avatar">{p.name.slice(0,1).toUpperCase()}</span><span><strong>{p.name}</strong><small>{p.instagram_username?"@"+p.instagram_username:"Instagram não conectado"}</small></span></button>)}</div>}
+        {profiles.length===0?<div className="im-empty">Nenhum perfil cadastrado.</div>:<div className="im-profile-modal-list">{profiles.map(p=><button key={p.id} className={"im-profile "+(selected?.id===p.id?"active":"")} onClick={()=>{setSelected(p);setShowProfiles(false)}}><span className="im-avatar">{p.name.slice(0,1).toUpperCase()}</span><span><strong>{p.name}</strong><small>{platformOf(p)==="youtube"?"YouTube · "+(p.youtube_channel_title||"canal não conectado"):"Instagram · "+(p.instagram_username?"@"+p.instagram_username:"conta não conectada")}</small></span></button>)}</div>}
         <button className="im-primary im-modal-new-profile" onClick={()=>{setShowProfiles(false);setShowNew(true)}}>+ Novo perfil</button>
       </div>
     </div>}
