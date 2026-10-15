@@ -182,119 +182,6 @@ async function publishStoryOne(admin: ReturnType<typeof createAdminClient>, stor
 }
 
 
-const YOUTUBE_MAX_ATTEMPTS = 3;
-// Quantos envios por chamada do agendador: cada upload leva de segundos a
-// poucos minutos e a função tem limite de 300 s, dividido com o Instagram.
-const YOUTUBE_BATCH = 2;
-
-function youtubeRetryAt(kind: string, attempts: number) {
-  // Cota da API do YouTube volta à meia-noite do horário do Pacífico; tentar de novo
-  // em poucas horas evita queimar tentativas enquanto ela está esgotada.
-  const minutes = kind === "quota" ? 6 * 60 : [15, 60, 180][Math.min(2, Math.max(0, attempts - 1))];
-  return new Date(Date.now() + minutes * 60 * 1000).toISOString();
-}
-
-async function publishYouTubeOne(admin: ReturnType<typeof createAdminClient>, postId: string, attempts: number) {
-  const { data: post } = await admin.from("influencer_youtube_posts")
-    .select("id,profile_id,user_id,item_id,title,status")
-    .eq("id", postId).maybeSingle();
-  if (!post || post.status !== "processing") return { status: "skipped" };
-
-  const fail = async (message: string, status: "failed" | "scheduled", retryAt?: string) => {
-    await admin.from("influencer_youtube_posts").update({
-      status, error_message: message.slice(0, 1000),
-      ...(retryAt ? { scheduled_at: retryAt } : {}),
-      updated_at: new Date().toISOString(),
-    }).eq("id", postId).eq("status", "processing");
-    return { status: status === "failed" ? "error" : "retry", error: message };
-  };
-
-  const { data: connection } = await admin.from("influencer_youtube_connections")
-    .select("refresh_token_encrypted,requires_reconnect").eq("profile_id", post.profile_id).eq("user_id", post.user_id).maybeSingle();
-  if (!connection || connection.requires_reconnect) return fail("Reconecte o canal do YouTube deste perfil para enviar o Short.", "failed");
-
-  const refreshToken = decryptYouTubeRefreshToken(connection.refresh_token_encrypted);
-  if (!refreshToken) {
-    await admin.from("influencer_youtube_connections").update({ requires_reconnect: true, last_error: "Não foi possível ler a autorização salva.", updated_at: new Date().toISOString() })
-      .eq("profile_id", post.profile_id).eq("user_id", post.user_id);
-    return fail("Não foi possível ler a conexão do YouTube. Reconecte o canal.", "failed");
-  }
-
-  const [{ data: item }, { data: profile }] = await Promise.all([
-    admin.from("influencer_content_items").select("r2_key,publish_title,publish_description").eq("id", post.item_id).eq("user_id", post.user_id).maybeSingle(),
-    admin.from("influencer_profiles").select("fixed_publish_title,fixed_publish_description").eq("id", post.profile_id).eq("user_id", post.user_id).maybeSingle(),
-  ]);
-  const publicUrl = (process.env.R2_PUBLIC_URL || "").replace(/\/$/, "");
-  if (!item?.r2_key || !publicUrl) return fail("O vídeo não possui uma URL pública no R2.", "failed");
-
-  const rawTitle = String(profile?.fixed_publish_title || "").trim() || String(item.publish_title || "").trim();
-  const rawDescription = String(profile?.fixed_publish_description || "").trim() || String(item.publish_description || "").trim();
-  const title = post.title || buildShortTitle(rawTitle);
-
-  try {
-    const accessToken = await getYouTubeAccessToken(refreshToken);
-    const result = await uploadShort({
-      accessToken,
-      videoUrl: `${publicUrl}/${item.r2_key}`,
-      title,
-      description: buildShortDescription(rawDescription),
-    });
-    // Projetos Google não auditados têm uploads forçados a "privado" pelo YouTube.
-    const lockedPrivate = result.privacyStatus && result.privacyStatus !== "public";
-    await admin.from("influencer_youtube_posts").update({
-      status: "published",
-      youtube_video_id: result.videoId,
-      privacy_status: result.privacyStatus || null,
-      title,
-      published_at: new Date().toISOString(),
-      error_message: lockedPrivate
-        ? "Enviado, mas o YouTube manteve o vídeo como privado. Isso acontece quando o projeto do Google Cloud ainda não passou pela auditoria da API do YouTube."
-        : null,
-      updated_at: new Date().toISOString(),
-    }).eq("id", postId).eq("status", "processing");
-    return { status: "published", videoId: result.videoId, privacyStatus: result.privacyStatus };
-  } catch (error) {
-    const err = error instanceof YouTubeError ? error : new YouTubeError(error instanceof Error ? error.message : "Falha no envio ao YouTube.", "retryable");
-    if (err.kind === "auth") {
-      await admin.from("influencer_youtube_connections").update({ requires_reconnect: true, last_error: err.message.slice(0, 1000), updated_at: new Date().toISOString() })
-        .eq("profile_id", post.profile_id).eq("user_id", post.user_id);
-      return fail(err.message, "failed");
-    }
-    if (err.kind === "fatal" || attempts >= YOUTUBE_MAX_ATTEMPTS) return fail(err.message, "failed");
-    return fail(err.message, "scheduled", youtubeRetryAt(err.kind, attempts));
-  }
-}
-
-async function processDueYouTube(admin: ReturnType<typeof createAdminClient>) {
-  const results: Array<{ youtubePostId: string; status: string; error?: string }> = [];
-  const now = new Date();
-
-  // Envios que ficaram presos em "processing" (função interrompida) voltam para a fila.
-  await admin.from("influencer_youtube_posts")
-    .update({ status: "scheduled", updated_at: now.toISOString() })
-    .eq("status", "processing")
-    .lt("updated_at", new Date(now.getTime() - 20 * 60 * 1000).toISOString());
-
-  const { data: due } = await admin.from("influencer_youtube_posts")
-    .select("id,attempts")
-    .eq("status", "scheduled")
-    .lte("scheduled_at", now.toISOString())
-    .order("scheduled_at", { ascending: true })
-    .limit(YOUTUBE_BATCH);
-
-  for (const post of due || []) {
-    const attempts = (Number(post.attempts) || 0) + 1;
-    const { data: claimed } = await admin.from("influencer_youtube_posts")
-      .update({ status: "processing", attempts, updated_at: new Date().toISOString() })
-      .eq("id", post.id).eq("status", "scheduled")
-      .select("id").maybeSingle();
-    if (!claimed) continue;
-    const result = await publishYouTubeOne(admin, post.id, attempts);
-    results.push({ youtubePostId: post.id, ...result });
-  }
-  return results;
-}
-
 async function processDueStories(admin: ReturnType<typeof createAdminClient>) {
   const results: Array<{ storyId: string; status: string; error?: string }> = [];
   const now = new Date();
@@ -325,9 +212,10 @@ async function processDueStories(admin: ReturnType<typeof createAdminClient>) {
 
 async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId: string, userId: string, itemId?: string) {
   const { data: profile } = await admin.from("influencer_profiles")
-    .select("id,user_id,posting_times,posts_per_day,next_publish_at,publishing_enabled,repeat_when_exhausted,cover_r2_key,share_to_feed,fixed_publish_title,fixed_publish_description,caption_mode,auto_story,story_delay_minutes")
+    .select("id,user_id,platform,posting_times,posts_per_day,next_publish_at,publishing_enabled,repeat_when_exhausted,cover_r2_key,share_to_feed,fixed_publish_title,fixed_publish_description,caption_mode,auto_story,story_delay_minutes")
     .eq("id",profileId).eq("user_id",userId).maybeSingle();
   if (!profile || (!itemId && !profile.publishing_enabled)) return { status:"stopped" };
+  const isYouTube = (profile as any).platform === "youtube";
 
   let item: any = null;
   let profileContent: any = null;
@@ -446,33 +334,48 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
     return { status:"empty" };
   }
 
-  const { data: connection } = await admin.from("influencer_instagram_connections")
-     .select("access_token_encrypted,expires_at,requires_reconnect,last_refresh_error").eq("profile_id",profileId).eq("user_id",userId).maybeSingle();
-  if (!connection) return { status:"error", error:"Conecte o Instagram deste perfil antes de executar a publicação.", tokenNeedsReconnect:true };
-  if (connection.requires_reconnect) return { status:"error", error:"A conexão do Instagram precisa ser reconectada para continuar as publicações.", tokenNeedsReconnect:true };
+  // Cada perfil publica em uma única rede. Conexão e credenciais dependem dela.
+  let accessToken = "";
+  let youtubeRefreshToken = "";
+  if (isYouTube) {
+    const { data: ytConnection } = await admin.from("influencer_youtube_connections")
+      .select("refresh_token_encrypted,requires_reconnect").eq("profile_id",profileId).eq("user_id",userId).maybeSingle();
+    if (!ytConnection) return { status:"error", error:"Conecte o canal do YouTube deste perfil antes de executar a publicação.", tokenNeedsReconnect:true, retryable:false };
+    if (ytConnection.requires_reconnect) return { status:"error", error:"O canal do YouTube precisa ser reconectado para continuar as publicações.", tokenNeedsReconnect:true, retryable:false };
+    youtubeRefreshToken = decryptYouTubeRefreshToken(ytConnection.refresh_token_encrypted) || "";
+    if (!youtubeRefreshToken) {
+      await admin.from("influencer_youtube_connections").update({requires_reconnect:true,last_error:"Não foi possível ler a autorização salva.",updated_at:new Date().toISOString()}).eq("profile_id",profileId).eq("user_id",userId);
+      return { status:"error", error:"Não foi possível ler a conexão do YouTube. Reconecte o canal.", tokenNeedsReconnect:true, retryable:false };
+    }
+  } else {
+    const { data: connection } = await admin.from("influencer_instagram_connections")
+       .select("access_token_encrypted,expires_at,requires_reconnect,last_refresh_error").eq("profile_id",profileId).eq("user_id",userId).maybeSingle();
+    if (!connection) return { status:"error", error:"Conecte o Instagram deste perfil antes de executar a publicação.", tokenNeedsReconnect:true };
+    if (connection.requires_reconnect) return { status:"error", error:"A conexão do Instagram precisa ser reconectada para continuar as publicações.", tokenNeedsReconnect:true };
 
-  let accessToken = decryptInstagramAccessToken(connection.access_token_encrypted);
-  if (!accessToken) {
-    await admin.from("influencer_instagram_connections").update({requires_reconnect:true,last_refresh_error:"Não foi possível descriptografar o token.",updated_at:new Date().toISOString()}).eq("profile_id",profileId).eq("user_id",userId);
-    return { status:"error", error:"Não foi possível ler a conexão do Instagram. Conecte novamente.", tokenNeedsReconnect:true };
-  }
+    accessToken = decryptInstagramAccessToken(connection.access_token_encrypted) || "";
+    if (!accessToken) {
+      await admin.from("influencer_instagram_connections").update({requires_reconnect:true,last_refresh_error:"Não foi possível descriptografar o token.",updated_at:new Date().toISOString()}).eq("profile_id",profileId).eq("user_id",userId);
+      return { status:"error", error:"Não foi possível ler a conexão do Instagram. Conecte novamente.", tokenNeedsReconnect:true };
+    }
 
-  if (connection.expires_at && Date.parse(connection.expires_at) < Date.now()+7*24*60*60*1000) {
-    try {
-      const refreshed = await refreshInstagramLongLivedToken(accessToken);
-      accessToken = refreshed.accessToken;
-      await admin.from("influencer_instagram_connections").update({
-        access_token_encrypted:encryptInstagramAccessToken(accessToken),
-        expires_at: refreshed.expiresIn > 0 ? new Date(Date.now()+refreshed.expiresIn*1000).toISOString() : connection.expires_at,
-        requires_reconnect:false,
-        last_refresh_error:null,
-        updated_at:new Date().toISOString()
-      }).eq("profile_id",profileId).eq("user_id",userId);
-    } catch(error) {
-      const message=error instanceof Error?error.message:"Não foi possível renovar o token do Instagram.";
-      await admin.from("influencer_instagram_connections").update({requires_reconnect:true,last_refresh_error:message.slice(0,1000),updated_at:new Date().toISOString()}).eq("profile_id",profileId).eq("user_id",userId);
-      await admin.from("influencer_profiles").update({publishing_enabled:false,updated_at:new Date().toISOString()}).eq("id",profileId).eq("user_id",userId);
-      return { status:"error", error:"A conexão do Instagram expirou ou não pode mais ser renovada. Reconecte o Instagram deste perfil.", tokenNeedsReconnect:true };
+    if (connection.expires_at && Date.parse(connection.expires_at) < Date.now()+7*24*60*60*1000) {
+      try {
+        const refreshed = await refreshInstagramLongLivedToken(accessToken);
+        accessToken = refreshed.accessToken;
+        await admin.from("influencer_instagram_connections").update({
+          access_token_encrypted:encryptInstagramAccessToken(accessToken),
+          expires_at: refreshed.expiresIn > 0 ? new Date(Date.now()+refreshed.expiresIn*1000).toISOString() : connection.expires_at,
+          requires_reconnect:false,
+          last_refresh_error:null,
+          updated_at:new Date().toISOString()
+        }).eq("profile_id",profileId).eq("user_id",userId);
+      } catch(error) {
+        const message=error instanceof Error?error.message:"Não foi possível renovar o token do Instagram.";
+        await admin.from("influencer_instagram_connections").update({requires_reconnect:true,last_refresh_error:message.slice(0,1000),updated_at:new Date().toISOString()}).eq("profile_id",profileId).eq("user_id",userId);
+        await admin.from("influencer_profiles").update({publishing_enabled:false,updated_at:new Date().toISOString()}).eq("id",profileId).eq("user_id",userId);
+        return { status:"error", error:"A conexão do Instagram expirou ou não pode mais ser renovada. Reconecte o Instagram deste perfil.", tokenNeedsReconnect:true };
+      }
     }
   }
 
@@ -482,7 +385,7 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
 
   const mediaCheck = await fetch(videoUrl,{method:"HEAD",cache:"no-store"});
   if (!mediaCheck.ok || !(mediaCheck.headers.get("content-type")||"").toLowerCase().startsWith("video/")) {
-    return { status:"error", error:"O Reel processado não está acessível no R2." };
+    return { status:"error", error:isYouTube ? "O vídeo processado não está acessível no R2." : "O Reel processado não está acessível no R2." };
   }
 
   const originalStatus=profileContent?.status || "available";
@@ -508,6 +411,36 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
       fixedTitle || String(item.publish_title || "").trim(),
       fixedDescription || String(item.publish_description || "").trim()
     ].filter(Boolean);
+
+    if (isYouTube) {
+      const title = buildShortTitle(fixedTitle || String(item.publish_title || "").trim());
+      const youtubeAccessToken = await getYouTubeAccessToken(youtubeRefreshToken);
+      const upload = await uploadShort({
+        accessToken: youtubeAccessToken,
+        videoUrl,
+        title,
+        description: buildShortDescription(fixedDescription || String(item.publish_description || "").trim()),
+      });
+      // Projetos Google não auditados têm uploads forçados a "privado" pelo YouTube.
+      const lockedPrivate = Boolean(upload.privacyStatus && upload.privacyStatus !== "public");
+      const next=nextSlot((profile.posting_times||[]) as string[],new Date(),Number(profile.posts_per_day)||3);
+      const publishedAt=new Date().toISOString();
+      await admin.from("influencer_profile_content").update({
+        status:"published",published_at:publishedAt,scheduled_at:null,error_message:null,retry_count:0,youtube_video_id:upload.videoId,updated_at:publishedAt
+      }).eq("id",profileContent.id).eq("user_id",userId);
+      await admin.from("influencer_profiles").update({next_publish_at:next.toISOString(),updated_at:publishedAt}).eq("id",profileId).eq("user_id",userId);
+      const { error: historyError } = await admin.from("influencer_youtube_posts").insert({
+        profile_id: profileId, user_id: userId, item_id: item.id, profile_content_id: profileContent.id,
+        youtube_video_id: upload.videoId, privacy_status: upload.privacyStatus || null, title,
+        status: "published", scheduled_at: claimTime, published_at: publishedAt, attempts: 1,
+        error_message: lockedPrivate
+          ? "Enviado, mas o YouTube manteve o vídeo como privado. Isso acontece quando o projeto do Google Cloud ainda não passou pela auditoria da API do YouTube."
+          : null,
+      });
+      if (historyError) console.error("Failed to record Influencer YouTube history:", historyError.message);
+      return { status:"published", itemId:item.id, videoId:upload.videoId, privacyStatus:upload.privacyStatus, nextPublishAt:next.toISOString() };
+    }
+
     const caption = captionParts.join("\n\n") || "✨";
     let coverUrl = "";
     if (profile.cover_r2_key) {
@@ -544,27 +477,6 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
     }).eq("id",profileContent.id).eq("user_id",userId);
     await admin.from("influencer_profiles").update({next_publish_at:next.toISOString(),updated_at:new Date().toISOString()}).eq("id",profileId).eq("user_id",userId);
 
-    // Mesmo vídeo, mesmo horário: se o perfil tem um canal do YouTube, o Reel
-    // entra na fila e é enviado como Short pelo próximo ciclo do agendador.
-    let youtubeQueued = false;
-    const { data: youtubeConnection } = await admin.from("influencer_youtube_connections")
-      .select("id,requires_reconnect").eq("profile_id",profileId).eq("user_id",userId).maybeSingle();
-    if (youtubeConnection && !youtubeConnection.requires_reconnect) {
-      const { error: youtubeQueueError } = await admin.from("influencer_youtube_posts").insert({
-        profile_id: profileId,
-        user_id: userId,
-        item_id: item.id,
-        profile_content_id: profileContent.id,
-        reel_media_id: String(publishData.id),
-        title: buildShortTitle(captionParts[0] || ""),
-        status: "scheduled",
-        scheduled_at: new Date().toISOString(),
-        attempts: 0
-      });
-      if (youtubeQueueError) console.error("Failed to queue Influencer YouTube Short:", youtubeQueueError.message);
-      else youtubeQueued = true;
-    }
-
     let storyScheduled = false;
     let storyScheduledAt: string | null = null;
     if ((profile as any).auto_story === true) {
@@ -595,11 +507,34 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
       mediaId:String(publishData.id),
       nextPublishAt:next.toISOString(),
       storyScheduled,
-      storyScheduledAt,
-      youtubeQueued
+      storyScheduledAt
     };
   } catch(error) {
     const message=error instanceof Error?error.message:"Falha na publicação.";
+    if (isYouTube) {
+      const kind = error instanceof YouTubeError ? error.kind : "retryable";
+      if (kind === "auth") {
+        await admin.from("influencer_youtube_connections").update({requires_reconnect:true,last_error:message.slice(0,1000),updated_at:new Date().toISOString()}).eq("profile_id",profileId).eq("user_id",userId);
+        await admin.from("influencer_profiles").update({publishing_enabled:false,updated_at:new Date().toISOString()}).eq("id",profileId).eq("user_id",userId);
+      }
+      if (kind === "quota") {
+        // Cota esgotada não é culpa do vídeo: devolve à fila sem gastar tentativas
+        // e só tenta de novo depois de algumas horas.
+        await admin.from("influencer_profile_content").update({
+          status: repeatWhenExhausted && originalStatus === "published" ? "published" : "available",
+          scheduled_at:null,error_message:message.slice(0,1000),updated_at:new Date().toISOString()
+        }).eq("id",profileContent.id).eq("user_id",userId);
+        return {status:"error",error:message,retryable:true,retryAfterMinutes:360,retryCount:Number(profileContent?.retry_count)||0,exhausted:false};
+      }
+      const retryable = kind === "retryable";
+      const nextRetryCount=(Number(profileContent?.retry_count)||0)+1;
+      const exhausted=!retryable || nextRetryCount>=3;
+      await admin.from("influencer_profile_content").update({
+        status:exhausted ? "failed" : (repeatWhenExhausted && originalStatus === "published" ? "published" : "available"),
+        scheduled_at:null,error_message:message.slice(0,1000),retry_count:nextRetryCount,updated_at:new Date().toISOString()
+      }).eq("id",profileContent.id).eq("user_id",userId);
+      return {status:"error",error:message,retryable:kind!=="auth" && retryable,retryCount:nextRetryCount,exhausted};
+    }
     const tokenInvalid=/(invalid.*access token|access token.*invalid|oauth|token.*expired|session.*expired|(#190)|error code.*190)/i.test(message);
     if (tokenInvalid) {
       await admin.from("influencer_instagram_connections").update({requires_reconnect:true,last_refresh_error:message.slice(0,1000),updated_at:new Date().toISOString()}).eq("profile_id",profileId).eq("user_id",userId);
@@ -689,8 +624,9 @@ export async function POST(request:Request) {
         const nextRetryCount=retryCount+1;
         const retryable=(result as any).retryable!==false;
         const exhausted=(result as any).exhausted===true || nextRetryCount>=3;
+        const retryAfterMinutes=Number((result as any).retryAfterMinutes)||0;
         const next=retryable && !exhausted
-          ? new Date(Date.now()+retryDelayMinutes(nextRetryCount)*60*1000)
+          ? new Date(Date.now()+(retryAfterMinutes||retryDelayMinutes(nextRetryCount))*60*1000)
           : nextSlot((retryProfile as any)?.posting_times||[],new Date(),Number((retryProfile as any)?.posts_per_day)||3);
         await admin.from("influencer_profiles").update({
           next_publish_at:next.toISOString(),
@@ -708,16 +644,13 @@ export async function POST(request:Request) {
 
     const storyResults = await processDueStories(admin);
     results.push(...storyResults);
-    const youtubeResults = await processDueYouTube(admin);
-    results.push(...youtubeResults);
 
     return NextResponse.json({ok:true,results},{headers:{"Cache-Control":"no-store"}});
   }
 
   if(action==="process-stories"){
     if(!isScheduler) return NextResponse.json({error:"Não autorizado."},{status:401});
-    const results: Array<Record<string, unknown>> = await processDueStories(admin);
-    results.push(...await processDueYouTube(admin));
+    const results = await processDueStories(admin);
     return NextResponse.json({ok:true,processed:results.length,results},{headers:{"Cache-Control":"no-store"}});
   }
 
@@ -734,6 +667,15 @@ export async function POST(request:Request) {
     if(result.status==="busy") return NextResponse.json({ok:false,...result},{status:409});
     if(result.status!=="published") return NextResponse.json({ok:false,error:"Este Reel não está disponível para publicação."},{status:409});
     return NextResponse.json({ok:true,...result});
+  }
+
+  if(action==="enable-auto" || action==="start"){
+    const {data:platformProfile}=await admin.from("influencer_profiles").select("platform").eq("id",profileId).eq("user_id",userId).single();
+    const table=platformProfile?.platform==="youtube" ? "influencer_youtube_connections" : "influencer_instagram_connections";
+    const {data:conn}=await admin.from(table).select("requires_reconnect").eq("profile_id",profileId).eq("user_id",userId).maybeSingle();
+    const networkName=platformProfile?.platform==="youtube" ? "o canal do YouTube" : "o Instagram";
+    if(!conn) return NextResponse.json({ok:false,error:`Conecte ${networkName} deste perfil antes de ativar a publicação automática.`},{status:409});
+    if(conn.requires_reconnect) return NextResponse.json({ok:false,error:`Reconecte ${networkName} deste perfil antes de ativar a publicação automática.`},{status:409});
   }
 
   if(action==="enable-auto"){
