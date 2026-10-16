@@ -73,7 +73,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -101,7 +101,7 @@ jobs:
           echo "YOUTUBE_COOKIE_FILE=$COOKIE_FILE" >> "$GITHUB_ENV"
 
       - name: Cache Deno runtime
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.deno
@@ -151,7 +151,7 @@ jobs:
           pgrep -af "bgutil|src/main.ts" || true
 
       - name: Cache AI models
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cache/huggingface
@@ -168,7 +168,7 @@ jobs:
           cache-dependency-path: worker/requirements.txt
 
       - name: Cache Python environment
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .venv
           key: clip-factory-venv-${{ runner.os }}-py311-${{ hashFiles('worker/requirements.txt') }}-yt2026.8.19-bgutil2.0.0-v1
