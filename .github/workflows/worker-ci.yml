@@ -1,0 +1,47 @@
+name: Clip Factory Worker CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "worker/**"
+      - ".github/workflows/worker-ci.yml"
+  # Sempre roda em PRs: o check "worker" é obrigatório para fazer merge na main.
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: clip-factory-worker-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  worker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: worker
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+
+      # Só as dependências do servidor HTTP: os testes cobrem autenticação,
+      # arquivos servidos e validação de URLs, sem precisar de Whisper/PyTorch.
+      - name: Install test dependencies
+        run: python -m pip install pytest requests python-dotenv
+
+      - name: Check syntax
+        run: python -m compileall -q .
+
+      - name: Security tests
+        run: python -m pytest -q tests
