@@ -431,9 +431,12 @@ async function publishOne(admin: ReturnType<typeof createAdminClient>, profileId
   try {
     const fixedTitle = String(profile.fixed_publish_title || "").trim();
     const fixedDescription = String(profile.fixed_publish_description || "").trim();
+    // Sem texto fixo no perfil e sem texto automático salvo no vídeo, gera o
+    // texto automático (chinês/japonês) na hora, conforme o idioma do perfil.
+    const fallbackCopy = destinationCopy(String((profile as any).caption_mode || "zh_ja_random"), String(item.id));
     const captionParts = [
-      fixedTitle || String(item.publish_title || "").trim(),
-      fixedDescription || String(item.publish_description || "").trim()
+      fixedTitle || String(item.publish_title || "").trim() || fallbackCopy.title,
+      fixedDescription || String(item.publish_description || "").trim() || fallbackCopy.description
     ].filter(Boolean);
 
     if (isYouTube) {

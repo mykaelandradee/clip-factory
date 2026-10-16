@@ -16,15 +16,9 @@ export async function GET(request: Request) {
   if (!profileId) return NextResponse.json({ error: "Perfil inválido." }, { status: 400, headers: noStore });
 
   const admin = createAdminClient();
-  const [{ data, error }, { data: posts }] = await Promise.all([
-    admin.from("influencer_youtube_connections")
-      .select("channel_id,channel_title,channel_handle,requires_reconnect,last_error")
-      .eq("profile_id", profileId).eq("user_id", user.id).maybeSingle(),
-    admin.from("influencer_youtube_posts")
-      .select("id,title,status,youtube_video_id,privacy_status,error_message,scheduled_at,published_at,created_at")
-      .eq("profile_id", profileId).eq("user_id", user.id)
-      .order("created_at", { ascending: false }).limit(5),
-  ]);
+  const { data, error } = await admin.from("influencer_youtube_connections")
+    .select("channel_id,channel_title,channel_handle,requires_reconnect,last_error")
+    .eq("profile_id", profileId).eq("user_id", user.id).maybeSingle();
   if (error) return NextResponse.json({ error: "Não foi possível consultar o canal do YouTube deste perfil." }, { status: 500, headers: noStore });
 
   return NextResponse.json({
@@ -34,7 +28,6 @@ export async function GET(request: Request) {
     channelTitle: data?.channel_title ?? null,
     channelHandle: data?.channel_handle ?? null,
     lastError: data?.last_error ?? null,
-    recentPosts: posts || [],
   }, { headers: noStore });
 }
 
