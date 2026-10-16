@@ -178,3 +178,30 @@ export async function uploadShort(params: { accessToken: string; videoUrl: strin
   if (!data?.id) throw new YouTubeError("O YouTube não confirmou o envio do vídeo.", "retryable");
   return { videoId: String(data.id), privacyStatus: String(data?.status?.privacyStatus || "") };
 }
+
+export type YouTubeVideoStats = { views: number | null; likes: number | null; comments: number | null };
+
+/**
+ * Estatísticas públicas dos vídeos (visualizações, curtidas, comentários).
+ * Consulta em lotes de 50 IDs — cada lote custa 1 unidade da cota da API.
+ * Curtidas podem vir ocultas pelo dono do canal; nesse caso o valor é null.
+ */
+export async function getVideoStatistics(accessToken: string, videoIds: string[]) {
+  const stats = new Map<string, YouTubeVideoStats>();
+  const unique = [...new Set(videoIds.filter((id) => /^[A-Za-z0-9_-]{6,20}$/.test(id)))];
+  for (let i = 0; i < unique.length; i += 50) {
+    const batch = unique.slice(i, i + 50);
+    const response = await fetch(`${API}/videos?part=statistics&id=${batch.map(encodeURIComponent).join(",")}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: "no-store",
+    });
+    if (!response.ok) throw await readError(response);
+    const data = await response.json();
+    for (const video of data?.items || []) {
+      const s = video?.statistics || {};
+      const num = (value: unknown) => (value === undefined || value === null || Number.isNaN(Number(value)) ? null : Number(value));
+      stats.set(String(video.id), { views: num(s.viewCount), likes: num(s.likeCount), comments: num(s.commentCount) });
+    }
+  }
+  return stats;
+}
