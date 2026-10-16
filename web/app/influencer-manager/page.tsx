@@ -23,10 +23,9 @@ type Item={
   published_at?:string|null; result_url?:string|null; error_message?:string|null;
 };
 type AnalyticsMetric={id:string;item_id:string;instagram_media_id:string;title:string;category:string;fetched_at:string;views:number|null;reach:number|null;likes:number|null;comments:number|null;shares:number|null;saves:number|null;follows:number|null;profile_visits:number|null};
-type PublishedReel={id:string;item_id:string;instagram_media_id:string|null;title:string;category:string;published_at:string|null;hasMetrics:boolean;fetched_at:string|null;views:number|null;reach:number|null;likes:number|null;comments:number|null;shares:number|null;saves:number|null;follows:number|null};
-type YouTubePost={id:string;title:string|null;status:string;youtube_video_id:string|null;privacy_status:string|null;error_message:string|null;scheduled_at:string|null;published_at:string|null;created_at:string};
-type YouTubeState={connected:boolean;requiresReconnect:boolean;channelTitle:string;channelHandle:string;lastError:string;recentPosts:YouTubePost[]};
-const EMPTY_YOUTUBE:YouTubeState={connected:false,requiresReconnect:false,channelTitle:"",channelHandle:"",lastError:"",recentPosts:[]};
+type PublishedReel={id:string;item_id:string;instagram_media_id?:string|null;youtube_video_id?:string|null;title:string;category:string;published_at:string|null;hasMetrics:boolean;fetched_at:string|null;views:number|null;reach:number|null;likes:number|null;comments:number|null;shares:number|null;saves:number|null;follows:number|null};
+type YouTubeState={connected:boolean;requiresReconnect:boolean;channelTitle:string;channelHandle:string;lastError:string};
+const EMPTY_YOUTUBE:YouTubeState={connected:false,requiresReconnect:false,channelTitle:"",channelHandle:"",lastError:""};
 const YOUTUBE_ERRORS:Record<string,string>={
   canceled:"A autorização do YouTube foi cancelada.",
   invalid_callback:"A autorização do YouTube expirou. Tente conectar de novo.",
@@ -103,7 +102,7 @@ export default function InfluencerManagerPage(){
       setYoutube({
         connected:Boolean(d.connected),requiresReconnect:Boolean(d.requiresReconnect),
         channelTitle:typeof d.channelTitle==="string"?d.channelTitle:"",channelHandle:typeof d.channelHandle==="string"?d.channelHandle:"",
-        lastError:typeof d.lastError==="string"?d.lastError:"",recentPosts:Array.isArray(d.recentPosts)?d.recentPosts:[],
+        lastError:typeof d.lastError==="string"?d.lastError:"",
       });
     }catch{setYoutube(EMPTY_YOUTUBE);}
   }
@@ -129,7 +128,8 @@ export default function InfluencerManagerPage(){
     const requestId=++analyticsRequestRef.current;
     setAnalyticsLoading(true);setAnalyticsMessage("");
     try{
-      const r=await fetch("/api/influencer/analytics?profileId="+encodeURIComponent(profileId)+(sync?"&sync=true":""),{cache:"no-store"});
+      const endpoint=platformOf(selected)==="youtube"?"/api/influencer/youtube/analytics":"/api/influencer/analytics";
+      const r=await fetch(endpoint+"?profileId="+encodeURIComponent(profileId)+(sync?"&sync=true":""),{cache:"no-store"});
       const d=await r.json().catch(()=>({}));
       if(requestId!==analyticsRequestRef.current)return;
       if(!r.ok)throw new Error(d.error||"Não foi possível carregar as métricas.");
@@ -181,7 +181,8 @@ export default function InfluencerManagerPage(){
     setCoverFile(null);setCoverPreview("");
     setInstagramConnected(false);setInstagramReconnect(false);setInstagramAccount("");setInstagramExpiresAt(null);setYoutube(EMPTY_YOUTUBE);
     if(platformOf(selected)==="youtube")void loadYouTube(selected.id);
-    else{void loadInstagram(selected.id);void loadAnalytics(selected.id);}
+    else void loadInstagram(selected.id);
+    void loadAnalytics(selected.id);
     void loadLibraries();void loadItems(selected.id);
   },[selected?.id,selected?.cover_r2_key]);
 
@@ -477,52 +478,60 @@ export default function InfluencerManagerPage(){
             <div className="im-form-note">Vincular uma biblioteca não move, duplica ou compartilha vídeos.</div>
           </div>
 
-          {!isYouTube&&<div className="im-card im-analytics-card im-analytics-modern">
+          <div className="im-card im-analytics-card im-analytics-modern">
             <div className="im-card-head im-analytics-heading">
-              <div><span className="im-kicker">ANALYTICS / INSTAGRAM</span><h2>Desempenho dos Reels</h2><p>Métricas reais das publicações, organizadas por tipo de conteúdo.</p></div>
-              <button className="im-primary im-analytics-refresh" type="button" disabled={!selected||analyticsLoading||!instagramConnected} onClick={()=>selected&&void loadAnalytics(selected.id,true)}>{analyticsLoading?"Sincronizando…":"↻ Atualizar métricas"}</button>
+              <div><span className="im-kicker">ANALYTICS / {PLATFORM_LABEL[platform].toUpperCase()}</span><h2>Desempenho dos {videoUnit}</h2><p>Métricas reais das publicações, organizadas por tipo de conteúdo.</p></div>
+              <button className="im-primary im-analytics-refresh" type="button" disabled={!selected||analyticsLoading||!accountConnected} onClick={()=>selected&&void loadAnalytics(selected.id,true)}>{analyticsLoading?"Sincronizando…":"↻ Atualizar métricas"}</button>
             </div>
             {analyticsMessage&&<div className="im-analytics-diagnostics"><span className="im-analytics-pulse"/><span>{analyticsMessage}</span></div>}
-            {!analytics.metrics.length?<div className="im-empty"><strong>Nenhuma métrica coletada ainda.</strong><span>Conecte o Instagram e sincronize os Insights das publicações.</span></div>:
+            {!analytics.metrics.length?<div className="im-empty"><strong>Nenhuma métrica coletada ainda.</strong><span>{isYouTube?"As métricas aparecem aqui depois do primeiro Short publicado por este perfil.":"Conecte o Instagram e sincronize os Insights das publicações."}</span></div>:
             <>
               <div className="im-analytics-coverage">
-                <div><span>REELS PUBLICADOS</span><strong>{analytics.publishedSummary.total.toLocaleString("pt-BR")}</strong></div>
-                <div><span>COM ID DO INSTAGRAM</span><strong>{analytics.publishedSummary.withInstagramId.toLocaleString("pt-BR")}</strong></div>
+                <div><span>{videoUnit.toUpperCase()} PUBLICADOS</span><strong>{analytics.publishedSummary.total.toLocaleString("pt-BR")}</strong></div>
+                <div><span>COM ID DO {PLATFORM_LABEL[platform].toUpperCase()}</span><strong>{analytics.publishedSummary.withInstagramId.toLocaleString("pt-BR")}</strong></div>
                 <div><span>COM MÉTRICAS</span><strong>{analytics.publishedSummary.withMetrics.toLocaleString("pt-BR")}</strong></div>
               </div>
               <div className="im-stats im-analytics-kpis">
-                <div><span>VISUALIZAÇÕES</span><strong>{Number(analytics.totals.views||0).toLocaleString("pt-BR")}</strong><small>Somatório dos Reels sincronizados</small></div>
-                <div><span>COMPARTILHAMENTOS</span><strong>{Number(analytics.totals.shares||0).toLocaleString("pt-BR")}</strong><small>Compartilhamentos registrados</small></div>
+                <div><span>VISUALIZAÇÕES</span><strong>{Number(analytics.totals.views||0).toLocaleString("pt-BR")}</strong><small>Somatório dos {videoUnit} sincronizados</small></div>
+                {isYouTube
+                  ? <div><span>COMENTÁRIOS</span><strong>{Number(analytics.totals.comments||0).toLocaleString("pt-BR")}</strong><small>Comentários registrados</small></div>
+                  : <div><span>COMPARTILHAMENTOS</span><strong>{Number(analytics.totals.shares||0).toLocaleString("pt-BR")}</strong><small>Compartilhamentos registrados</small></div>}
                 <div><span>CURTIDAS</span><strong>{Number(analytics.totals.likes||0).toLocaleString("pt-BR")}</strong><small>Curtidas registradas</small></div>
-                <div><span>SEGUIDORES ATRIBUÍDOS</span><strong>{analytics.metricCoverage.follows===0?"—":Number(analytics.totals.follows||0).toLocaleString("pt-BR")}</strong><small>{analytics.metricCoverage.follows===0?"Métrica não retornada pelo Instagram":"Em "+analytics.metricCoverage.follows+" Reels com dado"}</small></div>
+                {isYouTube
+                  ? <div><span>MÉDIA POR SHORT</span><strong>{analytics.metrics.length?Math.round(Number(analytics.totals.views||0)/analytics.metrics.length).toLocaleString("pt-BR"):"—"}</strong><small>Visualizações por Short publicado</small></div>
+                  : <div><span>SEGUIDORES ATRIBUÍDOS</span><strong>{analytics.metricCoverage.follows===0?"—":Number(analytics.totals.follows||0).toLocaleString("pt-BR")}</strong><small>{analytics.metricCoverage.follows===0?"Métrica não retornada pelo Instagram":"Em "+analytics.metricCoverage.follows+" Reels com dado"}</small></div>}
               </div>
-              <div className="im-analytics-section-title"><div><span className="im-kicker">BIBLIOTECA DE DESEMPENHO</span><h3>Reels por tipo de conteúdo</h3></div><span>{analytics.publishedSummary.total} publicados</span></div>
+              <div className="im-analytics-section-title"><div><span className="im-kicker">BIBLIOTECA DE DESEMPENHO</span><h3>{videoUnit} por tipo de conteúdo</h3></div><span>{analytics.publishedSummary.total} publicados</span></div>
               <div className="im-analytics-groups">
                 {analytics.categoryTotals.map((group:any)=>{
                   const reels=analytics.publishedReels.filter((reel:any)=>String(reel.category||"OUTROS")===String(group.category||"OUTROS")).sort((a:any,b:any)=>Number(b.hasMetrics)-Number(a.hasMetrics)||Number(b.views||0)-Number(a.views||0));
                   return <details className="im-analytics-group" key={group.category}>
                     <summary className="im-analytics-group-head">
                       <span className="im-analytics-category-mark">{String(group.category||"OUTROS").slice(0,1)}</span>
-                      <span className="im-analytics-group-name"><strong>{group.category||"OUTROS"}</strong><small>{group.videos} {group.videos===1?"Reel":"Reels"} · {group.withMetrics} com métricas</small></span>
+                      <span className="im-analytics-group-name"><strong>{group.category||"OUTROS"}</strong><small>{group.videos} {group.videos===1?(isYouTube?"Short":"Reel"):videoUnit} · {group.withMetrics} com métricas</small></span>
                       <span className="im-analytics-group-stat"><strong>{Number(group.views||0).toLocaleString("pt-BR")}</strong><small>views</small></span>
-                      <span className="im-analytics-group-stat"><strong>{Number(group.shares||0).toLocaleString("pt-BR")}</strong><small>shares</small></span>
+                      {isYouTube
+                        ? <span className="im-analytics-group-stat"><strong>{Number(group.likes||0).toLocaleString("pt-BR")}</strong><small>curtidas</small></span>
+                        : <span className="im-analytics-group-stat"><strong>{Number(group.shares||0).toLocaleString("pt-BR")}</strong><small>shares</small></span>}
                       <span className="im-analytics-chevron" aria-hidden="true">⌄</span>
                     </summary>
                     <div className="im-analytics-reels">
                       {reels.map((reel:any,index:number)=><div className="im-analytics-reel" key={reel.id}>
                         <span className="im-analytics-reel-rank">{String(index+1).padStart(2,"0")}</span>
-                        <div className="im-analytics-reel-copy"><strong>{reel.title||"Vídeo sem título"}</strong><span>{reel.hasMetrics?"Atualizado "+(reel.fetched_at?new Intl.DateTimeFormat("pt-BR",{dateStyle:"short",timeStyle:"short",timeZone:"America/Cuiaba"}).format(new Date(reel.fetched_at)):"—"):"Aguardando ID ou Insights do Instagram"}</span></div>
+                        <div className="im-analytics-reel-copy"><strong>{reel.title||"Vídeo sem título"}</strong><span>{reel.hasMetrics?"Atualizado "+(reel.fetched_at?new Intl.DateTimeFormat("pt-BR",{dateStyle:"short",timeStyle:"short",timeZone:"America/Cuiaba"}).format(new Date(reel.fetched_at)):"—"):(isYouTube?"Sem métricas: o vídeo pode ter sido removido do canal":"Aguardando ID ou Insights do Instagram")}</span></div>
                         <div className="im-analytics-reel-metric"><strong>{reel.views===null?"—":Number(reel.views||0).toLocaleString("pt-BR")}</strong><small>views</small></div>
                         <div className="im-analytics-reel-metric"><strong>{reel.likes===null?"—":Number(reel.likes||0).toLocaleString("pt-BR")}</strong><small>curtidas</small></div>
-                        <div className="im-analytics-reel-metric"><strong>{reel.shares===null?"—":Number(reel.shares||0).toLocaleString("pt-BR")}</strong><small>shares</small></div>
+                        {isYouTube
+                          ? <div className="im-analytics-reel-metric"><strong>{reel.comments===null?"—":Number(reel.comments||0).toLocaleString("pt-BR")}</strong><small>comentários</small></div>
+                          : <div className="im-analytics-reel-metric"><strong>{reel.shares===null?"—":Number(reel.shares||0).toLocaleString("pt-BR")}</strong><small>shares</small></div>}
                       </div>)}
                     </div>
                   </details>;
                 })}
               </div>
-              <div className="im-analytics-footnote">Todos os Reels publicados são listados por tipo de conteúdo. Traços indicam publicações sem métricas disponíveis; os totais somam somente os Insights coletados.</div>
+              <div className="im-analytics-footnote">{isYouTube?"Todos os Shorts publicados são listados por tipo de conteúdo, incluindo os vídeos repetidos. Os números vêm direto do YouTube a cada atualização.":"Todos os Reels publicados são listados por tipo de conteúdo. Traços indicam publicações sem métricas disponíveis; os totais somam somente os Insights coletados."}</div>
             </>}
-          </div>}
+          </div>
         </>}
       </section>
     </section>
