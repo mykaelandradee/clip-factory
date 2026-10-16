@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "../../../../../lib/supabase/server";
 import { createAdminClient } from "../../../../../lib/supabase/admin";
+import { parseManifest, type ProcessingManifest } from "../../../../../lib/influencer-processing";
 
 export const runtime="nodejs";
 const GITHUB_API="https://api.github.com", OWNER="mykaelandradee", REPO="clip-factory", WORKFLOW="influencer-manager-worker.yml";
@@ -78,24 +79,71 @@ export async function GET(request:Request){
   }catch{}
   const low=active.toLowerCase();
   let progress=20,stage=active||"processing";
-  if(low.includes("download")){progress=35;stage="download";}
+  if(low.includes("process")){progress=50;stage="processing";}
+  else if(low.includes("download")){progress=35;stage="download";}
   else if(low.includes("upload")){progress=78;stage="upload";}
   else if(low.includes("python")||low.includes("deno")||low.includes("youtube")){progress=20;stage="worker_setup";}
   if(run.status==="completed"){
    if(run.conclusion==="success"){
     const publicUrl=process.env.R2_PUBLIC_URL?.replace(/\/$/,"")||"";
-    const r2Key=item.r2_key || `influencer/${user.id}/libraries/${item.library_id}/${item.id}/video.mp4`;
-    const resultUrl=publicUrl?`${publicUrl}/${r2Key}`:item.result_url;
-    const sourceMetadata = await fetchSourceMetadata(item.source_url);
+    const prefix=`influencer/${user.id}/libraries/${item.library_id}/${item.id}`;
+    // O worker grava um manifesto com os vídeos gerados (1 no modo Original ou
+    // Legendado; N no modo Cortes). Sem manifesto (worker antigo), vale o
+    // caminho histórico de um único vídeo.
+    let manifest:ProcessingManifest|null=null;
+    if(publicUrl){
+      try{
+        const manifestResponse=await fetch(`${publicUrl}/${prefix}/manifest.json?t=${Date.now()}`,{cache:"no-store"});
+        if(manifestResponse.ok) manifest=parseManifest(await manifestResponse.json(),prefix);
+      }catch(manifestError){console.warn("Influencer manifest unavailable:",manifestError);}
+    }
+    const outputs=manifest?.outputs?.length ? manifest.outputs : [{index:1,key:item.r2_key||`${prefix}/video.mp4`,start:0,end:0,duration:0,transcript:"",title:""}];
+    const isClips=manifest?.mode==="clips";
+    const first=outputs[0];
+    const sourceMetadata = manifest?.source_title ? {title:manifest.source_title,description:manifest.source_description||null} : await fetchSourceMetadata(item.source_url);
     const sourceDescription = item.source_description || sourceMetadata.description;
     const sourceTitle = item.title || sourceMetadata.title || instagramFallbackTitle(item.source_url);
-    const updated={status:"available",progress:100,stage:"ready",r2_key:r2Key,result_url:resultUrl,title:sourceTitle,source_description:sourceDescription,duration_seconds:item.duration_seconds||null,error_message:null,updated_at:new Date().toISOString()};
-    const {data:done}=await admin.from("influencer_content_items").update(updated).eq("id",id).eq("user_id",user.id).select("*").single();
+    // O título público continua sendo o do vídeo de origem; a numeração do
+    // corte aparece só na biblioteca (clip_index/clip_count).
+    const clipTitle=(_index:number)=>sourceTitle;
+    const now=new Date().toISOString();
+    const updated:any={
+      status:"available",progress:100,stage:"ready",r2_key:first.key,result_url:publicUrl?`${publicUrl}/${first.key}`:item.result_url,
+      title:clipTitle(1),source_description:sourceDescription,
+      duration_seconds:first.duration||manifest?.source_duration||item.duration_seconds||null,
+      transcript:(isClips?first.transcript:manifest?.transcript)||null,
+      error_message:null,updated_at:now,
+    };
+    if(isClips) Object.assign(updated,{group_id:item.id,clip_index:1,clip_count:outputs.length,clip_start:first.start,clip_end:first.end});
+    // Conclusão atômica: só quem muda o item de "processing" para "available"
+    // cria os cortes, para que consultas simultâneas não os dupliquem.
+    const {data:done}=await admin.from("influencer_content_items").update(updated)
+      .eq("id",id).eq("user_id",user.id).eq("status","processing").select("*").maybeSingle();
+    if(!done){
+      const {data:current}=await admin.from("influencer_content_items").select("*").eq("id",id).eq("user_id",user.id).maybeSingle();
+      return NextResponse.json({item:current||item},{headers:{"Cache-Control":"no-store"}});
+    }
+    await syncLinkedProfileQueue(admin,user.id,done);
 
-    // Sincroniza os perfis vinculados à biblioteca; a operação é idempotente.
-    await syncLinkedProfileQueue(admin,user.id,{...item,...updated,status:"available"});
+    let createdClips=0;
+    for(const output of outputs.slice(1)){
+      const {data:clip,error:clipError}=await admin.from("influencer_content_items").insert({
+        library_id:item.library_id,user_id:user.id,source_url:item.source_url,source_type:item.source_type||"url",
+        title:clipTitle(output.index),category:item.category||"OUTROS",
+        status:"available",progress:100,stage:"ready",r2_key:output.key,result_url:publicUrl?`${publicUrl}/${output.key}`:null,
+        duration_seconds:output.duration||null,source_description:sourceDescription,
+        processing_mode:"clips",caption_style:manifest?.caption_style||item.caption_style||null,
+        group_id:item.id,clip_index:output.index,clip_count:outputs.length,clip_start:output.start,clip_end:output.end,
+        transcript:output.transcript||null,
+        // Sem texto salvo: na publicação, cada perfil usa o próprio texto ou gera o automático.
+        publish_title:null,publish_description:null,
+      }).select("*").single();
+      if(clipError){console.error("Influencer clip item creation failed:",clipError.message);continue;}
+      createdClips++;
+      await syncLinkedProfileQueue(admin,user.id,clip);
+    }
 
-    return NextResponse.json({item:done||{...item,...updated}},{headers:{"Cache-Control":"no-store"}});
+    return NextResponse.json({item:done,createdClips},{headers:{"Cache-Control":"no-store"}});
    }
    const failureMessage=run.conclusion==="cancelled"?"Processamento cancelado.":"O Influencer Manager Worker terminou com erro.";
    const failedItem={...item,status:"failed",progress,stage:"error",error_message:failureMessage,updated_at:new Date().toISOString()};
