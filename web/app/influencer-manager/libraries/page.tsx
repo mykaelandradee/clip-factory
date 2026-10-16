@@ -1,10 +1,12 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import "../platform.css";
+import { CAPTION_STYLES, CAPTION_STYLE_LABEL, CLIP_COUNT_MAX, CLIP_COUNT_MIN, DEFAULT_CAPTION_STYLE, DEFAULT_CLIP_COUNT, PROCESSING_MODES, PROCESSING_MODE_HELP, PROCESSING_MODE_LABEL, formatClipRange, normalizeCaptionStyle, type CaptionStyle, type ProcessingMode } from "../../../lib/influencer-processing";
 
 type Profile = { id:string; name:string; posting_times?:string[]; posts_per_day?:number; publishing_enabled?:boolean };
-type Library = { id:string; name:string; description?:string|null; item_count:number; profiles:{profile_id:string;profile_name:string;profile_platform?:"instagram"|"youtube";priority:number;enabled:boolean}[] };
-type Item = { id:string; source_url:string; title:string|null; status:string; created_at:string; result_url?:string|null; error_message?:string|null; library_id?:string; category?:string; profile_publications?:{profile_id:string;profile_name:string;status:string;published_at?:string|null;scheduled_at?:string|null}[] };
+type Library = { id:string; name:string; description?:string|null; caption_style?:string|null; item_count:number; profiles:{profile_id:string;profile_name:string;profile_platform?:"instagram"|"youtube";priority:number;enabled:boolean}[] };
+type Item = { id:string; source_url:string; title:string|null; status:string; created_at:string; processing_mode?:string|null; caption_style?:string|null; clip_index?:number|null; clip_count?:number|null; clip_start?:number|null; clip_end?:number|null; result_url?:string|null; error_message?:string|null; library_id?:string; category?:string; profile_publications?:{profile_id:string;profile_name:string;status:string;published_at?:string|null;scheduled_at?:string|null}[] };
 
 const STATUS:Record<string,string>={queued:"Na fila",processing:"Processando",available:"Disponível",scheduled:"Agendado",published:"Publicado",failed:"Erro",archived:"Arquivado"};
 const CATEGORIES=["MEME","FUTEBOL","FAIL","ANIMAL","RELACIONAMENTO","REAÇÃO","VIRAL","ABSURDO","COTIDIANO","OUTROS"];
@@ -17,12 +19,13 @@ export default function InfluencerLibrariesPage(){
   const [loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState("");
   const [showFeedback,setShowFeedback]=useState(false),[feedbackTitle,setFeedbackTitle]=useState("Algo deu errado"),[feedbackMessage,setFeedbackMessage]=useState("");
   const [orphanCleanupDone,setOrphanCleanupDone]=useState(false);
-  const [name,setName]=useState(""),[description,setDescription]=useState("");
+  const [name,setName]=useState(""),[description,setDescription]=useState(""),[newLibraryStyle,setNewLibraryStyle]=useState<CaptionStyle>(DEFAULT_CAPTION_STYLE);
 
   function showError(message:string,title="Não foi possível concluir a ação"){
     setError(message);setFeedbackTitle(title);setFeedbackMessage(message);setShowFeedback(true);
   }
   const [url,setUrl]=useState(""),[videoTitle,setVideoTitle]=useState(""),[category,setCategory]=useState("OUTROS"),[adding,setAdding]=useState(false);
+  const [processingMode,setProcessingMode]=useState<ProcessingMode>("original"),[clipCount,setClipCount]=useState(DEFAULT_CLIP_COUNT),[captionStyle,setCaptionStyle]=useState<CaptionStyle>(DEFAULT_CAPTION_STYLE),[editLibraryStyle,setEditLibraryStyle]=useState<CaptionStyle>(DEFAULT_CAPTION_STYLE);
   const [editing,setEditing]=useState<string|null>(null),[titleDraft,setTitleDraft]=useState("");
   const [showNewLibrary,setShowNewLibrary]=useState(false),[showLibraries,setShowLibraries]=useState(false),[showEditLibrary,setShowEditLibrary]=useState(false),[showDeleteLibrary,setShowDeleteLibrary]=useState(false),[showDeleteVideo,setShowDeleteVideo]=useState<Item|null>(null),[showPublishVideo,setShowPublishVideo]=useState<Item|null>(null),[publishingItem,setPublishingItem]=useState(false),[publishProfileId,setPublishProfileId]=useState(""),[editLibraryName,setEditLibraryName]=useState(""),[editLibraryDescription,setEditLibraryDescription]=useState("");
 
@@ -58,6 +61,7 @@ export default function InfluencerLibrariesPage(){
   }
   useEffect(()=>{void Promise.all([loadLibraries(),loadProfiles()]);},[]);
   useEffect(()=>{if(selectedId)void loadItems(selectedId);},[selectedId,libraries,profiles]);
+  useEffect(()=>{setCaptionStyle(normalizeCaptionStyle(selected?.caption_style));},[selected?.id,selected?.caption_style]);
 
   // A conclusão do worker é reconciliada pela rota de status. Consultá-la
   // enquanto houver vídeos processando garante que result_url chegue à tela.
@@ -81,6 +85,9 @@ export default function InfluencerLibrariesPage(){
                 const failedMessage=String(data.item.error_message||"O Influencer Manager Worker terminou com erro.");
                 setItems(current=>current.filter(item=>item.id!==id));
                 showError(failedMessage,"Processamento falhou");
+              }else if(Number(data.createdClips)>0){
+                // Os outros cortes viraram itens novos: recarrega a biblioteca inteira.
+                void loadItems(selectedId);void loadLibraries(selectedId);
               }else{
                 setItems(current=>current.map(item=>item.id===id?{...item,...data.item}:item));
               }
@@ -97,15 +104,15 @@ export default function InfluencerLibrariesPage(){
   async function createLibrary(e:FormEvent){
     e.preventDefault();if(!name.trim())return;setBusy(true);setError("");
     try{
-      const r=await fetch("/api/influencer/libraries",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"create",name:name.trim(),description:description.trim()})});
+      const r=await fetch("/api/influencer/libraries",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"create",name:name.trim(),description:description.trim(),captionStyle:newLibraryStyle})});
       const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível criar a biblioteca.");
-      setName("");setDescription("");setShowNewLibrary(false);setShowLibraries(false);await loadLibraries(d.library?.id);
+      setName("");setDescription("");setNewLibraryStyle(DEFAULT_CAPTION_STYLE);setShowNewLibrary(false);setShowLibraries(false);await loadLibraries(d.library?.id);
     }catch(e){showError(e instanceof Error?e.message:"Erro ao criar a biblioteca.","Não foi possível criar a biblioteca");}finally{setBusy(false);}
   }
   async function saveLibrary(e:FormEvent){
     e.preventDefault();if(!selected||!editLibraryName.trim())return;setBusy(true);setError("");
     try{
-      const r=await fetch("/api/influencer/libraries",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:selected.id,name:editLibraryName.trim(),description:editLibraryDescription.trim()})});
+      const r=await fetch("/api/influencer/libraries",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:selected.id,name:editLibraryName.trim(),description:editLibraryDescription.trim(),captionStyle:editLibraryStyle})});
       const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível editar a biblioteca.");
       setShowEditLibrary(false);await loadLibraries(selected.id);
     }catch(e){showError(e instanceof Error?e.message:"Erro ao editar a biblioteca.","Não foi possível editar a biblioteca");}finally{setBusy(false);}
@@ -124,9 +131,9 @@ export default function InfluencerLibrariesPage(){
   async function addVideo(e:FormEvent){
     e.preventDefault();if(!selected||!linkedProfileId||!url.trim())return;setAdding(true);setError("");
     try{
-      const r=await fetch("/api/influencer/content",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({profileId:linkedProfileId,libraryId:selected.id,sourceUrl:url.trim(),title:videoTitle.trim(),category})});
+      const r=await fetch("/api/influencer/content",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({profileId:linkedProfileId,libraryId:selected.id,sourceUrl:url.trim(),title:videoTitle.trim(),category,processingMode,clipCount,captionStyle})});
       const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível adicionar o vídeo.");
-      setUrl("");setVideoTitle("");setCategory("OUTROS");await loadItems(selected.id);await loadLibraries(selected.id);
+      setUrl("");setVideoTitle("");setCategory("OUTROS");setProcessingMode("original");setClipCount(DEFAULT_CLIP_COUNT);await loadItems(selected.id);await loadLibraries(selected.id);
     }catch(e){showError(e instanceof Error?e.message:"Erro ao adicionar o vídeo.","Não foi possível adicionar o vídeo");}finally{setAdding(false);}
   }
   async function updateCategory(id:string,nextCategory:string){
@@ -238,6 +245,7 @@ export default function InfluencerLibrariesPage(){
         <form className="im-modal-form" onSubmit={saveLibrary}>
           <label>Nome da biblioteca<input value={editLibraryName} onChange={e=>setEditLibraryName(e.target.value)} maxLength={80} required autoFocus /></label>
           <label>Descrição<input value={editLibraryDescription} onChange={e=>setEditLibraryDescription(e.target.value)} maxLength={500} placeholder="Opcional" /></label>
+          <label>Estilo padrão da legenda<select className="im-form-select" value={editLibraryStyle} onChange={e=>setEditLibraryStyle(normalizeCaptionStyle(e.target.value))}>{CAPTION_STYLES.map(style=><option key={style} value={style}>{CAPTION_STYLE_LABEL[style]}</option>)}</select></label>
           <div className="im-modal-actions"><button className="im-ghost" type="button" onClick={()=>setShowEditLibrary(false)}>Cancelar</button><button className="im-primary" disabled={busy}>{busy?"Salvando…":"Salvar alterações"}</button></div>
         </form>
       </div>
@@ -264,6 +272,7 @@ export default function InfluencerLibrariesPage(){
         <form className="im-form im-new-profile-form" onSubmit={createLibrary}>
           <label>Nome da biblioteca<input value={name} onChange={e=>setName(e.target.value)} placeholder="Ex.: Futebol, Memes, Patolino" maxLength={80} required autoFocus /></label>
           <label>Descrição<input value={description} onChange={e=>setDescription(e.target.value)} placeholder="Opcional" maxLength={500} /></label>
+          <label>Estilo padrão da legenda<select className="im-form-select" value={newLibraryStyle} onChange={e=>setNewLibraryStyle(normalizeCaptionStyle(e.target.value))}>{CAPTION_STYLES.map(style=><option key={style} value={style}>{CAPTION_STYLE_LABEL[style]}</option>)}</select></label>
           <div className="im-form-note">A biblioteca não pertence a um perfil. O vínculo com perfis é configurado separadamente.</div>
           <div className="im-modal-actions">
             <button className="im-ghost" type="button" onClick={()=>setShowNewLibrary(false)}>Cancelar</button>
@@ -293,7 +302,7 @@ export default function InfluencerLibrariesPage(){
             </div>}
           </div>
           <div className="im-overview-actions">
-            <button className="im-ghost" type="button" disabled={busy} onClick={()=>{if(!selected)return;setEditLibraryName(selected.name);setEditLibraryDescription(selected.description||"");setShowEditLibrary(true)}}>Editar biblioteca</button>
+            <button className="im-ghost" type="button" disabled={busy} onClick={()=>{if(!selected)return;setEditLibraryName(selected.name);setEditLibraryDescription(selected.description||"");setEditLibraryStyle(normalizeCaptionStyle(selected.caption_style));setShowEditLibrary(true)}}>Editar biblioteca</button>
             <button className="im-ghost im-danger" type="button" disabled={busy} onClick={deleteLibrary}>Excluir biblioteca</button>
           </div>
         </div>
@@ -305,7 +314,22 @@ export default function InfluencerLibrariesPage(){
             <input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://youtube.com/... ou https://instagram.com/reel/..." required />
             <input value={videoTitle} onChange={e=>setVideoTitle(e.target.value)} placeholder="Título do vídeo (opcional)" maxLength={500} />
             <select className="im-form-select" value={category} onChange={e=>setCategory(e.target.value)}>{CATEGORIES.map(value=><option key={value}>{value}</option>)}</select>
-            <button className="im-primary" disabled={adding}>{adding?"Processando…":"Adicionar vídeo"}</button>
+            <button className="im-primary" disabled={adding}>{adding?"Enviando…":processingMode==="clips"?`Gerar ${clipCount} cortes`:"Adicionar vídeo"}</button>
+            <fieldset className="im-processing-options">
+              <legend>Processamento</legend>
+              <div className="im-processing-modes">
+                {PROCESSING_MODES.map(mode=><label key={mode} className={"im-platform-option"+(processingMode===mode?" active":"")}>
+                  <input type="radio" name="processing-mode" value={mode} checked={processingMode===mode} onChange={()=>setProcessingMode(mode)} />
+                  <strong>{PROCESSING_MODE_LABEL[mode]}</strong>
+                  <small>{PROCESSING_MODE_HELP[mode]}</small>
+                </label>)}
+              </div>
+              {processingMode!=="original"&&<div className="im-processing-settings">
+                {processingMode==="clips"&&<label>Quantidade de cortes<input type="number" min={CLIP_COUNT_MIN} max={CLIP_COUNT_MAX} value={clipCount} onChange={e=>setClipCount(Math.max(CLIP_COUNT_MIN,Math.min(CLIP_COUNT_MAX,Number(e.target.value)||DEFAULT_CLIP_COUNT)))} /></label>}
+                <label>Estilo da legenda<select className="im-form-select" value={captionStyle} onChange={e=>setCaptionStyle(normalizeCaptionStyle(e.target.value))}>{CAPTION_STYLES.map(style=><option key={style} value={style}>{CAPTION_STYLE_LABEL[style]}</option>)}</select></label>
+                <small className="im-field-help">{processingMode==="clips"?"Vídeos longos levam mais tempo: a transcrição e os cortes podem levar até ~30 minutos.":"O vídeo inteiro é transcrito e legendado."} O padrão vem da biblioteca.</small>
+              </div>}
+            </fieldset>
           </form>}
         </div>}
 
@@ -316,7 +340,12 @@ export default function InfluencerLibrariesPage(){
               <div className="im-item-main">
                 <strong>{item.title||"Vídeo sem título"}</strong>
                 <span>{item.source_url}</span>
-                {item.status==="processing"&&<div className="im-progress"><div><span style={{width:"35%"}}/></div><small>Processando vídeo…</small></div>}
+                {item.processing_mode&&item.processing_mode!=="original"&&<span className="im-processing-badge">{item.processing_mode==="clips"
+                  ? (item.status==="processing"
+                    ? `Gerando ${item.clip_count||""} cortes`
+                    : `Corte ${item.clip_index||1}${item.clip_count?` de ${item.clip_count}`:""}${item.clip_start!=null&&item.clip_end!=null?` · ${formatClipRange(item.clip_start,item.clip_end)}`:""}`)
+                  : "Legendado"}{item.caption_style?` · legenda ${CAPTION_STYLE_LABEL[normalizeCaptionStyle(item.caption_style)]}`:""}</span>}
+                {item.status==="processing"&&<div className="im-progress"><div><span style={{width:"35%"}}/></div><small>{item.processing_mode==="clips"?"Transcrevendo e gerando cortes…":item.processing_mode==="captioned"?"Transcrevendo e legendando…":"Processando vídeo…"}</small></div>}
                 {item.error_message&&<small className="im-error-text">{item.error_message}</small>}
                 {item.result_url&&<video className="im-video-preview" src={item.result_url} controls preload="metadata" />}
               </div>
