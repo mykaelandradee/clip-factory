@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "../../../../lib/supabase/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
 import { getClientKey, rateLimit } from "../../../../lib/rate-limit";
+import { normalizeCaptionStyle, normalizeClipCount, normalizeProcessingMode } from "../../../../lib/influencer-processing";
 
 export const runtime = "nodejs";
 const MAX_BODY_BYTES = 32 * 1024;
@@ -244,6 +245,8 @@ export async function POST(request:Request) {
   let title=typeof body?.title==="string"?body.title.trim().slice(0,500):"";
   const requestedCategory=typeof body?.category==="string"?body.category.trim().toUpperCase():"OUTROS";
   const category=(CONTENT_CATEGORIES as readonly string[]).includes(requestedCategory)?requestedCategory:"OUTROS";
+  const processingMode=normalizeProcessingMode(body?.processingMode);
+  const clipCount=normalizeClipCount(body?.clipCount);
 
   if(!requestedLibraryId||!sourceUrl||sourceUrl.length>2048) return NextResponse.json({error:"Informe a biblioteca e a URL do vídeo."},{status:400});
   let parsed:URL;
@@ -257,8 +260,10 @@ export async function POST(request:Request) {
 
   const admin=createAdminClient();
   const {data:library}=await admin.from("influencer_libraries")
-    .select("id").eq("id",requestedLibraryId).eq("user_id",user.id).maybeSingle();
+    .select("id,caption_style").eq("id",requestedLibraryId).eq("user_id",user.id).maybeSingle();
   if(!library) return NextResponse.json({error:"Biblioteca não encontrada."},{status:404});
+  // Estilo da legenda: o escolhido ao adicionar ou, se não vier, o padrão da biblioteca.
+  const captionStyle=processingMode==="original" ? null : normalizeCaptionStyle(body?.captionStyle, normalizeCaptionStyle((library as any).caption_style));
 
   const {data:links,error:linksError}=await admin.from("influencer_profile_libraries")
     .select("profile_id,priority").eq("library_id",requestedLibraryId).eq("user_id",user.id).eq("enabled",true)
@@ -308,7 +313,9 @@ export async function POST(request:Request) {
 
   const itemId=crypto.randomUUID();
   const {data:item,error}=await admin.from("influencer_content_items").insert({
-    id:itemId,library_id:requestedLibraryId,user_id:user.id,source_url:sourceUrl,title:title||null,source_type:"url",status:"processing",progress:5,stage:"queued",worker_job_id:itemId,publish_title:copy.title,publish_description:copy.description,source_description:null,category
+    id:itemId,library_id:requestedLibraryId,user_id:user.id,source_url:sourceUrl,title:title||null,source_type:"url",status:"processing",progress:5,stage:"queued",worker_job_id:itemId,publish_title:copy.title,publish_description:copy.description,source_description:null,category,
+    processing_mode:processingMode,caption_style:captionStyle,
+    clip_count:processingMode==="clips"?clipCount:null,group_id:processingMode==="clips"?itemId:null,clip_index:processingMode==="clips"?1:null
   }).select("*").single();
   if(error){console.error("Influencer item creation failed:",error);return NextResponse.json({error:"Não foi possível adicionar o vídeo à biblioteca."},{status:500});}
 
@@ -324,7 +331,10 @@ export async function POST(request:Request) {
   try{
     const response=await githubFetch(`/repos/${OWNER}/${REPO}/dispatches`,{
       method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({event_type:"influencer-manager-job",client_payload:{item_id:itemId,library_id:requestedLibraryId,user_id:user.id,url:sourceUrl}})
+      body:JSON.stringify({event_type:"influencer-manager-job",client_payload:{
+        item_id:itemId,library_id:requestedLibraryId,user_id:user.id,url:sourceUrl,
+        mode:processingMode,clip_count:String(clipCount),caption_style:captionStyle||"karaoke"
+      }})
     });
     if(!response.ok){
       const details=await response.text();
