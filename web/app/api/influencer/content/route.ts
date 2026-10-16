@@ -301,10 +301,10 @@ export async function POST(request:Request) {
 
   const language = caption?.language === "ja" ? "ja" : profile.caption_mode === "ja_random" ? "ja" : profile.caption_mode === "zh_random" ? "zh" : Math.random() < 0.5 ? "ja" : "zh";
   const generated = randomCopy(language);
-  const copy = {
-    title: profile.fixed_publish_title?.trim() || generated.title,
-    description: profile.fixed_publish_description?.trim() || generated.description,
-  };
+  // O vídeo pertence à biblioteca e é compartilhado entre perfis: guarda só o
+  // texto automático. O título/descrição fixos de cada perfil são aplicados na
+  // hora da publicação, para não vazarem de um perfil para outro.
+  const copy = { title: generated.title, description: generated.description };
 
   const itemId=crypto.randomUUID();
   const {data:item,error}=await admin.from("influencer_content_items").insert({
@@ -377,7 +377,7 @@ export async function PATCH(request:Request) {
   }
   if(!Object.keys(allowed).length)return NextResponse.json({error:"Nenhuma alteração informada."},{status:400});
   const {data,error}=await admin.from("influencer_content_items").update({...allowed,updated_at:new Date().toISOString()}).eq("id",id).eq("user_id",user.id).select("*").single();
-  if(error)return NextResponse.json({error:"Não foi possível salvar os dados do Reel."},{status:500});
+  if(error)return NextResponse.json({error:"Não foi possível salvar os dados do vídeo."},{status:500});
   return NextResponse.json({item:data});
 }
 
