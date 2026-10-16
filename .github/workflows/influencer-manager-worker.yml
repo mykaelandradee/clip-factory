@@ -17,13 +17,21 @@ concurrency:
 jobs:
   process:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Cortes de vídeos longos transcrevem e renderizam vários clipes.
+    timeout-minutes: 50
     env:
       CLIP_FACTORY_DATA_DIR: ${{ github.workspace }}/worker/data
       VIDEO_URL: ${{ github.event.client_payload.url }}
       ITEM_ID: ${{ github.event.client_payload.item_id }}
       LIBRARY_ID: ${{ github.event.client_payload.library_id }}
       USER_ID: ${{ github.event.client_payload.user_id }}
+      PROCESSING_MODE: ${{ github.event.client_payload.mode || 'original' }}
+      CLIP_COUNT: ${{ github.event.client_payload.clip_count || '5' }}
+      CAPTION_STYLE: ${{ github.event.client_payload.caption_style || 'karaoke' }}
+      WHISPER_MODEL: small
+      OMP_NUM_THREADS: "4"
+      MKL_NUM_THREADS: "4"
+      OPENBLAS_NUM_THREADS: "4"
       BGUTIL_POT_URL: http://127.0.0.1:4416
       R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
       R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
@@ -84,6 +92,16 @@ jobs:
           nohup deno run --allow-env --allow-net --allow-ffi=. --allow-read=. src/main.ts --host 127.0.0.1 --port 4416 > "$RUNNER_TEMP/bgutil-provider.log" 2>&1 &
           for i in {1..30}; do curl -fsS "$BGUTIL_POT_URL/ping" >/dev/null 2>&1 && break; [ "$i" -eq 30 ] && exit 1; sleep 1; done
 
+      - name: Cache AI models
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cache/huggingface
+            ~/.cache/whisper
+          key: clip-factory-ai-${{ runner.os }}-whisper-small-ptbr-v2
+          restore-keys: |
+            clip-factory-ai-${{ runner.os }}-
+
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
@@ -101,11 +119,14 @@ jobs:
           "$GITHUB_WORKSPACE/.venv/bin/python" -m pip install -U "yt-dlp[default]" yt-dlp-ejs "bgutil-ytdlp-pot-provider==2.0.0"
           echo "$GITHUB_WORKSPACE/.venv/bin" >> "$GITHUB_PATH"
 
-      - name: Download original video and upload to R2
+      - name: Download, process and upload to R2
         working-directory: worker
         env:
           YOUTUBE_COOKIES_FILE: ${{ env.YOUTUBE_COOKIE_FILE }}
-        run: python influencer_worker.py "$VIDEO_URL" --item-id "$ITEM_ID" --library-id "$LIBRARY_ID" --user-id "$USER_ID"
+        run: >-
+          python influencer_worker.py "$VIDEO_URL"
+          --item-id "$ITEM_ID" --library-id "$LIBRARY_ID" --user-id "$USER_ID"
+          --mode "$PROCESSING_MODE" --clip-count "$CLIP_COUNT" --caption-style "$CAPTION_STYLE"
 
       - name: Cleanup cookies
         if: always()
