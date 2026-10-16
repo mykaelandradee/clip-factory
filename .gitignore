@@ -19,3 +19,4 @@ secrets/*.json
 *.pem
 *.key
 web/tsconfig.tsbuildinfo
+.pytest_cache/

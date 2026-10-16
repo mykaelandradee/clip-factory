@@ -6,10 +6,9 @@ on:
     paths:
       - "web/**"
       - ".github/workflows/web-build.yml"
+  # Sempre roda em PRs: o check "build" é obrigatório para fazer merge na main,
+  # então precisa existir mesmo quando o PR não altera o web.
   pull_request:
-    paths:
-      - "web/**"
-      - ".github/workflows/web-build.yml"
   workflow_dispatch:
 
 permissions:
