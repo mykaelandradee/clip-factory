@@ -101,8 +101,10 @@ def _normalize_pt_br(text: str) -> str:
         (r"\bestá\b", "tá"),
         (r"\bestão\b", "tão"),
         (r"\bestou\b", "tô"),
-        (r"\bestamos\b", "tamo"),
-        (r"\bpara\b", "pra"),
+        # "para" só vira "pra" quando é certamente preposição (antes de pronome
+        # ou lugar). Antes de artigo não dá para distinguir do verbo "parar"
+        # ("ele para o carro"), então esses casos ficam como estão.
+        (r"\bpara (?=(?:mim|você|vocês|ele|ela|eles|elas|a gente|casa|cá|lá)\b)", "pra "),
     ]
 
     out = text.strip()
@@ -113,6 +115,83 @@ def _normalize_pt_br(text: str) -> str:
     # controlled by the renderer.
     out = re.sub(r"\s{2,}", " ", out)
     return out.strip()
+
+
+def _translate_unique(texts: list[str], generate, batch_size: int = 8) -> list[str]:
+    """Traduz cada texto distinto uma única vez e devolve exatamente uma
+    tradução por texto recebido, na mesma ordem.
+
+    Corrige um bug antigo: frases repetidas já traduzidas ("yeah", "oh my god")
+    faziam o lote devolver menos resultados, deslocando as traduções seguintes
+    para os trechos errados e deixando os últimos sem tradução.
+    """
+    cache: dict[str, str] = {}
+    unique = list(dict.fromkeys(texts))
+    for start in range(0, len(unique), batch_size):
+        batch = unique[start:start + batch_size]
+        decoded = generate(batch)
+        if len(decoded) != len(batch):
+            raise RuntimeError(f"Local translation returned {len(decoded)} results for {len(batch)} captions.")
+        for original, value in zip(batch, decoded):
+            cache[original] = str(value).strip() or str(original).strip()
+    return [cache[text] for text in texts]
+
+
+SENTENCE_END = re.compile(r"[.!?…]['\")\]]*$")
+CONTEXT_MAX_WORDS = 35
+CONTEXT_MAX_GAP = 1.5
+
+
+def _group_for_translation(segments: list[TranscriptSegment], indexes: list[int]) -> list[list[int]]:
+    """Junta trechos consecutivos em frases completas, para o tradutor ver o
+    contexto em vez de traduzir pedaços soltos. Um grupo termina no fim de uma
+    frase, numa pausa longa ou ao atingir um tamanho máximo."""
+    groups: list[list[int]] = []
+    current: list[int] = []
+    words = 0
+    for index in indexes:
+        segment = segments[index]
+        if current:
+            previous = segments[current[-1]]
+            if index != current[-1] + 1 or float(segment.start) - float(previous.end) > CONTEXT_MAX_GAP:
+                groups.append(current)
+                current, words = [], 0
+        current.append(index)
+        words += len(segment.text.split())
+        if SENTENCE_END.search(segment.text.strip()) or words >= CONTEXT_MAX_WORDS:
+            groups.append(current)
+            current, words = [], 0
+    if current:
+        groups.append(current)
+    return groups
+
+
+def _split_translation(text: str, weights: list[float]) -> list[str]:
+    """Redistribui o texto traduzido de um grupo entre os trechos originais,
+    proporcionalmente ao tamanho de cada um, sem perder nem repetir palavras.
+    Com palavras suficientes, nenhum trecho fica vazio."""
+    tokens = text.split()
+    parts = len(weights)
+    if parts <= 1:
+        return [" ".join(tokens)]
+    n = len(tokens)
+    clean = [max(0.0, float(w)) for w in weights]
+    total = sum(clean) or float(parts)
+    if not sum(clean):
+        clean = [1.0] * parts
+    bounds = [0]
+    cumulative = 0.0
+    for i in range(1, parts):
+        cumulative += clean[i - 1]
+        cut = round(n * cumulative / total)
+        if n >= parts:
+            cut = max(cut, bounds[-1] + 1)        # pelo menos 1 palavra no trecho anterior
+            cut = min(cut, n - (parts - i))       # e deixa ao menos 1 para cada trecho seguinte
+        else:
+            cut = min(max(cut, bounds[-1]), n)
+        bounds.append(cut)
+    bounds.append(n)
+    return [" ".join(tokens[bounds[i]:bounds[i + 1]]) for i in range(parts)]
 
 
 def _translate_to_pt(texts: list[str], source_language: str = "eng_Latn") -> list[str]:
@@ -127,7 +206,10 @@ def _translate_to_pt(texts: list[str], source_language: str = "eng_Latn") -> lis
     if not texts:
         return []
 
-    model_name = "facebook/nllb-200-distilled-600M"
+    # O modelo maior (1.3B) traduz de forma bem mais natural, mas usa vários GB
+    # de memória: só é usado onde for configurado (GitHub Actions). O padrão
+    # continua sendo o pequeno, seguro para máquinas com pouca memória.
+    model_name = os.getenv("TRANSLATION_MODEL", "facebook/nllb-200-distilled-600M")
     tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False, src_lang=source_language, tgt_lang="por_Latn")
     model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
     model.eval()
@@ -137,70 +219,53 @@ def _translate_to_pt(texts: list[str], source_language: str = "eng_Latn") -> lis
     target_language_id = tokenizer.convert_tokens_to_ids("por_Latn")
     # This is inference-only. A single beam is enough for short social captions
     # and is substantially cheaper on GitHub Actions CPU than the model default.
-    num_beams = 1
+    num_beams = max(1, min(8, int(os.getenv("TRANSLATION_BEAMS", "1") or 1)))
 
-    translated: list[str] = []
-    cache: dict[str, str] = {}
-    try:
-        for start in range(0, len(texts), 8):
-            batch = texts[start : start + 8]
-            missing = [text for text in batch if text not in cache]
-            if not missing:
-                translated.extend(cache[text] for text in batch)
-                continue
-            batch = missing
-            try:
-                inputs = tokenizer(
-                    batch,
-                    return_tensors="pt",
-                    padding=True,
-                    truncation=True,
-                    max_length=256,
+    import torch
+
+    def generate(batch: list[str]) -> list[str]:
+        try:
+            inputs = tokenizer(batch, return_tensors="pt", padding=True, truncation=True, max_length=256)
+            with torch.inference_mode():
+                output_ids = model.generate(
+                    **inputs,
+                    max_new_tokens=160,
+                    num_beams=num_beams,
+                    forced_bos_token_id=target_language_id,
                 )
-                import torch
+            return tokenizer.batch_decode(output_ids, skip_special_tokens=True)
+        except Exception as batch_error:
+            print(f"[translation] batch failed, retrying individually: {batch_error}")
+            decoded = []
+            for item in batch:
+                retry_inputs = tokenizer([item], return_tensors="pt", padding=True, truncation=True, max_length=256)
                 with torch.inference_mode():
-                    output_ids = model.generate(
-                        **inputs,
-                        max_new_tokens=96,
+                    retry_ids = model.generate(
+                        **retry_inputs,
+                        max_new_tokens=160,
                         num_beams=num_beams,
                         forced_bos_token_id=target_language_id,
                     )
-                decoded = tokenizer.batch_decode(output_ids, skip_special_tokens=True)
-            except Exception as batch_error:
-                print(f"[translation] batch failed, retrying individually: {batch_error}")
-                decoded = []
-                for item in batch:
-                    retry_inputs = tokenizer(
-                        [item],
-                        return_tensors="pt",
-                        padding=True,
-                        truncation=True,
-                        max_length=256,
-                    )
-                    import torch
-                    with torch.inference_mode():
-                        retry_ids = model.generate(
-                            **retry_inputs,
-                            max_new_tokens=96,
-                            num_beams=num_beams,
-                            forced_bos_token_id=target_language_id,
-                        )
-                    decoded.extend(tokenizer.batch_decode(retry_ids, skip_special_tokens=True))
+                decoded.extend(tokenizer.batch_decode(retry_ids, skip_special_tokens=True))
+            return decoded
 
-            if len(decoded) != len(batch):
-                raise RuntimeError(
-                    f"Local translation returned {len(decoded)} results for {len(batch)} captions."
-                )
-            for original, translated_text in zip(batch, decoded):
-                value = str(translated_text).strip() or str(original).strip()
-                cache[original] = value
-            translated.extend(cache[text] for text in batch)
+    try:
+        translated = _translate_unique(texts, generate)
     finally:
         del model
         del tokenizer
         gc.collect()
 
     return translated
+
+
+# Códigos do Whisper -> códigos do NLLB para o idioma de origem da tradução.
+NLLB_LANGUAGE_CODES = {
+    "en": "eng_Latn", "es": "spa_Latn", "fr": "fra_Latn", "de": "deu_Latn",
+    "it": "ita_Latn", "nl": "nld_Latn", "ru": "rus_Cyrl", "uk": "ukr_Cyrl",
+    "pl": "pol_Latn", "tr": "tur_Latn", "ja": "jpn_Jpan", "zh": "zho_Hans",
+    "ko": "kor_Hang", "ar": "arb_Arab", "hi": "hin_Deva", "id": "ind_Latn",
+}
 
 
 def translate_segments_to_pt(segments: list[TranscriptSegment], candidates, source_language: str = "en") -> None:
@@ -220,17 +285,17 @@ def translate_segments_to_pt(segments: list[TranscriptSegment], candidates, sour
     if source_language in {"pt", "pt-br", "por_Latn"}:
         translated = [_normalize_pt_br(text) for text in source_texts]
     else:
-        language_map = {
-            "en": "eng_Latn",
-            "es": "spa_Latn",
-            "fr": "fra_Latn",
-            "de": "deu_Latn",
-            "it": "ita_Latn",
-            "nl": "nld_Latn",
-            "ru": "rus_Cyrl",
-        }
-        source_code = language_map.get(source_language.lower(), "eng_Latn")
-        translated = [_normalize_pt_br(text) for text in _translate_to_pt(source_texts, source_code)]
+        source_code = NLLB_LANGUAGE_CODES.get(source_language.lower(), "eng_Latn")
+        # Traduz frases completas (com contexto) e redistribui nos tempos originais.
+        groups = _group_for_translation(segments, indexes)
+        group_texts = [" ".join(segments[i].text.strip() for i in group) for group in groups]
+        group_translations = _translate_to_pt(group_texts, source_code)
+        by_index: dict[int, str] = {}
+        for group, translation in zip(groups, group_translations):
+            weights = [max(1, len(segments[i].text.split())) for i in group]
+            for i, piece in zip(group, _split_translation(_normalize_pt_br(translation), weights)):
+                by_index[i] = piece
+        translated = [by_index.get(i, "") or _normalize_pt_br(segments[i].text) for i in indexes]
     for index, text in zip(indexes, translated):
         segment = segments[index]
         segment.text = text
@@ -289,6 +354,23 @@ def _retime_translated_words(text: str, start: float, end: float, source_words: 
     ]
 
 
+def _keep_segment(raw: dict) -> bool:
+    """Descarta só o que é claramente ruído ou alucinação do Whisper.
+
+    O filtro antigo (no_speech > 0,55 OU confiança < -1,2) apagava fala real em
+    vídeos com música ou efeitos de fundo. Agora um trecho só sai se for texto
+    repetitivo (alucinação típica) ou se o Whisper estiver confiante de que não
+    há fala E o texto tiver confiança muito baixa ao mesmo tempo.
+    """
+    if not str(raw.get("text", "")).strip():
+        return False
+    if float(raw.get("compression_ratio", 0.0)) >= 2.6:
+        return False
+    no_speech = float(raw.get("no_speech_prob", 0.0))
+    avg_logprob = float(raw.get("avg_logprob", 0.0))
+    return not (no_speech >= 0.8 and avg_logprob <= -1.0)
+
+
 def transcribe(
     video_path: Path,
     output_json: Path,
@@ -331,7 +413,9 @@ def transcribe(
                 "beam_size": 1,
                 "condition_on_previous_text": False,
                 "word_timestamps": True,
-                "hallucination_silence_threshold": 1.0,
+                # Valor mais alto: com 1,0 s, trechos curtos de fala após pausas
+                # (comuns com música/efeitos de fundo) eram pulados.
+                "hallucination_silence_threshold": 2.0,
                 "task": task,
             }
             if language:
@@ -348,15 +432,11 @@ def transcribe(
         source_language = None
         result = _run(speech_audio, language=source_language)
 
-        def _keep(raw):
-            return (
-                raw.get("text", "").strip()
-                and float(raw.get("no_speech_prob", 0.0)) < 0.55
-                and float(raw.get("avg_logprob", -10.0)) > -1.2
-                and float(raw.get("compression_ratio", 0.0)) < 2.8
-            )
-
-        raw_segments = [raw for raw in result.get("segments", []) if _keep(raw)]
+        raw_segments = [raw for raw in result.get("segments", []) if _keep_segment(raw)]
+        dropped = [raw for raw in result.get("segments", []) if raw.get("text", "").strip() and not _keep_segment(raw)]
+        if dropped:
+            print(f"[transcription] {len(dropped)} trecho(s) descartado(s) como ruído/alucinação: "
+                  + "; ".join(f"{float(r['start']):.1f}-{float(r['end']):.1f}s" for r in dropped[:10]))
         all_raw_segments = [
             raw for raw in result.get("segments", [])
             if raw.get("text", "").strip()
@@ -422,9 +502,12 @@ def transcribe(
                 "text": word_text,
             })
 
+        # O idioma detectado precisa ir em cada trecho: é por ele que a tradução
+        # escolhe o idioma de origem. Antes ficava vazio e tudo era tratado
+        # como inglês, inclusive vídeos em espanhol ou já em português.
         segments.append(
             TranscriptSegment(
-                float(raw["start"]), float(raw["end"]), text, words
+                float(raw["start"]), float(raw["end"]), text, words, detected_language
             )
         )
 

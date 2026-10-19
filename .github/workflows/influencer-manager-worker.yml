@@ -30,6 +30,10 @@ jobs:
       CAPTION_STYLE: ${{ github.event.client_payload.caption_style || 'karaoke' }}
       SUBTITLE_LANGUAGE: ${{ github.event.client_payload.subtitle_language || 'original' }}
       WHISPER_MODEL: small
+      # Tradução para PT-BR: modelo maior e busca com 4 feixes (mais natural).
+      # Só no GitHub Actions; o padrão do código continua sendo o modelo pequeno.
+      TRANSLATION_MODEL: facebook/nllb-200-distilled-1.3B
+      TRANSLATION_BEAMS: "4"
       OMP_NUM_THREADS: "4"
       MKL_NUM_THREADS: "4"
       OPENBLAS_NUM_THREADS: "4"
@@ -99,7 +103,7 @@ jobs:
           path: |
             ~/.cache/huggingface
             ~/.cache/whisper
-          key: clip-factory-ai-${{ runner.os }}-whisper-small-ptbr-v2
+          key: clip-factory-ai-${{ runner.os }}-whisper-small-nllb13b-v3
           restore-keys: |
             clip-factory-ai-${{ runner.os }}-
 
