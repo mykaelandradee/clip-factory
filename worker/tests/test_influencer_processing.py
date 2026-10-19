@@ -11,6 +11,13 @@ def test_normalize_mode():
         ip.normalize_mode("shell; rm -rf /")
 
 
+def test_subtitle_language():
+    assert ip.normalize_subtitle_language("en") == "en"
+    assert ip.normalize_subtitle_language("original") == "original"
+    assert ip.normalize_subtitle_language("fr") == ip.DEFAULT_SUBTITLE_LANGUAGE
+    assert ip.normalize_subtitle_language(None) == "pt-BR"
+
+
 def test_caption_style_falls_back_to_default():
     assert ip.normalize_caption_style("fire") == "fire"
     assert ip.normalize_caption_style("unknown") == ip.DEFAULT_CAPTION_STYLE
@@ -42,7 +49,7 @@ def test_keys_keep_legacy_path_for_single_video():
 
 def test_manifest_serialization():
     manifest = ip.Manifest(
-        version=1, item_id="item", mode="clips", caption_style="fire",
+        version=1, item_id="item", mode="clips", caption_style="fire", subtitle_language="pt-BR",
         source_title="Podcast", source_description="", source_duration=600.0,
         transcript=ip.trim_transcript("  olá   mundo  "),
         outputs=[ip.OutputVideo(index=1, key="k1", start=10.0, end=42.5, transcript="a")],
@@ -51,3 +58,4 @@ def test_manifest_serialization():
     assert data["transcript"] == "olá mundo"
     assert data["outputs"][0]["duration"] == 32.5
     assert data["outputs"][0]["key"] == "k1"
+    assert data["subtitle_language"] == "pt-BR"

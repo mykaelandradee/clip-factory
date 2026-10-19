@@ -1,9 +1,59 @@
 from __future__ import annotations
 
+import json
 import subprocess
 from pathlib import Path
 
 from .models import ClipCandidate, TranscriptSegment
+
+OUTPUT_WIDTH = 1080
+OUTPUT_HEIGHT = 1920
+# Vídeos com proporção até ~0,62 (9:16 = 0,5625; inclui pequenas variações como
+# 1080x1918) já são verticais: preenchem a tela inteira com um corte mínimo.
+# Mais largos que isso (1:1, 4:5, 16:9...) são encaixados inteiros, centralizados,
+# com faixas pretas em cima e embaixo, sem perder nada da imagem.
+VERTICAL_ASPECT_MAX = 0.62
+
+
+def probe_dimensions(path: Path) -> tuple[int, int] | None:
+    """Largura e altura exibidas do vídeo, considerando a rotação (celulares
+    gravam em paisagem com metadado de rotação de 90°)."""
+    try:
+        out = subprocess.run(
+            ["ffprobe", "-v", "error", "-select_streams", "v:0",
+             "-show_entries", "stream=width,height:stream_tags=rotate:stream_side_data=rotation",
+             "-of", "json", str(path)],
+            check=True, capture_output=True, text=True,
+        ).stdout
+        stream = (json.loads(out).get("streams") or [{}])[0]
+        width, height = int(stream.get("width") or 0), int(stream.get("height") or 0)
+        rotation = stream.get("tags", {}).get("rotate")
+        for side in stream.get("side_data_list") or []:
+            if "rotation" in side:
+                rotation = side["rotation"]
+        if rotation is not None and abs(int(float(rotation))) % 180 == 90:
+            width, height = height, width
+        return (width, height) if width > 0 and height > 0 else None
+    except Exception:
+        return None
+
+
+def vertical_video_filter(dimensions: tuple[int, int] | None) -> str:
+    """Filtro FFmpeg que leva o vídeo para 1080x1920.
+
+    - Já vertical (9:16): preenche a tela, mantendo o enquadramento.
+    - Horizontal, quadrado ou desconhecido: encaixa o vídeo inteiro no centro,
+      com faixas pretas em cima e embaixo.
+    """
+    if dimensions and dimensions[0] / dimensions[1] <= VERTICAL_ASPECT_MAX:
+        return (
+            f"scale={OUTPUT_WIDTH}:{OUTPUT_HEIGHT}:force_original_aspect_ratio=increase,"
+            f"crop={OUTPUT_WIDTH}:{OUTPUT_HEIGHT}"
+        )
+    return (
+        f"scale={OUTPUT_WIDTH}:{OUTPUT_HEIGHT}:force_original_aspect_ratio=decrease:force_divisible_by=2,"
+        f"pad={OUTPUT_WIDTH}:{OUTPUT_HEIGHT}:(ow-iw)/2:(oh-ih)/2:color=black"
+    )
 
 
 def _ass_time(seconds: float) -> str:
@@ -143,7 +193,9 @@ def _write_ass(candidate: ClipCandidate, segments: list[TranscriptSegment], outp
         "ScriptType: v4.00+",
         "PlayResX: 1080",
         "PlayResY: 1920",
-        "WrapStyle: 2",
+        # Quebra automática equilibrada: frases longas (comuns em PT-BR) viram
+        # duas linhas dentro das margens, em vez de sair pelas laterais.
+        "WrapStyle: 0",
         "ScaledBorderAndShadow: yes",
         "",
         "[V4+ Styles]",
@@ -237,8 +289,8 @@ def render_vertical(source: Path, candidate: ClipCandidate, output: Path,
 
     subtitle_path = str(subtitle_file.resolve()).replace("\\", "/").replace(":", "\\:")
     vf = (
-        "scale=1080:1920:force_original_aspect_ratio=increase,"
-        "crop=1080:1920,setsar=1,fps=30,"
+        f"{vertical_video_filter(probe_dimensions(source))},"
+        "setsar=1,fps=30,"
         f"ass='{subtitle_path}'"
     )
 

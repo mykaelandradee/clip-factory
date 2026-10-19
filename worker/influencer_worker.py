@@ -28,11 +28,13 @@ def report(stage: str, progress: int, message: str) -> None:
 
 
 def make_vertical(source: Path, output: Path) -> None:
-    # Center-crop the original into a real 9:16 Reel. No letterboxing.
+    # Vertical: preenche a tela. Horizontal: vídeo inteiro com faixas pretas.
+    from clip_factory.render import probe_dimensions, vertical_video_filter
+
     command = [
         "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
         "-i", str(source),
-        "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920",
+        "-vf", f"{vertical_video_filter(probe_dimensions(source))},setsar=1",
         "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
         "-pix_fmt", "yuv420p",
         "-c:a", "aac", "-b:a", "128k",
@@ -53,12 +55,22 @@ def probe_duration(path: Path) -> float:
         return 0.0
 
 
-def transcribe_video(source: Path, workdir: Path):
-    """Transcrição com Whisper (mesma do Clip Factory). Importada só quando usada."""
+def transcribe_video(source: Path, workdir: Path, subtitle_language: str = "original"):
+    """Transcrição com Whisper (mesma do Clip Factory). Importada só quando usada.
+    Em "en" o Whisper já traduz para inglês; "pt-BR" é traduzido depois da
+    escolha dos trechos, como no Clip Factory."""
     from clip_factory.config import settings
     from clip_factory.transcription import transcribe
 
-    return transcribe(source, workdir / "transcript.json", settings.whisper_model, "original")
+    whisper_language = "en" if subtitle_language == "en" else "original"
+    return transcribe(source, workdir / "transcript.json", settings.whisper_model, whisper_language)
+
+
+def translate_to_portuguese(segments, candidates) -> None:
+    from clip_factory.transcription import translate_segments_to_pt
+
+    source_language = segments[0].language if segments and segments[0].language else "en"
+    translate_segments_to_pt(segments, candidates, source_language)
 
 
 def r2_client():
@@ -95,11 +107,14 @@ def main() -> None:
     p.add_argument("--mode", default="original")
     p.add_argument("--clip-count", default="5")
     p.add_argument("--caption-style", default=ip.DEFAULT_CAPTION_STYLE)
+    p.add_argument("--subtitle-language", default=ip.DEFAULT_SUBTITLE_LANGUAGE)
     a = p.parse_args()
 
     mode = ip.normalize_mode(a.mode)
     clip_count = ip.normalize_clip_count(a.clip_count)
     caption_style = ip.normalize_caption_style(a.caption_style)
+    # Sem legenda (modo Original), a transcrição fica no idioma do áudio.
+    subtitle_language = "original" if mode == "original" else ip.normalize_subtitle_language(a.subtitle_language)
     started = time.perf_counter()
     data_dir = Path(os.environ.get("CLIP_FACTORY_DATA_DIR", "data"))
     d = data_dir / "influencer" / a.item_id
@@ -123,12 +138,12 @@ def main() -> None:
     segments = []
     try:
         report("transcribe", 35, "Transcrevendo o áudio...")
-        segments = transcribe_video(original, d)
+        segments = transcribe_video(original, d, subtitle_language)
     except Exception as error:
         if mode != "original":
             raise
         print(f"[influencer] transcription skipped: {error}", flush=True)
-    full_transcript = ip.trim_transcript(" ".join(s.text.strip() for s in segments))
+    source_transcript = ip.trim_transcript(" ".join(s.text.strip() for s in segments))
 
     prefix = ip.item_prefix(a.user_id, a.library_id, a.item_id)
     rendered: list[tuple[ip.OutputVideo, Path]] = []
@@ -137,13 +152,13 @@ def main() -> None:
         report("render", 60, "Convertendo vídeo para 9:16...")
         out = d / "video.mp4"
         make_vertical(original, out)
-        rendered.append((ip.OutputVideo(1, ip.output_key(prefix, mode, 1), 0.0, duration, full_transcript), out))
+        rendered.append((ip.OutputVideo(1, ip.output_key(prefix, mode, 1), 0.0, duration, source_transcript), out))
     else:
         from clip_factory.models import ClipCandidate
         from clip_factory.render import render_vertical
 
         if mode == "captioned":
-            candidates = [ClipCandidate(0.0, duration, "", "", "", 1.0, full_transcript)]
+            candidates = [ClipCandidate(0.0, duration, "", "", "", 1.0, source_transcript)]
         else:
             from clip_factory.ai import select_clips
             from clip_factory.config import settings
@@ -154,13 +169,19 @@ def main() -> None:
                 raise RuntimeError("Não foram encontrados trechos com fala suficiente para gerar cortes.")
             candidates = sorted(candidates, key=lambda c: c.start)
 
+        if subtitle_language == "pt-BR":
+            report("translate", 52, "Traduzindo a legenda para português...")
+            translate_to_portuguese(segments, candidates)
+
         for index, candidate in enumerate(candidates, start=1):
             report("render", 55 + int(30 * index / len(candidates)), f"Legendando vídeo {index} de {len(candidates)}...")
             out = d / ("video.mp4" if mode == "captioned" else f"clip-{index:02d}.mp4")
             render_vertical(original, candidate, out, segments, caption_style)
             rendered.append((ip.OutputVideo(
                 index, ip.output_key(prefix, mode, index), round(candidate.start, 3), round(candidate.end, 3),
-                ip.trim_transcript(candidate.transcript), candidate.title or "",
+                ip.trim_transcript(" ".join(
+                    s.text.strip() for s in segments if s.end > candidate.start and s.start < candidate.end
+                )) or ip.trim_transcript(candidate.transcript), candidate.title or "",
             ), out))
 
     for output, path in rendered:
@@ -183,8 +204,10 @@ def main() -> None:
     manifest = ip.Manifest(
         version=1, item_id=a.item_id, mode=mode,
         caption_style=None if mode == "original" else caption_style,
+        subtitle_language=None if mode == "original" else subtitle_language,
         source_title=str(info.get("title") or ""), source_description=str(info.get("description") or "")[:5000],
-        source_duration=round(duration, 3), transcript=full_transcript,
+        source_duration=round(duration, 3),
+        transcript=ip.trim_transcript(" ".join(s.text.strip() for s in segments)) or source_transcript,
         outputs=[output for output, _ in rendered],
     ).to_dict()
     # O manifesto é o que o web lê para criar os itens da biblioteca.
