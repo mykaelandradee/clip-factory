@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "../../../../lib/supabase/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
 import { getClientKey, rateLimit } from "../../../../lib/rate-limit";
-import { normalizeCaptionStyle } from "../../../../lib/influencer-processing";
+import { normalizeCaptionStyle, normalizeSubtitleLanguage } from "../../../../lib/influencer-processing";
 
 export const runtime = "nodejs";
 
@@ -19,7 +19,7 @@ export async function GET() {
 
   const { data: libraries, error } = await admin
     .from("influencer_libraries")
-    .select("id,name,description,caption_style,created_at,updated_at")
+    .select("id,name,description,caption_style,subtitle_language,created_at,updated_at")
     .eq("user_id", user.id)
     .order("name", { ascending: true });
 
@@ -80,8 +80,9 @@ export async function PATCH(request: Request) {
   if (!id || !name) return NextResponse.json({ error: "Informe um nome válido para a biblioteca." }, { status: 400 });
   const patch: Record<string, unknown> = { name, description: description || null };
   if (typeof body?.captionStyle === "string") patch.caption_style = normalizeCaptionStyle(body.captionStyle);
+  if (typeof body?.subtitleLanguage === "string") patch.subtitle_language = normalizeSubtitleLanguage(body.subtitleLanguage);
   const admin = createAdminClient();
-  const { data, error } = await admin.from("influencer_libraries").update(patch).eq("id", id).eq("user_id", user.id).select("id,name,description,caption_style,created_at,updated_at").maybeSingle();
+  const { data, error } = await admin.from("influencer_libraries").update(patch).eq("id", id).eq("user_id", user.id).select("id,name,description,caption_style,subtitle_language,created_at,updated_at").maybeSingle();
   if (error) {
     if (error.code === "23505") return NextResponse.json({ error: "Já existe uma biblioteca com esse nome." }, { status: 409 });
     return NextResponse.json({ error: "Não foi possível atualizar a biblioteca." }, { status: 500 });
@@ -158,8 +159,8 @@ export async function POST(request: Request) {
     if (!name) return NextResponse.json({ error: "Informe um nome para a biblioteca." }, { status: 400 });
 
     const { data, error } = await admin.from("influencer_libraries")
-      .insert({ user_id: user.id, name, description: description || null, caption_style: normalizeCaptionStyle(body?.captionStyle) })
-      .select("id,name,description,caption_style,created_at,updated_at")
+      .insert({ user_id: user.id, name, description: description || null, caption_style: normalizeCaptionStyle(body?.captionStyle), subtitle_language: normalizeSubtitleLanguage(body?.subtitleLanguage) })
+      .select("id,name,description,caption_style,subtitle_language,created_at,updated_at")
       .single();
 
     if (error) {
