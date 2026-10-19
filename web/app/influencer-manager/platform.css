@@ -28,3 +28,13 @@
 .im-processing-settings label{display:grid;gap:6px;color:#9a9ca6;font-size:11px}
 .im-processing-badge{display:inline-block;margin-top:4px;padding:2px 8px;border-radius:999px;background:rgba(169,155,255,.12);color:#cfc7ff;font-size:10px;font-weight:600;width:max-content;max-width:100%}
 @media(max-width:720px){.im-processing-modes,.im-processing-settings{grid-template-columns:1fr}}
+
+/* Armazenamento e falhas de publicação */
+.im-storage-meter{display:grid;gap:6px;padding:12px 14px;border:1px solid rgba(255,255,255,.07);border-radius:10px;background:rgba(255,255,255,.025)}
+.im-storage-meter>div:first-child{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.im-storage-meter strong{color:#f2f2f5;font-size:12px}
+.im-storage-meter small{color:#e2c98f;font-size:10px}
+.im-storage-bar{height:6px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}
+.im-storage-bar span{display:block;height:100%;background:#a99bff}
+.im-storage-meter.warning .im-storage-bar span{background:#e2a35f}
+.im-failed-publication{display:flex;flex-wrap:wrap;align-items:center;gap:8px}

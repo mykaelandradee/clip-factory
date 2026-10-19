@@ -114,3 +114,46 @@ class Manifest:
         data = asdict(self)
         data["outputs"] = [dict(asdict(o), duration=round(o.duration, 3)) for o in self.outputs]
         return data
+
+
+# --- Mensagens de falha -------------------------------------------------------
+# O worker grava o motivo da falha no R2 (error.json) para a tela mostrar algo
+# útil em vez de "o worker terminou com erro".
+
+_COOKIE_SIGNS = ("sign in to confirm", "not a bot", "cookies are no longer valid", "use --cookies", "cookies-from-browser")
+_LOGIN_SIGNS = ("login required", "requested content is not available", "rate-limit reached", "log in")
+_UNAVAILABLE_SIGNS = ("video unavailable", "private video", "this video is not available", "has been removed",
+                      "members-only", "not available in your country", "age-restricted", "confirm your age")
+
+
+def classify_failure(message: str, source_url: str = "") -> dict[str, str]:
+    """Traduz o erro bruto (yt-dlp, FFmpeg, validação) numa mensagem acionável."""
+    text = " ".join((message or "").split())
+    low = text.lower()
+    is_instagram = "instagram.com" in (source_url or "").lower()
+    if not is_instagram and any(sign in low for sign in _COOKIE_SIGNS):
+        return {
+            "kind": "cookies",
+            "message": "O YouTube pediu login para baixar o vídeo: os cookies do YouTube provavelmente "
+                       "expiraram. Atualize o arquivo de cookies e adicione o vídeo de novo.",
+        }
+    if is_instagram and any(sign in low for sign in _LOGIN_SIGNS + _COOKIE_SIGNS):
+        return {
+            "kind": "instagram_login",
+            "message": "O Instagram não liberou o download deste Reel. Confira se ele é público "
+                       "e tente de novo mais tarde.",
+        }
+    if any(sign in low for sign in _UNAVAILABLE_SIGNS):
+        return {
+            "kind": "unavailable",
+            "message": "O vídeo não está disponível para download (privado, removido, restrito por "
+                       "idade ou por região).",
+        }
+    # Mensagens próprias do worker (em português) já são claras.
+    if any(word in low for word in ("modo legendado", "modo cortes", "curto demais", "trechos com fala", "limite interno")):
+        return {"kind": "invalid", "message": text[:500]}
+    return {"kind": "unknown", "message": ("O processamento falhou: " + text)[:500] if text else "O processamento falhou."}
+
+
+def error_key(prefix: str) -> str:
+    return f"{prefix}/error.json"
