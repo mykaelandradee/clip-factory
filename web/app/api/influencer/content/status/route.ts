@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "../../../../../lib/supabase/server";
 import { createAdminClient } from "../../../../../lib/supabase/admin";
 import { parseManifest, type ProcessingManifest } from "../../../../../lib/influencer-processing";
+import { deleteItemFolder, itemFolder } from "../../../../../lib/r2-storage";
 
 export const runtime="nodejs";
 const GITHUB_API="https://api.github.com", OWNER="mykaelandradee", REPO="clip-factory", WORKFLOW="influencer-manager-worker.yml";
@@ -146,29 +147,27 @@ export async function GET(request:Request){
 
     return NextResponse.json({item:done,createdClips},{headers:{"Cache-Control":"no-store"}});
    }
-   const failureMessage=run.conclusion==="cancelled"?"Processamento cancelado.":"O Influencer Manager Worker terminou com erro.";
+   // O worker grava o motivo da falha (cookies vencidos, vídeo privado, vídeo
+   // longo demais para o modo...) em error.json; sem ele, mensagem genérica.
+   let failureMessage=run.conclusion==="cancelled"?"Processamento cancelado.":"O Influencer Manager Worker terminou com erro.";
+   const failurePublicUrl=process.env.R2_PUBLIC_URL?.replace(/\/$/,"")||"";
+   const failureFolder=itemFolder(user.id,item.library_id,item.id);
+   if(run.conclusion!=="cancelled"&&failurePublicUrl){
+     try{
+       const errorResponse=await fetch(`${failurePublicUrl}/${failureFolder}/error.json?t=${Date.now()}`,{cache:"no-store"});
+       if(errorResponse.ok){
+         const reason=await errorResponse.json().catch(()=>null);
+         if(typeof reason?.message==="string"&&reason.message.trim()) failureMessage=reason.message.trim().slice(0,500);
+       }
+     }catch{}
+   }
    const failedItem={...item,status:"failed",progress,stage:"error",error_message:failureMessage,updated_at:new Date().toISOString()};
 
    // Falhas não devem permanecer na biblioteca como se fossem vídeos utilizáveis.
-   // Remove também qualquer estado de fila do perfil e, se houver upload parcial,
-   // limpa o arquivo do R2. O erro é devolvido à interface para ela informar o usuário
-   // antes de retirar o item da lista visualmente.
+   // Apaga a pasta inteira do item no R2 (inclui cortes já enviados antes da
+   // falha), o estado da fila e o próprio item. O motivo volta para a tela.
    try{
-     if(item.r2_key){
-       const {S3Client,DeleteObjectCommand}=await import("@aws-sdk/client-s3");
-       const accountId=process.env.R2_ACCOUNT_ID;
-       const bucket=process.env.R2_BUCKET_NAME;
-       const accessKeyId=process.env.R2_ACCESS_KEY_ID;
-       const secretAccessKey=process.env.R2_SECRET_ACCESS_KEY;
-       if(accountId&&bucket&&accessKeyId&&secretAccessKey){
-         const client=new S3Client({
-           region:"auto",
-           endpoint:`https://${accountId}.r2.cloudflarestorage.com`,
-           credentials:{accessKeyId,secretAccessKey}
-         });
-         await client.send(new DeleteObjectCommand({Bucket:bucket,Key:item.r2_key}));
-       }
-     }
+     await deleteItemFolder(failureFolder);
    }catch(cleanupError){
      console.warn("Influencer failed-item R2 cleanup failed:",cleanupError);
    }
