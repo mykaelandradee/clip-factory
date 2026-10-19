@@ -28,6 +28,7 @@ jobs:
       PROCESSING_MODE: ${{ github.event.client_payload.mode || 'original' }}
       CLIP_COUNT: ${{ github.event.client_payload.clip_count || '5' }}
       CAPTION_STYLE: ${{ github.event.client_payload.caption_style || 'karaoke' }}
+      SUBTITLE_LANGUAGE: ${{ github.event.client_payload.subtitle_language || 'original' }}
       WHISPER_MODEL: small
       OMP_NUM_THREADS: "4"
       MKL_NUM_THREADS: "4"
@@ -127,6 +128,7 @@ jobs:
           python influencer_worker.py "$VIDEO_URL"
           --item-id "$ITEM_ID" --library-id "$LIBRARY_ID" --user-id "$USER_ID"
           --mode "$PROCESSING_MODE" --clip-count "$CLIP_COUNT" --caption-style "$CAPTION_STYLE"
+          --subtitle-language "$SUBTITLE_LANGUAGE"
 
       - name: Cleanup cookies
         if: always()
