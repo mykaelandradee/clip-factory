@@ -3,6 +3,7 @@ import { createClient } from "../../../../lib/supabase/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
 import { getClientKey, rateLimit } from "../../../../lib/rate-limit";
 import { normalizeCaptionStyle, normalizeSubtitleLanguage } from "../../../../lib/influencer-processing";
+import { deleteKeys } from "../../../../lib/r2-storage";
 
 export const runtime = "nodejs";
 
@@ -200,6 +201,46 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ ok: true, removed: orphanIds.length });
+  }
+
+  // Libera espaço: exclui os vídeos da biblioteca que já foram publicados em
+  // todos os perfis ativos vinculados a ela.
+  if (action === "delete-published") {
+    const libraryId = typeof body?.libraryId === "string" ? body.libraryId : "";
+    const { data: library } = await admin.from("influencer_libraries").select("id").eq("id", libraryId).eq("user_id", user.id).maybeSingle();
+    if (!library) return NextResponse.json({ error: "Biblioteca não encontrada." }, { status: 404 });
+    const { data: links } = await admin.from("influencer_profile_libraries")
+      .select("profile_id").eq("library_id", libraryId).eq("user_id", user.id).eq("enabled", true);
+    const profileIds = (links || []).map((link: any) => link.profile_id);
+    if (!profileIds.length) return NextResponse.json({ error: "Esta biblioteca não tem perfis ativos vinculados." }, { status: 409 });
+
+    const { data: items } = await admin.from("influencer_content_items")
+      .select("id,r2_key,status").eq("library_id", libraryId).eq("user_id", user.id).eq("status", "available");
+    const itemIds = (items || []).map((item: any) => item.id);
+    const { data: states } = itemIds.length
+      ? await admin.from("influencer_profile_content").select("item_id,profile_id,status")
+          .eq("user_id", user.id).in("item_id", itemIds).in("profile_id", profileIds)
+      : { data: [] };
+    const publishedBy = new Map<string, Set<string>>();
+    for (const state of states || []) {
+      if (state.status !== "published") continue;
+      if (!publishedBy.has(state.item_id)) publishedBy.set(state.item_id, new Set());
+      publishedBy.get(state.item_id)!.add(state.profile_id);
+    }
+    const doomed = (items || []).filter((item: any) => profileIds.every((pid: string) => publishedBy.get(item.id)?.has(pid)));
+    if (!doomed.length) return NextResponse.json({ ok: true, deleted: 0 });
+
+    try {
+      await deleteKeys(doomed.map((item: any) => item.r2_key).filter(Boolean));
+    } catch (cleanupError) {
+      console.warn("Influencer published cleanup (R2) failed:", cleanupError);
+      return NextResponse.json({ error: "Não foi possível apagar os arquivos no armazenamento." }, { status: 502 });
+    }
+    const doomedIds = doomed.map((item: any) => item.id);
+    await admin.from("influencer_profile_content").delete().eq("user_id", user.id).in("item_id", doomedIds);
+    const { error: deleteError } = await admin.from("influencer_content_items").delete().eq("user_id", user.id).in("id", doomedIds);
+    if (deleteError) return NextResponse.json({ error: "Os arquivos foram apagados, mas não foi possível remover os vídeos da biblioteca." }, { status: 500 });
+    return NextResponse.json({ ok: true, deleted: doomedIds.length });
   }
 
   if (action === "link" || action === "unlink") {
