@@ -8,6 +8,7 @@ type Profile = { id:string; name:string; posting_times?:string[]; posts_per_day?
 type Library = { id:string; name:string; description?:string|null; caption_style?:string|null; subtitle_language?:string|null; item_count:number; profiles:{profile_id:string;profile_name:string;profile_platform?:"instagram"|"youtube";priority:number;enabled:boolean}[] };
 type Item = { id:string; source_url:string; title:string|null; status:string; created_at:string; processing_mode?:string|null; caption_style?:string|null; subtitle_language?:string|null; clip_index?:number|null; clip_count?:number|null; clip_start?:number|null; clip_end?:number|null; result_url?:string|null; error_message?:string|null; library_id?:string; category?:string; profile_publications?:{profile_id:string;profile_name:string;status:string;published_at?:string|null;scheduled_at?:string|null}[] };
 
+const formatBytes=(bytes:number)=>bytes>=1024**3?(bytes/1024**3).toLocaleString("pt-BR",{maximumFractionDigits:1})+" GB":Math.round(bytes/1024**2).toLocaleString("pt-BR")+" MB";
 const STATUS:Record<string,string>={queued:"Na fila",processing:"Processando",available:"Disponível",scheduled:"Agendado",published:"Publicado",failed:"Erro",archived:"Arquivado"};
 const CATEGORIES=["MEME","FUTEBOL","FAIL","ANIMAL","RELACIONAMENTO","REAÇÃO","VIRAL","ABSURDO","COTIDIANO","OUTROS"];
 
@@ -19,6 +20,7 @@ export default function InfluencerLibrariesPage(){
   const [loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState("");
   const [showFeedback,setShowFeedback]=useState(false),[feedbackTitle,setFeedbackTitle]=useState("Algo deu errado"),[feedbackMessage,setFeedbackMessage]=useState("");
   const [orphanCleanupDone,setOrphanCleanupDone]=useState(false);
+  const [storage,setStorage]=useState<{usedBytes:number;limitBytes:number}|null>(null),[showDeletePublished,setShowDeletePublished]=useState(false);
   const [name,setName]=useState(""),[description,setDescription]=useState(""),[newLibraryStyle,setNewLibraryStyle]=useState<CaptionStyle>(DEFAULT_CAPTION_STYLE),[newLibraryLanguage,setNewLibraryLanguage]=useState<SubtitleLanguage>(DEFAULT_SUBTITLE_LANGUAGE);
 
   function showError(message:string,title="Não foi possível concluir a ação"){
@@ -48,6 +50,26 @@ export default function InfluencerLibrariesPage(){
     }catch(e){showError(e instanceof Error?e.message:"Erro ao carregar as bibliotecas.","Não foi possível carregar as bibliotecas");}
     finally{setLoading(false);}
   }
+  async function loadStorage(refresh=false){
+    try{const r=await fetch("/api/influencer/storage"+(refresh?"?refresh=1":""),{cache:"no-store"});const d=await r.json().catch(()=>({}));if(r.ok)setStorage({usedBytes:Number(d.usedBytes)||0,limitBytes:Number(d.limitBytes)||1});}catch{}
+  }
+  async function retryFailed(item:Item){
+    setBusy(true);setError("");
+    try{
+      const r=await fetch("/api/influencer/content",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:item.id,retryFailed:true})});
+      const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível devolver o vídeo à fila.");
+      await loadItems(selectedId);
+    }catch(e){showError(e instanceof Error?e.message:"Erro ao tentar de novo.","Não foi possível tentar de novo");}finally{setBusy(false);}
+  }
+  async function deletePublished(){
+    if(!selected)return;setShowDeletePublished(false);setBusy(true);setError("");
+    try{
+      const r=await fetch("/api/influencer/libraries",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"delete-published",libraryId:selected.id})});
+      const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível excluir os vídeos publicados.");
+      await loadItems(selected.id);await loadLibraries(selected.id);await loadStorage(true);
+      showError(d.deleted?`${d.deleted} ${d.deleted===1?"vídeo excluído":"vídeos excluídos"}. O espaço já foi liberado.`:"Nenhum vídeo foi publicado em todos os perfis ainda.",d.deleted?"Espaço liberado":"Nada para excluir");
+    }catch(e){showError(e instanceof Error?e.message:"Erro ao excluir.","Não foi possível excluir os publicados");}finally{setBusy(false);}
+  }
   async function loadProfiles(){
     try{const r=await fetch("/api/influencer/profiles",{cache:"no-store"});const d=await r.json().catch(()=>({}));if(r.ok)setProfiles(d.profiles||[]);}catch{}
   }
@@ -59,7 +81,7 @@ export default function InfluencerLibrariesPage(){
       setItems((d.items||[]).filter((item:Item)=>item.library_id===libraryId));
     }catch(e){showError(e instanceof Error?e.message:"Erro ao carregar o conteúdo.","Não foi possível carregar o conteúdo");}
   }
-  useEffect(()=>{void Promise.all([loadLibraries(),loadProfiles()]);},[]);
+  useEffect(()=>{void Promise.all([loadLibraries(),loadProfiles(),loadStorage()]);},[]);
   useEffect(()=>{if(selectedId)void loadItems(selectedId);},[selectedId,libraries,profiles]);
   useEffect(()=>{setCaptionStyle(normalizeCaptionStyle(selected?.caption_style));setSubtitleLanguage(normalizeSubtitleLanguage(selected?.subtitle_language));},[selected?.id,selected?.caption_style,selected?.subtitle_language]);
 
@@ -234,6 +256,12 @@ export default function InfluencerLibrariesPage(){
         <div className="im-modal-actions"><button className="im-ghost" type="button" onClick={()=>setShowDeleteLibrary(false)}>Cancelar</button><button className="im-primary im-danger-solid" type="button" disabled={busy} onClick={async()=>{setShowDeleteLibrary(false);setBusy(true);setError("");try{const r=await fetch("/api/influencer/libraries?id="+encodeURIComponent(selected.id),{method:"DELETE"});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível excluir a biblioteca.");await loadLibraries();}catch(e){showError(e instanceof Error?e.message:"Erro ao excluir a biblioteca.","Não foi possível excluir a biblioteca");}finally{setBusy(false);}}}>{busy?"Excluindo…":"Excluir biblioteca"}</button></div>
       </div>
     </div>}
+    {showDeletePublished&&selected&&<div className="im-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="excluir-publicados-title">
+      <div className="im-modal im-confirm-modal">
+        <div className="im-confirm-icon">!</div><div><span className="im-kicker">LIBERAR ESPAÇO</span><h2 id="excluir-publicados-title">Excluir os vídeos já publicados?</h2><p>Serão excluídos de “{selected.name}” os vídeos que já foram publicados em todos os perfis ativos desta biblioteca, junto com os arquivos armazenados. Perfis com “Repetir biblioteca quando acabar” deixam de poder republicá-los. Esta ação não pode ser desfeita.</p></div>
+        <div className="im-modal-actions"><button className="im-ghost" type="button" onClick={()=>setShowDeletePublished(false)}>Cancelar</button><button className="im-primary im-danger-solid" type="button" disabled={busy} onClick={()=>void deletePublished()}>{busy?"Excluindo…":"Excluir publicados"}</button></div>
+      </div>
+    </div>}
     {showDeleteVideo&&<div className="im-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="excluir-video-title">
       <div className="im-modal im-confirm-modal"><div className="im-confirm-icon">!</div><div><span className="im-kicker">EXCLUIR VÍDEO</span><h2 id="excluir-video-title">Excluir este vídeo?</h2><p>O vídeo será removido da biblioteca e o arquivo armazenado também será excluído. Esta ação não poderá ser desfeita.</p></div>
         <div className="im-modal-actions"><button className="im-ghost" type="button" onClick={()=>setShowDeleteVideo(null)}>Cancelar</button><button className="im-primary im-danger-solid" type="button" disabled={busy} onClick={async()=>{const item=showDeleteVideo;setShowDeleteVideo(null);setBusy(true);setError("");try{const r=await fetch("/api/influencer/content?id="+encodeURIComponent(item.id)+"&libraryId="+encodeURIComponent(selectedId),{method:"DELETE"});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível excluir o vídeo.");setItems(all=>all.filter(i=>i.id!==item.id));await loadLibraries(selectedId);}catch(e){showError(e instanceof Error?e.message:"Erro ao excluir o vídeo.","Não foi possível excluir o vídeo");}finally{setBusy(false);}}}>{busy?"Excluindo…":"Excluir vídeo"}</button></div>
@@ -303,7 +331,13 @@ export default function InfluencerLibrariesPage(){
               {linkedProfiles.map(p=><span key={p.profile_id} className={p.enabled?"im-linked-profile":"im-linked-profile disabled"}>{p.profile_name}{!p.enabled&&" · desativado"}</span>)}
             </div>}
           </div>
+          {storage&&<div className={"im-storage-meter"+(storage.usedBytes/storage.limitBytes>=0.8?" warning":"")}>
+            <div><span className="im-kicker">ARMAZENAMENTO</span><strong>{formatBytes(storage.usedBytes)} de {formatBytes(storage.limitBytes)}</strong></div>
+            <div className="im-storage-bar"><span style={{width:Math.min(100,Math.round(storage.usedBytes/storage.limitBytes*100))+"%"}}/></div>
+            {storage.usedBytes/storage.limitBytes>=0.8&&<small>Espaço quase cheio: novos vídeos serão bloqueados ao atingir o limite. Exclua vídeos já publicados para liberar espaço.</small>}
+          </div>}
           <div className="im-overview-actions">
+            <button className="im-ghost" type="button" disabled={busy||!selected} onClick={()=>setShowDeletePublished(true)}>Excluir publicados</button>
             <button className="im-ghost" type="button" disabled={busy} onClick={()=>{if(!selected)return;setEditLibraryName(selected.name);setEditLibraryDescription(selected.description||"");setEditLibraryStyle(normalizeCaptionStyle(selected.caption_style));setEditLibraryLanguage(normalizeSubtitleLanguage(selected.subtitle_language));setShowEditLibrary(true)}}>Editar biblioteca</button>
             <button className="im-ghost im-danger" type="button" disabled={busy} onClick={deleteLibrary}>Excluir biblioteca</button>
           </div>
@@ -356,6 +390,10 @@ export default function InfluencerLibrariesPage(){
                 {(()=>{const publishedIds=new Set((item.profile_publications||[]).filter(p=>p.status==="published").map(p=>p.profile_id));const hasPublished=publishedIds.size>0;const displayStatus=hasPublished?"published":item.status;return <div className="im-video-status-row">
                   <span className={"im-status "+displayStatus}>{hasPublished?"Publicado":(STATUS[item.status]||item.status)}</span>
                   {hasPublished&&<span className="im-publication-count">{publishedIds.size} {publishedIds.size===1?"perfil":"perfis"} publicados</span>}
+                </div>})()}
+                {(()=>{const failed=(item.profile_publications||[]).filter(p=>p.status==="failed");return failed.length>0&&<div className="im-failed-publication">
+                  <small className="im-error-text">Falhou ao publicar em: {failed.map(p=>p.profile_name).join(", ")}.</small>
+                  <button className="im-ghost" type="button" disabled={busy} onClick={()=>void retryFailed(item)}>Tentar de novo</button>
                 </div>})()}
                 <div className="im-item-action-buttons">
                   {item.result_url&&<a className="im-ghost" href={item.result_url} target="_blank" rel="noreferrer">Abrir vídeo</a>}
