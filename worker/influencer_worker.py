@@ -98,7 +98,7 @@ def bucket_usage(client, bucket: str) -> int:
         token = resp.get("NextContinuationToken")
 
 
-def main() -> None:
+def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("url")
     p.add_argument("--item-id", required=True)
@@ -108,7 +108,36 @@ def main() -> None:
     p.add_argument("--clip-count", default="5")
     p.add_argument("--caption-style", default=ip.DEFAULT_CAPTION_STYLE)
     p.add_argument("--subtitle-language", default=ip.DEFAULT_SUBTITLE_LANGUAGE)
-    a = p.parse_args()
+    return p.parse_args()
+
+
+def report_failure(a, error: BaseException) -> None:
+    """Grava o motivo da falha no R2 para a tela mostrar uma mensagem útil."""
+    failure = ip.classify_failure(str(error), a.url)
+    print(f"[influencer] failure kind={failure['kind']}: {failure['message']}", flush=True)
+    try:
+        client = r2_client()
+        client.put_object(
+            Bucket=env("R2_BUCKET_NAME"),
+            Key=ip.error_key(ip.item_prefix(a.user_id, a.library_id, a.item_id)),
+            Body=json.dumps(failure, ensure_ascii=False).encode("utf-8"),
+            ContentType="application/json; charset=utf-8", CacheControl="no-store",
+        )
+    except Exception as upload_error:  # a falha original continua sendo a principal
+        print(f"[influencer] could not record failure reason: {upload_error}", flush=True)
+
+
+def main() -> None:
+    a = parse_args()
+    try:
+        process(a)
+    except BaseException as error:
+        if not isinstance(error, KeyboardInterrupt):
+            report_failure(a, error)
+        raise
+
+
+def process(a) -> None:
 
     mode = ip.normalize_mode(a.mode)
     clip_count = ip.normalize_clip_count(a.clip_count)
