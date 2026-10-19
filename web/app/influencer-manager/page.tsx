@@ -254,6 +254,15 @@ export default function InfluencerManagerPage(){
     finally{setPublishingNow(false);}
   }
 
+  async function retryAllFailed(){
+    if(!selected)return;setSaving(true);setError("");
+    try{
+      const r=await fetch("/api/influencer/content",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({profileId:selected.id,retryFailed:true})});
+      const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível devolver os vídeos à fila.");
+      await loadItems(selected.id);
+    }catch(e){showError(e instanceof Error?e.message:"Erro ao tentar de novo.","Não foi possível tentar de novo");}finally{setSaving(false);}
+  }
+
   async function uploadCover(){
     if(!selected||!coverFile)return;setSaving(true);setError("");
     try{
@@ -297,6 +306,7 @@ export default function InfluencerManagerPage(){
   const expiresSoon=Boolean(instagramExpiresAt&&new Date(instagramExpiresAt).getTime()-Date.now()<7*24*60*60*1000);
   const coverUrl=selected?.cover_r2_key?"/api/influencer/cover?profileId="+encodeURIComponent(selected.id)+"&v="+encodeURIComponent(selected.cover_r2_key):"";
   const published=useMemo(()=>items.filter(i=>i.status==="published").length,[items]);
+  const failedItems=useMemo(()=>items.filter(i=>i.status==="failed"),[items]);
   const queuePreview=useMemo(()=>{
     if(!selected||!selected.publishing_enabled)return [];
     const times=[...new Set(effectiveTimes(draft.posting_times,draft.posts_per_day))].sort();
@@ -442,6 +452,10 @@ export default function InfluencerManagerPage(){
                 <div><span>{selected.last_publish_status?PUBLISH_STATUS_LABEL[selected.last_publish_status]||"Último resultado":"Último resultado"}</span><strong className={"im-publish-status-"+(selected.last_publish_status||"none")}>{selected.last_publish_message||"Nenhuma publicação automática ainda."}</strong>{selected.last_publish_at&&<small>{formatDateTime(selected.last_publish_at)}</small>}</div>
                 <button className="im-ghost" type="button" disabled={saving||publishingNow||!accountConnected} onClick={()=>void publishNextNow()}>{publishingNow?"Publicando…":"Publicar o próximo agora"}</button>
               </div>
+              {failedItems.length>0&&<div className="im-form-note im-failed-publication">
+                <span>{failedItems.length===1?"1 vídeo falhou 3 vezes ao publicar e saiu da fila":`${failedItems.length} vídeos falharam 3 vezes ao publicar e saíram da fila`}{failedItems[0]?.error_message?` (último erro: ${failedItems[0].error_message.slice(0,140)})`:""}.</span>
+                <button className="im-ghost" type="button" disabled={saving} onClick={()=>void retryAllFailed()}>Tentar de novo</button>
+              </div>}
               {!accountConnected&&!selected.publishing_enabled&&<div className="im-form-note">Conecte {isYouTube?"o canal do YouTube":"o Instagram"} deste perfil para ativar a publicação automática.</div>}
               <div className="im-profile-save"><button className="im-primary" type="button" disabled={saving} onClick={()=>void saveProfile()}>{saving?"Salvando…":"Salvar alterações do perfil"}</button></div>
             </div>
