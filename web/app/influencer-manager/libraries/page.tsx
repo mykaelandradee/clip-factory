@@ -2,11 +2,11 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import "../platform.css";
-import { CAPTION_STYLES, CAPTION_STYLE_LABEL, CLIP_COUNT_MAX, CLIP_COUNT_MIN, DEFAULT_CAPTION_STYLE, DEFAULT_CLIP_COUNT, PROCESSING_MODES, PROCESSING_MODE_HELP, PROCESSING_MODE_LABEL, formatClipRange, normalizeCaptionStyle, type CaptionStyle, type ProcessingMode } from "../../../lib/influencer-processing";
+import { CAPTION_STYLES, CAPTION_STYLE_LABEL, CLIP_COUNT_MAX, CLIP_COUNT_MIN, DEFAULT_CAPTION_STYLE, DEFAULT_CLIP_COUNT, DEFAULT_SUBTITLE_LANGUAGE, PROCESSING_MODES, PROCESSING_MODE_HELP, PROCESSING_MODE_LABEL, SUBTITLE_LANGUAGES, SUBTITLE_LANGUAGE_LABEL, formatClipRange, normalizeCaptionStyle, normalizeSubtitleLanguage, type CaptionStyle, type ProcessingMode, type SubtitleLanguage } from "../../../lib/influencer-processing";
 
 type Profile = { id:string; name:string; posting_times?:string[]; posts_per_day?:number; publishing_enabled?:boolean };
-type Library = { id:string; name:string; description?:string|null; caption_style?:string|null; item_count:number; profiles:{profile_id:string;profile_name:string;profile_platform?:"instagram"|"youtube";priority:number;enabled:boolean}[] };
-type Item = { id:string; source_url:string; title:string|null; status:string; created_at:string; processing_mode?:string|null; caption_style?:string|null; clip_index?:number|null; clip_count?:number|null; clip_start?:number|null; clip_end?:number|null; result_url?:string|null; error_message?:string|null; library_id?:string; category?:string; profile_publications?:{profile_id:string;profile_name:string;status:string;published_at?:string|null;scheduled_at?:string|null}[] };
+type Library = { id:string; name:string; description?:string|null; caption_style?:string|null; subtitle_language?:string|null; item_count:number; profiles:{profile_id:string;profile_name:string;profile_platform?:"instagram"|"youtube";priority:number;enabled:boolean}[] };
+type Item = { id:string; source_url:string; title:string|null; status:string; created_at:string; processing_mode?:string|null; caption_style?:string|null; subtitle_language?:string|null; clip_index?:number|null; clip_count?:number|null; clip_start?:number|null; clip_end?:number|null; result_url?:string|null; error_message?:string|null; library_id?:string; category?:string; profile_publications?:{profile_id:string;profile_name:string;status:string;published_at?:string|null;scheduled_at?:string|null}[] };
 
 const STATUS:Record<string,string>={queued:"Na fila",processing:"Processando",available:"Disponível",scheduled:"Agendado",published:"Publicado",failed:"Erro",archived:"Arquivado"};
 const CATEGORIES=["MEME","FUTEBOL","FAIL","ANIMAL","RELACIONAMENTO","REAÇÃO","VIRAL","ABSURDO","COTIDIANO","OUTROS"];
@@ -19,13 +19,13 @@ export default function InfluencerLibrariesPage(){
   const [loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState("");
   const [showFeedback,setShowFeedback]=useState(false),[feedbackTitle,setFeedbackTitle]=useState("Algo deu errado"),[feedbackMessage,setFeedbackMessage]=useState("");
   const [orphanCleanupDone,setOrphanCleanupDone]=useState(false);
-  const [name,setName]=useState(""),[description,setDescription]=useState(""),[newLibraryStyle,setNewLibraryStyle]=useState<CaptionStyle>(DEFAULT_CAPTION_STYLE);
+  const [name,setName]=useState(""),[description,setDescription]=useState(""),[newLibraryStyle,setNewLibraryStyle]=useState<CaptionStyle>(DEFAULT_CAPTION_STYLE),[newLibraryLanguage,setNewLibraryLanguage]=useState<SubtitleLanguage>(DEFAULT_SUBTITLE_LANGUAGE);
 
   function showError(message:string,title="Não foi possível concluir a ação"){
     setError(message);setFeedbackTitle(title);setFeedbackMessage(message);setShowFeedback(true);
   }
   const [url,setUrl]=useState(""),[videoTitle,setVideoTitle]=useState(""),[category,setCategory]=useState("OUTROS"),[adding,setAdding]=useState(false);
-  const [processingMode,setProcessingMode]=useState<ProcessingMode>("original"),[clipCount,setClipCount]=useState(DEFAULT_CLIP_COUNT),[captionStyle,setCaptionStyle]=useState<CaptionStyle>(DEFAULT_CAPTION_STYLE),[editLibraryStyle,setEditLibraryStyle]=useState<CaptionStyle>(DEFAULT_CAPTION_STYLE);
+  const [processingMode,setProcessingMode]=useState<ProcessingMode>("original"),[clipCount,setClipCount]=useState(DEFAULT_CLIP_COUNT),[captionStyle,setCaptionStyle]=useState<CaptionStyle>(DEFAULT_CAPTION_STYLE),[editLibraryStyle,setEditLibraryStyle]=useState<CaptionStyle>(DEFAULT_CAPTION_STYLE),[subtitleLanguage,setSubtitleLanguage]=useState<SubtitleLanguage>(DEFAULT_SUBTITLE_LANGUAGE),[editLibraryLanguage,setEditLibraryLanguage]=useState<SubtitleLanguage>(DEFAULT_SUBTITLE_LANGUAGE);
   const [editing,setEditing]=useState<string|null>(null),[titleDraft,setTitleDraft]=useState("");
   const [showNewLibrary,setShowNewLibrary]=useState(false),[showLibraries,setShowLibraries]=useState(false),[showEditLibrary,setShowEditLibrary]=useState(false),[showDeleteLibrary,setShowDeleteLibrary]=useState(false),[showDeleteVideo,setShowDeleteVideo]=useState<Item|null>(null),[showPublishVideo,setShowPublishVideo]=useState<Item|null>(null),[publishingItem,setPublishingItem]=useState(false),[publishProfileId,setPublishProfileId]=useState(""),[editLibraryName,setEditLibraryName]=useState(""),[editLibraryDescription,setEditLibraryDescription]=useState("");
 
@@ -61,7 +61,7 @@ export default function InfluencerLibrariesPage(){
   }
   useEffect(()=>{void Promise.all([loadLibraries(),loadProfiles()]);},[]);
   useEffect(()=>{if(selectedId)void loadItems(selectedId);},[selectedId,libraries,profiles]);
-  useEffect(()=>{setCaptionStyle(normalizeCaptionStyle(selected?.caption_style));},[selected?.id,selected?.caption_style]);
+  useEffect(()=>{setCaptionStyle(normalizeCaptionStyle(selected?.caption_style));setSubtitleLanguage(normalizeSubtitleLanguage(selected?.subtitle_language));},[selected?.id,selected?.caption_style,selected?.subtitle_language]);
 
   // A conclusão do worker é reconciliada pela rota de status. Consultá-la
   // enquanto houver vídeos processando garante que result_url chegue à tela.
@@ -104,15 +104,15 @@ export default function InfluencerLibrariesPage(){
   async function createLibrary(e:FormEvent){
     e.preventDefault();if(!name.trim())return;setBusy(true);setError("");
     try{
-      const r=await fetch("/api/influencer/libraries",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"create",name:name.trim(),description:description.trim(),captionStyle:newLibraryStyle})});
+      const r=await fetch("/api/influencer/libraries",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"create",name:name.trim(),description:description.trim(),captionStyle:newLibraryStyle,subtitleLanguage:newLibraryLanguage})});
       const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível criar a biblioteca.");
-      setName("");setDescription("");setNewLibraryStyle(DEFAULT_CAPTION_STYLE);setShowNewLibrary(false);setShowLibraries(false);await loadLibraries(d.library?.id);
+      setName("");setDescription("");setNewLibraryStyle(DEFAULT_CAPTION_STYLE);setNewLibraryLanguage(DEFAULT_SUBTITLE_LANGUAGE);setShowNewLibrary(false);setShowLibraries(false);await loadLibraries(d.library?.id);
     }catch(e){showError(e instanceof Error?e.message:"Erro ao criar a biblioteca.","Não foi possível criar a biblioteca");}finally{setBusy(false);}
   }
   async function saveLibrary(e:FormEvent){
     e.preventDefault();if(!selected||!editLibraryName.trim())return;setBusy(true);setError("");
     try{
-      const r=await fetch("/api/influencer/libraries",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:selected.id,name:editLibraryName.trim(),description:editLibraryDescription.trim(),captionStyle:editLibraryStyle})});
+      const r=await fetch("/api/influencer/libraries",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:selected.id,name:editLibraryName.trim(),description:editLibraryDescription.trim(),captionStyle:editLibraryStyle,subtitleLanguage:editLibraryLanguage})});
       const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível editar a biblioteca.");
       setShowEditLibrary(false);await loadLibraries(selected.id);
     }catch(e){showError(e instanceof Error?e.message:"Erro ao editar a biblioteca.","Não foi possível editar a biblioteca");}finally{setBusy(false);}
@@ -131,7 +131,7 @@ export default function InfluencerLibrariesPage(){
   async function addVideo(e:FormEvent){
     e.preventDefault();if(!selected||!linkedProfileId||!url.trim())return;setAdding(true);setError("");
     try{
-      const r=await fetch("/api/influencer/content",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({profileId:linkedProfileId,libraryId:selected.id,sourceUrl:url.trim(),title:videoTitle.trim(),category,processingMode,clipCount,captionStyle})});
+      const r=await fetch("/api/influencer/content",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({profileId:linkedProfileId,libraryId:selected.id,sourceUrl:url.trim(),title:videoTitle.trim(),category,processingMode,clipCount,captionStyle,subtitleLanguage})});
       const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Não foi possível adicionar o vídeo.");
       setUrl("");setVideoTitle("");setCategory("OUTROS");setProcessingMode("original");setClipCount(DEFAULT_CLIP_COUNT);await loadItems(selected.id);await loadLibraries(selected.id);
     }catch(e){showError(e instanceof Error?e.message:"Erro ao adicionar o vídeo.","Não foi possível adicionar o vídeo");}finally{setAdding(false);}
@@ -245,6 +245,7 @@ export default function InfluencerLibrariesPage(){
         <form className="im-modal-form" onSubmit={saveLibrary}>
           <label>Nome da biblioteca<input value={editLibraryName} onChange={e=>setEditLibraryName(e.target.value)} maxLength={80} required autoFocus /></label>
           <label>Descrição<input value={editLibraryDescription} onChange={e=>setEditLibraryDescription(e.target.value)} maxLength={500} placeholder="Opcional" /></label>
+          <label>Idioma padrão da legenda<select className="im-form-select" value={editLibraryLanguage} onChange={e=>setEditLibraryLanguage(normalizeSubtitleLanguage(e.target.value))}>{SUBTITLE_LANGUAGES.map(language=><option key={language} value={language}>{SUBTITLE_LANGUAGE_LABEL[language]}</option>)}</select></label>
           <label>Estilo padrão da legenda<select className="im-form-select" value={editLibraryStyle} onChange={e=>setEditLibraryStyle(normalizeCaptionStyle(e.target.value))}>{CAPTION_STYLES.map(style=><option key={style} value={style}>{CAPTION_STYLE_LABEL[style]}</option>)}</select></label>
           <div className="im-modal-actions"><button className="im-ghost" type="button" onClick={()=>setShowEditLibrary(false)}>Cancelar</button><button className="im-primary" disabled={busy}>{busy?"Salvando…":"Salvar alterações"}</button></div>
         </form>
@@ -272,6 +273,7 @@ export default function InfluencerLibrariesPage(){
         <form className="im-form im-new-profile-form" onSubmit={createLibrary}>
           <label>Nome da biblioteca<input value={name} onChange={e=>setName(e.target.value)} placeholder="Ex.: Futebol, Memes, Patolino" maxLength={80} required autoFocus /></label>
           <label>Descrição<input value={description} onChange={e=>setDescription(e.target.value)} placeholder="Opcional" maxLength={500} /></label>
+          <label>Idioma padrão da legenda<select className="im-form-select" value={newLibraryLanguage} onChange={e=>setNewLibraryLanguage(normalizeSubtitleLanguage(e.target.value))}>{SUBTITLE_LANGUAGES.map(language=><option key={language} value={language}>{SUBTITLE_LANGUAGE_LABEL[language]}</option>)}</select></label>
           <label>Estilo padrão da legenda<select className="im-form-select" value={newLibraryStyle} onChange={e=>setNewLibraryStyle(normalizeCaptionStyle(e.target.value))}>{CAPTION_STYLES.map(style=><option key={style} value={style}>{CAPTION_STYLE_LABEL[style]}</option>)}</select></label>
           <div className="im-form-note">A biblioteca não pertence a um perfil. O vínculo com perfis é configurado separadamente.</div>
           <div className="im-modal-actions">
@@ -302,7 +304,7 @@ export default function InfluencerLibrariesPage(){
             </div>}
           </div>
           <div className="im-overview-actions">
-            <button className="im-ghost" type="button" disabled={busy} onClick={()=>{if(!selected)return;setEditLibraryName(selected.name);setEditLibraryDescription(selected.description||"");setEditLibraryStyle(normalizeCaptionStyle(selected.caption_style));setShowEditLibrary(true)}}>Editar biblioteca</button>
+            <button className="im-ghost" type="button" disabled={busy} onClick={()=>{if(!selected)return;setEditLibraryName(selected.name);setEditLibraryDescription(selected.description||"");setEditLibraryStyle(normalizeCaptionStyle(selected.caption_style));setEditLibraryLanguage(normalizeSubtitleLanguage(selected.subtitle_language));setShowEditLibrary(true)}}>Editar biblioteca</button>
             <button className="im-ghost im-danger" type="button" disabled={busy} onClick={deleteLibrary}>Excluir biblioteca</button>
           </div>
         </div>
@@ -326,8 +328,9 @@ export default function InfluencerLibrariesPage(){
               </div>
               {processingMode!=="original"&&<div className="im-processing-settings">
                 {processingMode==="clips"&&<label>Quantidade de cortes<input type="number" min={CLIP_COUNT_MIN} max={CLIP_COUNT_MAX} value={clipCount} onChange={e=>setClipCount(Math.max(CLIP_COUNT_MIN,Math.min(CLIP_COUNT_MAX,Number(e.target.value)||DEFAULT_CLIP_COUNT)))} /></label>}
+                <label>Idioma da legenda<select className="im-form-select" value={subtitleLanguage} onChange={e=>setSubtitleLanguage(normalizeSubtitleLanguage(e.target.value))}>{SUBTITLE_LANGUAGES.map(language=><option key={language} value={language}>{SUBTITLE_LANGUAGE_LABEL[language]}</option>)}</select></label>
                 <label>Estilo da legenda<select className="im-form-select" value={captionStyle} onChange={e=>setCaptionStyle(normalizeCaptionStyle(e.target.value))}>{CAPTION_STYLES.map(style=><option key={style} value={style}>{CAPTION_STYLE_LABEL[style]}</option>)}</select></label>
-                <small className="im-field-help">{processingMode==="clips"?"Vídeos longos levam mais tempo: a transcrição e os cortes podem levar até ~30 minutos.":"O vídeo inteiro é transcrito e legendado."} O padrão vem da biblioteca.</small>
+                <small className="im-field-help">{processingMode==="clips"?"Vídeos longos levam mais tempo: a transcrição e os cortes podem levar até ~30 minutos.":"O vídeo inteiro é transcrito e legendado."} Vídeos horizontais ficam inteiros, com faixas pretas. Os padrões vêm da biblioteca.</small>
               </div>}
             </fieldset>
           </form>}
@@ -344,7 +347,7 @@ export default function InfluencerLibrariesPage(){
                   ? (item.status==="processing"
                     ? `Gerando ${item.clip_count||""} cortes`
                     : `Corte ${item.clip_index||1}${item.clip_count?` de ${item.clip_count}`:""}${item.clip_start!=null&&item.clip_end!=null?` · ${formatClipRange(item.clip_start,item.clip_end)}`:""}`)
-                  : "Legendado"}{item.caption_style?` · legenda ${CAPTION_STYLE_LABEL[normalizeCaptionStyle(item.caption_style)]}`:""}</span>}
+                  : "Legendado"}{item.caption_style?` · legenda ${CAPTION_STYLE_LABEL[normalizeCaptionStyle(item.caption_style)]}`:""}{item.subtitle_language?` · ${SUBTITLE_LANGUAGE_LABEL[normalizeSubtitleLanguage(item.subtitle_language)]}`:""}</span>}
                 {item.status==="processing"&&<div className="im-progress"><div><span style={{width:"35%"}}/></div><small>{item.processing_mode==="clips"?"Transcrevendo e gerando cortes…":item.processing_mode==="captioned"?"Transcrevendo e legendando…":"Processando vídeo…"}</small></div>}
                 {item.error_message&&<small className="im-error-text">{item.error_message}</small>}
                 {item.result_url&&<video className="im-video-preview" src={item.result_url} controls preload="metadata" />}

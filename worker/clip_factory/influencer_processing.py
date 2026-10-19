@@ -12,6 +12,9 @@ from typing import Any
 PROCESSING_MODES = ("original", "captioned", "clips")
 CAPTION_STYLES = ("karaoke", "fire", "beasty", "youshaei", "harmozi", "cinematic")
 DEFAULT_CAPTION_STYLE = "karaoke"
+# Idioma da legenda: o do áudio, português (tradução local) ou inglês (Whisper).
+SUBTITLE_LANGUAGES = ("original", "pt-BR", "en")
+DEFAULT_SUBTITLE_LANGUAGE = "pt-BR"
 
 MIN_CLIPS = 1
 MAX_CLIPS = 10
@@ -32,6 +35,11 @@ def normalize_mode(value: str | None) -> str:
 def normalize_caption_style(value: str | None) -> str:
     style = (value or DEFAULT_CAPTION_STYLE).strip().lower()
     return style if style in CAPTION_STYLES else DEFAULT_CAPTION_STYLE
+
+
+def normalize_subtitle_language(value: str | None) -> str:
+    language = (value or DEFAULT_SUBTITLE_LANGUAGE).strip()
+    return language if language in SUBTITLE_LANGUAGES else DEFAULT_SUBTITLE_LANGUAGE
 
 
 def normalize_clip_count(value: Any) -> int:
@@ -95,6 +103,7 @@ class Manifest:
     item_id: str
     mode: str
     caption_style: str | None
+    subtitle_language: str | None
     source_title: str
     source_description: str
     source_duration: float

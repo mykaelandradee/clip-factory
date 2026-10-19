@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatClipRange, normalizeCaptionStyle, normalizeClipCount, normalizeProcessingMode, parseManifest } from "./influencer-processing";
+import { formatClipRange, normalizeCaptionStyle, normalizeClipCount, normalizeProcessingMode, normalizeSubtitleLanguage, parseManifest } from "./influencer-processing";
 
 const prefix = "influencer/u/libraries/lib/item";
 
@@ -12,12 +12,15 @@ describe("normalizers", () => {
     expect(normalizeClipCount(0)).toBe(1);
     expect(normalizeClipCount(42)).toBe(10);
     expect(normalizeClipCount("abc")).toBe(5);
+    expect(normalizeSubtitleLanguage("en")).toBe("en");
+    expect(normalizeSubtitleLanguage("fr")).toBe("pt-BR");
+    expect(normalizeSubtitleLanguage(undefined, "original")).toBe("original");
   });
 });
 
 describe("parseManifest", () => {
   const valid = {
-    version: 1, item_id: "item", mode: "clips", caption_style: "fire",
+    version: 1, item_id: "item", mode: "clips", caption_style: "fire", subtitle_language: "en",
     source_title: "Podcast", source_description: "", source_duration: 600, transcript: "olá",
     outputs: [
       { index: 2, key: `${prefix}/clip-02.mp4`, start: 60, end: 95, transcript: "b", title: "" },
@@ -30,6 +33,7 @@ describe("parseManifest", () => {
     expect(manifest?.outputs.map(o => o.index)).toEqual([1, 2]);
     expect(manifest?.outputs[0].duration).toBe(32);
     expect(manifest?.mode).toBe("clips");
+    expect(manifest?.subtitle_language).toBe("en");
   });
 
   it("rejects keys outside the item folder", () => {

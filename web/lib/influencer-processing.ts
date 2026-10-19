@@ -8,6 +8,19 @@ export const CAPTION_STYLES = ["karaoke", "fire", "beasty", "youshaei", "harmozi
 export type CaptionStyle = (typeof CAPTION_STYLES)[number];
 export const DEFAULT_CAPTION_STYLE: CaptionStyle = "karaoke";
 
+export const SUBTITLE_LANGUAGES = ["pt-BR", "original", "en"] as const;
+export type SubtitleLanguage = (typeof SUBTITLE_LANGUAGES)[number];
+export const DEFAULT_SUBTITLE_LANGUAGE: SubtitleLanguage = "pt-BR";
+export const SUBTITLE_LANGUAGE_LABEL: Record<SubtitleLanguage, string> = {
+  "pt-BR": "Português (Brasil)",
+  original: "Idioma original do vídeo",
+  en: "Inglês",
+};
+
+export function normalizeSubtitleLanguage(value: unknown, fallback: SubtitleLanguage = DEFAULT_SUBTITLE_LANGUAGE): SubtitleLanguage {
+  return typeof value === "string" && (SUBTITLE_LANGUAGES as readonly string[]).includes(value) ? (value as SubtitleLanguage) : fallback;
+}
+
 export const CLIP_COUNT_MIN = 1;
 export const CLIP_COUNT_MAX = 10;
 export const DEFAULT_CLIP_COUNT = 5;
@@ -49,7 +62,7 @@ export function normalizeClipCount(value: unknown): number {
 
 export type ManifestOutput = { index: number; key: string; start: number; end: number; duration: number; transcript: string; title: string };
 export type ProcessingManifest = {
-  version: number; item_id: string; mode: ProcessingMode; caption_style: CaptionStyle | null;
+  version: number; item_id: string; mode: ProcessingMode; caption_style: CaptionStyle | null; subtitle_language: SubtitleLanguage | null;
   source_title: string; source_description: string; source_duration: number; transcript: string;
   outputs: ManifestOutput[];
 };
@@ -84,6 +97,7 @@ export function parseManifest(raw: unknown, expectedPrefix: string): ProcessingM
     item_id: String(data.item_id || ""),
     mode: normalizeProcessingMode(data.mode),
     caption_style: data.caption_style ? normalizeCaptionStyle(data.caption_style) : null,
+    subtitle_language: data.subtitle_language ? normalizeSubtitleLanguage(data.subtitle_language) : null,
     source_title: typeof data.source_title === "string" ? data.source_title.slice(0, 500) : "",
     source_description: typeof data.source_description === "string" ? data.source_description.slice(0, 5000) : "",
     source_duration: Number(data.source_duration) || 0,

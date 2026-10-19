@@ -133,6 +133,7 @@ export async function GET(request:Request){
         status:"available",progress:100,stage:"ready",r2_key:output.key,result_url:publicUrl?`${publicUrl}/${output.key}`:null,
         duration_seconds:output.duration||null,source_description:sourceDescription,
         processing_mode:"clips",caption_style:manifest?.caption_style||item.caption_style||null,
+        subtitle_language:manifest?.subtitle_language||item.subtitle_language||null,
         group_id:item.id,clip_index:output.index,clip_count:outputs.length,clip_start:output.start,clip_end:output.end,
         transcript:output.transcript||null,
         // Sem texto salvo: na publicação, cada perfil usa o próprio texto ou gera o automático.
