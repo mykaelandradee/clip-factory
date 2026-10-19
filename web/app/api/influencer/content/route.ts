@@ -357,9 +357,24 @@ export async function PATCH(request:Request) {
   if(!mutationRate.allowed)return NextResponse.json({error:"Limite de alterações do conteúdo atingido. Aguarde antes de tentar novamente."},{status:429,headers:{"Retry-After":String(mutationRate.retryAfterSeconds)}});
   const body=await request.json().catch(()=>null);
   const id=typeof body?.id==="string"?body.id:"";
-  if(!id) return NextResponse.json({error:"Conteúdo inválido."},{status:400});
   const admin=createAdminClient();
   const requestedProfileId=typeof body?.profileId==="string"?body.profileId:"";
+
+  // "Tentar de novo": devolve à fila os vídeos que esgotaram as tentativas de
+  // publicação. Por vídeo (id) e/ou por perfil (profileId).
+  if(body?.retryFailed===true){
+    if(!id&&!requestedProfileId) return NextResponse.json({error:"Informe o vídeo ou o perfil."},{status:400});
+    let query=admin.from("influencer_profile_content")
+      .update({status:"available",retry_count:0,error_message:null,scheduled_at:null,updated_at:new Date().toISOString()})
+      .eq("user_id",user.id).eq("status","failed");
+    if(id) query=query.eq("item_id",id);
+    if(requestedProfileId) query=query.eq("profile_id",requestedProfileId);
+    const {data:reset,error:resetError}=await query.select("id");
+    if(resetError) return NextResponse.json({error:"Não foi possível devolver os vídeos à fila."},{status:500});
+    return NextResponse.json({ok:true,retried:(reset||[]).length});
+  }
+
+  if(!id) return NextResponse.json({error:"Conteúdo inválido."},{status:400});
   const {data:item,error:itemError}=await admin.from("influencer_content_items").select("id,library_id,title,publish_title,publish_description").eq("id",id).eq("user_id",user.id).maybeSingle();
   if(itemError||!item) return NextResponse.json({error:"Conteúdo não encontrado."},{status:404});
   if(body?.randomize===true){
